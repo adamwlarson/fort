@@ -65,6 +65,7 @@ func pick_target(p:Dictionary)->int:
 	for id in world.resource_nodes:
 		var r:Dictionary=world.resource_nodes[id]
 		if r.kind!=p.resource or r.amount<=0 or world.clock<float(p.skip.get(id,0)):continue
+		if not FortForestry.pet_can_harvest(r,world.hearth_level,world.frontier_radius()):continue
 		var cost:float=p.node.position.distance_to(r.node.position)
 		for other in pets.values():
 			if other!=p and other.target==id:cost+=25

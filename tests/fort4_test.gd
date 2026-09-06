@@ -27,7 +27,7 @@ func run()->void:
 	w.hud.hearth_menu.open_panel();await capture("fort4_hearth_upgrade")
 	check(w.hud.hearth_menu.visible and not w.hud.hearth_menu.upgrade.disabled,"hearth menu shows affordable upgrade and risk")
 	w.hud.hearth_menu.upgrade.pressed.emit()
-	check(w.hearth_level==2 and w.resource_nodes.size()==162 and w.frontier_radius()==153,"upgrade adds actual outer resources and expands travel boundary")
+	check(w.hearth_level==2 and w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==162 and w.frontier_radius()==153,"upgrade adds actual outer resources and expands travel boundary")
 	check(w.shared.wood==150 and w.shared.stone==160 and w.shared.crystal==42,"shared upgrade cost deducted once")
 	w.server_action(1,"upgrade_hearth",{"level":1})
 	check(w.hearth_level==2 and w.shared.wood==150,"duplicate upgrade request cannot buy next tier")
@@ -43,7 +43,7 @@ func run()->void:
 	check(w.hearth_level==2,"remote upgrades rejected")
 	p.position=Vector3(0,0,3.5);w.clock+=2
 	w.server_action(1,"upgrade_hearth",{"level":2})
-	check(w.hearth_level==3 and w.resource_nodes.size()==234 and w.fort_max_health==2000,"tier 3 unlocks final resource ring")
+	check(w.hearth_level==3 and w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==234 and w.fort_max_health==2000,"tier 3 unlocks final resource ring")
 	var outer:Dictionary=w.resource_nodes[1300]
 	p.position=outer.node.position+Vector3(1.0,0.1,0)
 	await wait(0.2)

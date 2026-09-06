@@ -16,7 +16,7 @@ func run()->void:
 	check(w.encounters.sites.size()==3,"new expedition starts with three additional exploration sites")
 	w.expedition.configure(909);w.set_hearth_level(8)
 	check(w.encounters.sites.size()==67 and w.progression.sites.size()==9,"full frontier has 67 new sites plus nine existing treasure sites")
-	check(w.resource_nodes.size()==594,"site clearings preserve all harvest nodes")
+	check(w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==594,"site clearings preserve all harvest nodes")
 	check(FortEncounters.layout(909)==FortEncounters.layout(909) and FortEncounters.layout(909)!=FortEncounters.layout(911),"site layout is seeded, reproducible and varies between expeditions")
 	var seeds_clear:=true
 	for seed_value in range(40):

@@ -41,7 +41,7 @@ static func quad(size: Vector2, flame := false) -> QuadMesh:
 	mesh.material = soft_material(flame)
 	return mesh
 
-static func tree_destroyed(parent: Node3D, origin: Vector3, birch := false) -> Node3D:
+static func tree_destroyed(parent: Node3D, origin: Vector3, birch := false, foliage_color:=Color.TRANSPARENT) -> Node3D:
 	var burst := Node3D.new()
 	burst.name = "TreeDestruction"
 	parent.add_child(burst)
@@ -91,6 +91,7 @@ static func tree_destroyed(parent: Node3D, origin: Vector3, birch := false) -> N
 	leaves.tangential_accel_min = -0.4
 	leaves.tangential_accel_max = 0.4
 	leaves.color_initial_ramp = ramp([Color("#b5b956") if birch else Color("#658a44"),Color("#c4cd7a")])
+	if foliage_color.a>0:leaves.color_initial_ramp=ramp([foliage_color,foliage_color.lightened(.25)])
 	leaves.color_ramp = ramp([Color.WHITE,Color.WHITE,Color(1,1,1,0)])
 	var dust := emitter("BarkDust", 12, 1.3, quad(Vector2(0.65,0.65)))
 	dust.position.y = 0.5

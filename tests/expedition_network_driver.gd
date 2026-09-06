@@ -41,7 +41,7 @@ func run()->void:
 		main._join();verify(await until(func():return is_instance_valid(main.world)),"client loads Fort 9")
 		if not is_instance_valid(main.world):quit(1);return
 		var w:FortWorld=main.world;var p:=w.local_player();var index:=int(role.trim_prefix("client"))-1
-		verify(await until(func():return w.hearth_level==8 and w.resource_nodes.size()==594),"late join receives all eight hearth tiers and resource nodes")
+		verify(await until(func():return w.hearth_level==8 and w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==594),"late join receives all eight hearth tiers and resource nodes")
 		var expected:=FortExpedition.new(w);expected.configure(909)
 		verify(w.expedition.order==expected.order and w.resource_nodes[1400].kind==expected.biome(4).resources[0],"late join biome order and resource types match server seed")
 		verify(w.defenses[1].paid.wood==18,"late join receives paid construction ledger")

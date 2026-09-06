@@ -4,6 +4,9 @@ The game loads the GLB files under `assets/models/fort`. Blender is an authoring
 
 ## Direct Blender art pass
 
+- `model_foliage12.py`: animated elder oak, amberwood and giant mushrooms, plus woodland brush, bluebells, forest-floor litter, dry sedge and frost shrubs. Exposes `build()` for Blender MCP and preserves the open scene.
+- `model_dragons12.py`: concept-guided Emberdrake/Frostwyrm rebuild with continuous lofted anatomy, articulated wing fingers/membranes and retained animation pivots. The generated reference and exact prompt are recorded in `concepts/README.md`.
+
 - `model_raiders.py`: raider, brute, sapper. Models faces, outfits, weapons and equipment directly with Blender geometry and named animation pivots.
 - `model_camp.py`: workshop, stockpile, barrel and supply crate. Shares the character pass's restrained palette and geometry helpers.
 - `model_world.py`: animated pine/birch trees, fern, flowers, moss rock, ruin arch, waystone, quarry cart, canvas tent and cliff ridge. Tree clips retain the `Idle`, `Hit`, `Destruction` contract.

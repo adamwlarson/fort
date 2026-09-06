@@ -113,6 +113,8 @@ func _build_ring(level:int)->void:
 	FortLandscape.instance_asset(grove,"fern",ferns)
 	FortLandscape.instance_asset(grove,"wildflowers",flowers)
 	FortLandscape.instance_asset(grove,"moss_rock",rubble)
+	if level==2:FortForestry.add_edge_woods(world)
+	FortFoliage.populate(grove,world,74 if level==2 else 154,152 if level==2 else 240,1200+level,"frontier" if level==2 else "frost")
 	var arrays:=[];arrays.resize(Mesh.ARRAY_MAX);arrays[Mesh.ARRAY_VERTEX]=verts;arrays[Mesh.ARRAY_COLOR]=colors
 	var grass:=MeshInstance3D.new();var mesh:=ArrayMesh.new();mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays);grass.mesh=mesh
 	var material:=ShaderMaterial.new();material.shader=preload("res://assets/shaders/meadow_grass.gdshader");grass.material_override=material;grove.add_child(grass)

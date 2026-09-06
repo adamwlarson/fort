@@ -1,6 +1,8 @@
 class_name FortLandscape
 extends RefCounted
 
+static var asset_parts:Dictionary={}
+
 const LANDMARKS := [
 	{"name":"Pinewatch Grove","pos":Vector3(-31,0,28),"kind":"wood","letter":"G","color":Color("#b5c68a")},
 	{"name":"Old Quarry","pos":Vector3(36,0,-28),"kind":"stone","letter":"Q","color":Color("#b4c5ce")},
@@ -89,7 +91,6 @@ static func populate(world:Node3D)->void:
 		else:ferns.append(Transform3D(basis,p))
 	instance_asset(root,"fern",ferns)
 	instance_asset(root,"wildflowers",flowers)
-	make_grass(root,world,rng)
 	for i in 65:
 		var p:=Vector3(rng.randf_range(-68,68),0,rng.randf_range(-68,68))
 		if not clear_for_scenery(world,p,1.3):continue
@@ -103,12 +104,8 @@ static func populate(world:Node3D)->void:
 		var cliff:=place(root,"cliff_chunk",p,-a,rng.randf_range(2.0,3.0))
 		cliff.scale.x*=1.6
 		cliff.scale.y*=rng.randf_range(0.85,1.3)
-	var distant_trees:Array[Transform3D]=[]
-	for i in 100:
-		var a:=rng.randf_range(0,TAU)
-		var p:=Vector3(sin(a)*rng.randf_range(75,85),0,cos(a)*rng.randf_range(75,85))
-		distant_trees.append(Transform3D(Basis(Vector3.UP,a).scaled(Vector3.ONE*rng.randf_range(0.85,1.55)),p))
-	instance_asset(root,"pine_tree",distant_trees)
+	# Edge woods now unlock as real harvest nodes with the second hearth ring.
+	FortFoliage.populate(root,world,12,70,1201,"meadow")
 	make_landmarks(root)
 	# Camp dressing fits inside the walls and stays out of the four gateway lanes.
 	var tent:=place(root,"camp_tent",Vector3(-4.6,0,4.3),-0.35,0.88)
@@ -160,9 +157,11 @@ static func collect_parts(node:Node,pose:Transform3D,parts:Array)->void:
 
 static func instance_asset(parent:Node3D,key:String,poses:Array[Transform3D])->void:
 	if poses.is_empty():return
-	var source:=FortArt.asset(key)
-	var parts:Array=[]
-	collect_parts(source,Transform3D.IDENTITY,parts)
+	if not asset_parts.has(key):
+		var source:=FortArt.asset(key)
+		var collected:Array=[];collect_parts(source,Transform3D.IDENTITY,collected)
+		asset_parts[key]=collected;source.free()
+	var parts:Array=asset_parts[key]
 	for part in parts:
 		var batch:=MultiMeshInstance3D.new()
 		batch.name=key+"_batch"
@@ -173,7 +172,6 @@ static func instance_asset(parent:Node3D,key:String,poses:Array[Transform3D])->v
 		for i in poses.size():multimesh.set_instance_transform(i,poses[i]*part.pose)
 		batch.multimesh=multimesh
 		parent.add_child(batch)
-	source.free()
 
 static func make_grass(parent:Node3D,world:Node3D,rng:RandomNumberGenerator)->void:
 	var verts:=PackedVector3Array()

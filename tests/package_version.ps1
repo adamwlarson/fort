@@ -19,6 +19,7 @@ $notesPath = Join-Path $projectPath "RELEASE_NOTES_$Version.md"
 if (Test-Path -LiteralPath $notesPath) { Copy-Item -LiteralPath $notesPath -Destination $folderPath }
 if ($Version -ge 10) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_9.md') -Destination $folderPath }
 if ($Version -ge 11) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_10.md') -Destination $folderPath }
+if ($Version -ge 12) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_11.md') -Destination $folderPath }
 Compress-Archive -LiteralPath $folderPath -DestinationPath $archivePath -CompressionLevel Optimal
 $sourceHash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash
 if ((Get-FileHash -LiteralPath (Join-Path $folderPath 'Fort.exe') -Algorithm SHA256).Hash -ne $sourceHash) {

@@ -162,7 +162,7 @@ func _build_resources() -> void:
 			resource_root.add_child(node)
 			var anim:AnimationPlayer
 			if kind=="wood":
-				var tree:Node3D=preload("res://assets/models/tree.glb").instantiate() if i%3==0 else FortArt.asset("pine_tree" if i%3==1 else "birch_tree")
+				var tree:Node3D=FortArt.asset(["elder_oak","pine_tree","birch_tree"][i%3])
 				tree.scale=Vector3.ONE*rng.randf_range(0.95,1.30)
 				tree.rotation.y=rng.randf_range(0,TAU)
 				node.add_child(tree)
@@ -173,7 +173,7 @@ func _build_resources() -> void:
 					anim.seek(rng.randf_range(0,2))
 					anim.animation_finished.connect(func(clip):
 						if clip=="Hit":anim.play("Idle",0.15))
-				_tint_tree(tree)
+				if i%3!=0:_tint_tree(tree)
 				var trunk:=StaticBody3D.new()
 				trunk.name="TreeTrunk"
 				trunk.collision_layer=1
@@ -190,6 +190,7 @@ func _build_resources() -> void:
 				node.add_child(FortArt.asset("crystal_vein"))
 				node.rotation.y=float(i)*2.399
 			resource_nodes[id]={"kind":kind,"amount":12 if kind!="crystal" else 6,"node":node,"animation":anim,"respawn":0.0}
+			if kind=="wood":resource_nodes[id].species=["Elder Oak","March Pine","Silver Birch"][i%3]
 			id+=1
 
 func _tint_tree(node:Node)->void:
@@ -410,7 +411,7 @@ func _process(delta:float) -> void:
 		if r.amount<=0:
 			r.respawn-=delta
 			if r.respawn<=0 and resource_respawn_clear(r):
-				broadcast("recv_resource",[id,6 if r.kind in ["crystal","aether"] else 12,false])
+				broadcast("recv_resource",[id,FortForestry.capacity(r),false])
 			elif r.respawn<=0:r.respawn=5.0
 	snapshot_timer-=delta
 	if snapshot_timer<=0:
@@ -642,6 +643,7 @@ func nearest_resource(pos:Vector3)->int:
 
 func _update_resource_focus()->void:
 	var p:=local_player()
+	if p and FortFoliage.grass_material:FortFoliage.grass_material.set_shader_parameter("dwarf_position",p.position)
 	focused_resource=-1
 	if p and p.health>0 and not menu_open and not local_build_mode and not ended and p.mounted_ballista<0:
 		focused_resource=nearest_resource(p.position)
@@ -649,7 +651,7 @@ func _update_resource_focus()->void:
 	focus_label.visible=focused_resource>=0
 	if focused_resource<0:return
 	var resource:Dictionary=resource_nodes[focused_resource]
-	var capacity:int=6 if resource.kind in ["crystal","aether"] else 12
+	var capacity:int=FortForestry.capacity(resource)
 	var color:=GameData.resource_color(resource.kind).lightened(0.25)
 	focus_ring.position=resource.node.position+Vector3.UP*0.065
 	focus_ring.scale=Vector3.ONE*(1.0+sin(clock*3)*0.025)
@@ -659,11 +661,19 @@ func _update_resource_focus()->void:
 	focus_label.position=resource.node.position+Vector3.UP*1.7+toward_player.normalized()*0.55
 	focus_label.modulate=color
 	var filled:=ceili(float(resource.amount)/capacity*6)
-	focus_label.text="%s  %d / %d\n%s%s"%[str(resource.kind).to_upper(),resource.amount,capacity,"■".repeat(filled),"·".repeat(6-filled)]
+	var requirement:=FortForestry.requirement(resource,p)
+	if not requirement.is_empty():
+		focus_label.text=FortForestry.title(resource)+"\n"+requirement
+		return
+	focus_label.text="%s / %s  %d / %d\n%s%s"%[FortForestry.title(resource),resource.kind,resource.amount,capacity,"■".repeat(filled),"·".repeat(6-filled)]
 
 func _gather(id:int,resource_id:int)->void:
+	if not players.has(id) or not resource_nodes.has(resource_id):return
 	var p:FortPlayer=players[id]
 	var r:Dictionary=resource_nodes[resource_id]
+	if r.amount<=0 or p.position.distance_to(r.node.position)>2.7:return
+	var requirement:=FortForestry.requirement(r,p)
+	if not requirement.is_empty():personal(id,requirement);return
 	if p.total_carried()>=p.carry_limit:
 		personal(id,"Pack full. Bring it home to the shared stockpile.")
 		return
@@ -672,22 +682,23 @@ func _gather(id:int,resource_id:int)->void:
 	r.respawn=65.0
 	broadcast("recv_action",[id,"gather",r.node.position])
 	broadcast("recv_resource",[resource_id,r.amount-amount,true])
-	broadcast("recv_fx",[r.node.position+Vector3.UP,GameData.resource_color(r.kind),"+%d %s"%[amount,r.kind],"chop" if r.kind=="wood" else "mine"])
+	broadcast("recv_fx",[r.node.position+Vector3.UP,GameData.resource_color(r.kind),"+%d %s"%[amount,r.kind],"chop" if FortForestry.is_tree(r) else "mine"])
 
 func recv_resource(id:int,amount:int,hit:bool)->void:
 	if not resource_nodes.has(id):return
 	var r:Dictionary=resource_nodes[id]
 	var previous:int=r.amount
-	var destroyed:bool=hit and r.amount>0 and amount<=0 and r.kind=="wood"
+	var destroyed:bool=hit and r.amount>0 and amount<=0 and FortForestry.is_tree(r)
 	r.amount=amount
 	var node:Node3D=r.node
-	if r.kind!="wood":
+	if not FortForestry.is_tree(r):
 		var chunks:=ceili(float(amount)/(6.0 if r.kind in ["crystal","aether"] else 12.0)*6.0)
 		for chunk in node.find_children("HarvestChunk_*","Node3D",true,false):
 			chunk.visible=chunk.name.get_slice("_",1).to_int()<chunks
 		if hit and amount<previous:FortParticles.mineral_hit(self,node.global_position,r.kind=="crystal")
 	if destroyed:
-		FortParticles.tree_destroyed(self,node.global_position,id%3==2)
+		var leaf_color:=Color("#cf963d") if r.get("species","")=="Amberwood" else (Color("#bfa6d2") if r.get("tree",false) and r.kind!="wood" else Color.TRANSPARENT)
+		FortParticles.tree_destroyed(self,node.global_position,id%3==2,leaf_color)
 		tree_burst_count+=1
 	var trunk:StaticBody3D=node.get_node_or_null("TreeTrunk")
 	if trunk:trunk.collision_layer=1 if amount>0 else 0
@@ -1503,7 +1514,10 @@ func context_prompt(p:FortPlayer)->String:
 	if _nearest_defense(p.position,"",4)>=0:return "G   Upgrade defense   /   R repair"
 	if p.position.length()<5 and not is_night:return "U   Hearth upgrades / expand frontier   ·   R repair"
 	var id:=nearest_resource(p.position)
-	if id>=0:return "HOLD E   Gather %s   ·   %d remaining"%[resource_nodes[id].kind,resource_nodes[id].amount]
+	if id>=0:
+		var r:Dictionary=resource_nodes[id]
+		var requirement:=FortForestry.requirement(r,p)
+		return requirement if not requirement.is_empty() else "HOLD E   %s / %s   ·   %d remaining"%[FortForestry.title(r),r.kind,r.amount]
 	if _nearest_defense(p.position,"Ballista",3.0)>=0:return "E   Mount ballista   /   Hold R repair"
 	if p.position.length()<9.5:return "HOLD R   Repair hearth   ·   1 shared wood"
 	if _nearest_defense(p.position,"",3.5)>=0:return "HOLD R   Repair defense   ·   1 shared wood"

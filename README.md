@@ -4,6 +4,8 @@ A playable Godot co-op survival build for one to four dwarves. Gather by day, re
 
 ## Play
 
+Fort 12 adds denser windblown grass, groundcover, eight new foliage models, harvestable biome forests, and redesigned animated ember/frost dragons. Hold E at any standing tree or giant mushroom to harvest it. Amberwood and Mooncaps require Forester's Axe level 2; Starcaps require level 3. Upgrade the axe at the Workshop (T); it does not need to be equipped to gather. See [RELEASE_NOTES_12.md](RELEASE_NOTES_12.md) for species yields and details.
+
 Fort 11 adds 67 wilderness destinations across the eight-tier map: camps, beasts, shrines, ruined observatories, caravan caches and six dragon roosts. Discover sites, defeat their guardians and press E at their chests for shared rewards. See [RELEASE_NOTES_11.md](RELEASE_NOTES_11.md) for the exploration rules.
 
 Fort 10 adds automatic UPnP router mapping, public-IP sharing and clearer connection diagnostics. It includes all Fort 9 gameplay, including gathering pets. See [RELEASE_NOTES_10.md](RELEASE_NOTES_10.md) for this networking update.
@@ -12,7 +14,7 @@ Fort 9 adds eight hearth tiers, five seeded random biomes, endless nights and mi
 
 Run `build/Fort.exe`. It contains the game data; Godot and Blender are not required to play. Alternatively, open `project.godot` in Godot 4.5.2 and press F5.
 
-Everyone must run **Fort 11**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. Solo play starts with one dwarf. Classes are unique: if a requested class is taken, the host assigns a free one. Late joining a running expedition is supported.
+Everyone must run **Fort 12**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. Solo play starts with one dwarf. Classes are unique: if a requested class is taken, the host assigns a free one. Late joining a running expedition is supported.
 
 - Same PC: join `127.0.0.1`.
 - Same LAN: join the host's local IPv4 address.
@@ -102,7 +104,7 @@ During the day, stand within 5m of the hearth and press **U**. The panel explain
 | Tier 2: Elder March | 50 / 40 / 8 | 1,500 | 153m / 65m |
 | Tier 3: Starfall Reach | 90 / 70 / 18 | 2,000 | 243m / 115m |
 
-Each upgrade adds 72 harvestable resource nodes. Tier two opens **Rustscar Quarry** to the east for iron and **Elderwood** to the west for timber, stone and crystal. Tier three opens **Stormglass Basin** to the north for aether and **Frostvein Ridge** to the south for iron and crystal, bringing the map to 486m across with 234 nodes and additional camps and waystones. Tiers 4–8 each reveal a randomly ordered new biome with distinct ground, foliage and landmarks: Amberwood, Mycelium Hollow, Cinder Wastes, Glacier Reach or Ancient Gardens. The maximum map is **1,286m across with 594 resource nodes**. The visible ward moves outward and the minimap rescales. Each upgrade restores 500 hearth health, adds runestones around the fire and increases daylight by 30 seconds. Upgrades persist for the current run only. See [Fort 9 release notes](RELEASE_NOTES_9.md) for the full eight-tier table.
+Each upgrade adds 72 core resource deposits, plus harvestable forests in the relevant rings. Tier two opens **Rustscar Quarry** to the east for iron and **Elderwood** to the west for timber, stone and crystal. Tier three opens **Stormglass Basin** to the north for aether and **Frostvein Ridge** to the south for iron and crystal, bringing the map to 486m across with 234 core deposits plus the new edge woods and additional camps and waystones. Tiers 4–8 each reveal a randomly ordered new biome with distinct ground, foliage and landmarks: Amberwood, Mycelium Hollow, Cinder Wastes, Glacier Reach or Ancient Gardens. The maximum map is **1,286m across with 594 core deposits plus hundreds of individually harvestable forest trees and giant mushrooms**. The visible ward moves outward and the minimap rescales. Each upgrade restores 500 hearth health, adds runestones around the fire and increases daylight by 30 seconds. Upgrades persist for the current run only. See [Fort 9 release notes](RELEASE_NOTES_9.md) for the full eight-tier table.
 
 Nights have three assaults (four from night 4), with finite threat allowances scaled by crew size: **1 / 1.75 / 2.6 / 3.5**. Stronger enemies cost more allowance; simultaneous bombers and Sappers are limited. Reinforcements pause between assaults so you can repair while finishing off survivors. Orange minimap arrows show the attack fronts. Each hearth upgrade adds **10% base threat allowance and 5% base enemy health**, not extra active slots. Raiders spawn beyond your expanded construction perimeter, with a travel-aware reinforcement cutoff before dawn. Camp guards scale when first activated. Ordinary raiders retreat at dawn, but Colossi stay until defeated. Night ten is no longer the end of the expedition.
 
@@ -137,7 +139,7 @@ Rare rewards go to **every crew member**, including late joiners, so nobody has 
 
 ## Art and animation
 
-`assets/models/fort/` contains 98 glTF assets, including twelve new Fort 11 models and 22 Blender-authored Fort 9 models. Editable sculptures and repeatable scripts are included in `art_source/`; `model_expedition9.py` builds the new pets, arsenal, towers, enemies and biome landmarks without replacing the open user scene. The game loads GLBs, so Blender is not required to play.
+`assets/models/fort/` contains 106 glTF assets. Fort 12 adds eight Blender-authored foliage models and replaces both dragons with concept-guided, animated models. Editable sculptures, the generated dragon reference and its prompt, and repeatable scripts are included in `art_source/`. Use `model_foliage12.py` for the woodland kit and `model_dragons12.py` for the dragons. Both preserve the open Blender scene. The game loads GLBs, so Blender is not required to play.
 
 The second art pass models the three enemies, workshop, stockpile, barrel, and supply crate directly in Blender. Raiders have facial features, distinct clothing, and attached weapons/equipment. Camp props include individual shingles, a shaped anvil, vise, hanging tools, braced planks, metal hoops, and rivets. Static parts sharing a material and animation pivot are combined for the game; `*_sculpt.blend` files retain the separated artist geometry.
 

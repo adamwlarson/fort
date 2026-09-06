@@ -34,6 +34,11 @@ void fragment(){
     float path=1.0-smoothstep(1.0,2.7,d+(detail-0.5)*0.8);
     path=max(path,1.0-smoothstep(8.5,10.8,length(p)));
     vec3 soil=mix(vec3(0.34,0.28,0.21),vec3(0.47,0.39,0.27),detail);
-    ALBEDO=mix(meadow,soil,path)*(0.9+detail*0.14+grain*0.07);
+    float moss=noise(p*2.8)*noise(p*.29);
+    meadow=mix(meadow,meadow*vec3(1.10,1.19,.85),smoothstep(.36,.63,moss)*.38);
+    vec2 pebble_cell=floor(p*4.5), pebble_uv=fract(p*4.5)-.5;
+    float pebble=(1.0-smoothstep(.10,.19,length(pebble_uv)))*step(.84,hash(pebble_cell));
+    soil=mix(soil,vec3(.44,.43,.36),pebble*.5);
+    ALBEDO=mix(meadow,soil,path)*(0.9+detail*0.14+grain*0.045);
     ROUGHNESS=1.0;
 }

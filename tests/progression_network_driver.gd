@@ -56,7 +56,7 @@ func run()->void:
 		if not is_instance_valid(main.world):quit(1);return
 		var w:FortWorld=main.world;var p:FortPlayer=w.local_player()
 		verify(await until(func():return w.hearth_level==3 and p.armor and "Embermaul" in p.relics),"late join receives hearth tiers, rare weapon, armor")
-		verify(w.resource_nodes.size()==234 and w.progression.sites[1].opened and w.progression.sites[2].opened,"late join sees new resource zones and claimed camps")
+		verify(w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==234 and w.progression.sites[1].opened and w.progression.sites[2].opened,"late join sees new resource zones and claimed camps")
 		await until(func():return p.position.distance_to(Vector3(-4.6,0,0))<3.2)
 		for tier in 2:
 			w.request_action("craft_pack",{"level":tier});w.request_action("craft_pack",{"level":tier})

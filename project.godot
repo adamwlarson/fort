@@ -1,6 +1,6 @@
 [application]
 config/name="Fort"
-config/version="11"
+config/version="12"
 config/description="A four-player cooperative dwarf survival game"
 run/main_scene="res://scenes/main.tscn"
 config/icon="res://icon.svg"

@@ -2,7 +2,7 @@ extends Node
 
 const WorldScript = preload("res://scripts/world.gd")
 const InternetScript = preload("res://scripts/fort_internet.gd")
-const BUILD_VERSION := "11"
+const BUILD_VERSION := "12"
 
 var menu:Control
 var status_label:Label

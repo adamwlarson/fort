@@ -90,12 +90,12 @@ def finish_asset(key, source_scene=None, authored_clips=None):
         mesh.to_mesh(obj.data)
         mesh.free()
         bevel = obj.modifiers.new("Hand softened edges", 'BEVEL')
-        bevel.width = 0.025 if key not in ("bolt", "jetpack") else 0.01
+        bevel.width = float(obj.get("fort_bevel", 0.025 if key not in ("bolt", "jetpack") else 0.01))
         bevel.segments = 2
         bevel.limit_method = 'ANGLE'
         bevel.angle_limit = math.radians(35)
         for polygon in obj.data.polygons:
-            polygon.use_smooth = False
+            polygon.use_smooth = bool(obj.get("fort_smooth", False))
         for mat in obj.data.materials:
             if mat and mat.use_nodes:
                 node = next((n for n in mat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
@@ -175,6 +175,8 @@ def finish_asset(key, source_scene=None, authored_clips=None):
         if key in ('raider','brute','sapper','ashwing','emberrunner','chieftain','sapper7','cinderlobber','bombwing','shieldguard','hexer','colossus','prowler','razorback','direwolf','stonebear','emberdrake','frostwyrm'):
             bake_enemy_palette(scene)
         merge_static_batches(scene)
+        for obj in scene.objects:
+            if obj.type == 'MESH': obj.data.validate(clean_customdata=False)
     bpy.ops.export_scene.gltf(
         filepath=str(OUTPUT / (key + ".glb")), export_format='GLB',
         use_active_scene=True, export_apply=True, export_animations=bool(clips),

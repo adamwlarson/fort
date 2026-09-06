@@ -32,7 +32,7 @@ func run()->void:
 		w.broadcast("recv_enemy",[990,"Ashwing",Vector3(35,3.8,35),200.0]);w.enemies[990].stun=100
 		w.broadcast("recv_enemy",[991,"EmberRunner",Vector3(38,0,35),200.0]);w.enemies[991].stun=100
 		await wait(3)
-		verify(w.hearth_level==2 and w.resource_nodes.size()==162,"host creates upgraded world")
+		verify(w.hearth_level==2 and w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==162,"host creates upgraded world")
 	else:
 		main.address_edit.text="127.0.0.1"
 		for arg in OS.get_cmdline_user_args():
@@ -51,7 +51,7 @@ func run()->void:
 		verify(await until(func():return is_instance_valid(main.world)),"host start loads client world")
 		var w:FortWorld=main.world
 		verify(await until(func():return w.hearth_level==2 and w.enemies.has(990) and w.enemies.has(991)),"upgrades and enemy types replicate")
-		verify(w.resource_nodes.size()==162 and w.frontier_radius()==153,"client frontier matches host")
+		verify(w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==162 and w.frontier_radius()==153,"client frontier matches host")
 		verify(w.fort_max_health==1500,"client hearth maximum health matches")
 		verify(w.enemies[990].node.position.y>3,"airborne position replicates")
 		await wait(1)

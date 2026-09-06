@@ -30,7 +30,7 @@ func run()->void:
 	p.position=Vector3.ZERO;var old_time:=w.phase_time;w._upgrade_hearth(1,1)
 	check(w.hearth_level==2 and w.phase_time==old_time+30 and w.day_length()==180,"hearth upgrade adds daylight immediately and to future days")
 	for level in range(3,9):w.set_hearth_level(level)
-	check(w.frontier_radius()==643 and w.build_radius()==340 and w.resource_nodes.size()==594,"eight hearth tiers expand the map to 1286m with 594 resources")
+	check(w.frontier_radius()==643 and w.build_radius()==340 and w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==594,"eight hearth tiers expand the map to 1286m with 594 resources")
 	check(w.expedition.seed_value==original_seed and w.expedition.order==order,"upgrades preserve the session biome seed")
 	check(w.day_length()==360 and w.night_length(30)>w.night_length(10) and FortBalance.budget(40,8,4)>FortBalance.budget(30,8,4),"daylight, later nights and threat scale past night ten")
 	for level in range(4,9):check(w.frontier.has_node("BiomeTier%d"%level),"random biome ring %d exists"%level)

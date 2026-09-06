@@ -56,7 +56,7 @@ func run()->void:
 	check(w.defenses[tower].level==2 and w.shared==stock,"tower upgrades are authoritative and duplicate-safe")
 	check(is_equal_approx(w.defenses[tower].max_hp,GameData.RECIPES.Watchtower.hp*1.65) and is_equal_approx(w.defenses[tower].max_hp-w.defenses[tower].hp,30),"tower gains health without erasing existing damage")
 	w.hud.upgrade_menu.open_nearest();await capture("fort5_upgrade");check(w.hud.upgrade_menu.visible,"G menu opens beside tower");w.toggle_pause()
-	w.set_hearth_level(3);check(w.build_radius()==115 and w.frontier_radius()==243 and w.resource_nodes.size()==234,"tier three expands to 486m diameter with 234 resource nodes")
+	w.set_hearth_level(3);check(w.build_radius()==115 and w.frontier_radius()==243 and w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==234,"tier three expands to 486m diameter with 234 resource nodes")
 	w.server_action(1,"upgrade_defense",{"id":tower,"level":2});finish_project(w,tower);check(w.defenses[tower].level==3,"aether enables final tower upgrade")
 	var aether_id:=-1
 	for id in w.resource_nodes:

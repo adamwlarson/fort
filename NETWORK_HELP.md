@@ -1,6 +1,6 @@
-# Fort 11: connecting the crew
+# Fort 12: connecting the crew
 
-1. Extract the ZIP on every PC. Everyone must run Fort 11; older builds may use different networking messages.
+1. Extract the ZIP on every PC. Everyone must run Fort 12; older builds may use different networking messages.
 2. On the host, choose a UDP port (default 24567) and click Host Fort. Leave the lobby open.
 3. In the lobby, pick the IP for the adapter actually connected to your home network, usually Ethernet or Wi-Fi. Copy IP copies just the address. VirtualBox, Hyper-V, WSL, and VPN adapters can have different, unusable addresses for your other PC.
 4. On the other PC, enter that host IP and exactly the same port. Click Join Crew, then Ready Up. The host starts the expedition.
@@ -17,7 +17,7 @@ Leave **Internet hosting: request router UDP mapping (UPnP)** checked before cli
 - **Mapping conflict:** leave and select a different unused port on both PCs. Fort does not delete a conflicting mapping. Fort and CodenameMule both default to 24567; do not host both on that port at once.
 - **WAN IP not public / CGNAT:** the router reports a private or shared address. Double NAT / ISP carrier-grade NAT may require upstream configuration, an ISP-provided public address or another host. There is no relay or automatic CGNAT bypass.
 - **Host not reached:** UDP has not connected. Check host lobby, IP, port, mapping and firewall.
-- **Host reached, but lobby registration timed out:** UDP connected but Fort's lobby exchange did not complete. Ensure both PCs run Fort 11 and inspect the host log for RPC errors.
+- **Host reached, but lobby registration timed out:** UDP connected but Fort's lobby exchange did not complete. Ensure both PCs run Fort 12 and inspect the host log for RPC errors.
 
 Test public-IP joining from another internet connection. Some routers cannot route their own public IP back inside the same LAN (NAT loopback); use the LAN IP there. See [Godot's UPnP documentation](https://docs.godotengine.org/en/stable/classes/class_upnp.html).
 
