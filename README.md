@@ -4,6 +4,16 @@ A playable Godot co-op survival build for one to four dwarves. Gather by day, re
 
 ## Play
 
+Fort 17 lets you **hold E at a castle project sign to supply and build directly from shared stock**, with carried materials covering any shortage. Keep holding E to finish the work; the K-menu funding button is optional. See [RELEASE_NOTES_17.md](RELEASE_NOTES_17.md).
+
+Fort 16 makes gathering and rewards easier to read: RTS-style resource badges and shared-stock icons, floating harvest gains, itemized treasure receipts, and small health bars above damaged enemies. Castle signs now explain locked options and the **plan → supply → hold E to build** sequence. See [RELEASE_NOTES_16.md](RELEASE_NOTES_16.md). Fort 14/15 saves remain supported.
+
+Fort 15 adds castle remodeling, hands-on dismantling, an architect overview camera, detailed room/stair/entrance previews, and clearer project signs. Press **K at a castle sign** and choose **Expand**, **Remodel**, or **Dismantle**. Completed remodeling/demolition returns half the old room's materials; safety checks protect connected wings, supporting floors and workers. See [RELEASE_NOTES_15.md](RELEASE_NOTES_15.md). Fort 14 saves load, but new format-2 saves cannot be reopened in Fort 14—back up the save folder if you want to roll back.
+
+Fort 14 adds host-controlled save/load. Press **Esc → Save expedition** for three manual slots, or **Save & return to title** for an exit checkpoint. Dawn autosaves use a separate slot. On the title screen, select your previous dwarf class and choose **Load expedition** to reopen a host lobby. See [RELEASE_NOTES_14.md](RELEASE_NOTES_14.md) for saved progress, backups and multiplayer rules.
+
+Fort 13 adds a player-built castle: an open raised keep, selectable hand-built wings, resource signposts, damageable curtain walls, and supported upper storeys with stairs. Press **K** at the sign south of the hearth to plan; supply the project and hold **E** to build. Merchant, gathering, research and defensive additions have working services. The four dwarves and all eighteen enemies receive Blender art refinements. See [RELEASE_NOTES_13.md](RELEASE_NOTES_13.md) for recipes, controls and current limits.
+
 Fort 12 adds denser windblown grass, groundcover, eight new foliage models, harvestable biome forests, and redesigned animated ember/frost dragons. Hold E at any standing tree or giant mushroom to harvest it. Amberwood and Mooncaps require Forester's Axe level 2; Starcaps require level 3. Upgrade the axe at the Workshop (T); it does not need to be equipped to gather. See [RELEASE_NOTES_12.md](RELEASE_NOTES_12.md) for species yields and details.
 
 Fort 11 adds 67 wilderness destinations across the eight-tier map: camps, beasts, shrines, ruined observatories, caravan caches and six dragon roosts. Discover sites, defeat their guardians and press E at their chests for shared rewards. See [RELEASE_NOTES_11.md](RELEASE_NOTES_11.md) for the exploration rules.
@@ -14,7 +24,7 @@ Fort 9 adds eight hearth tiers, five seeded random biomes, endless nights and mi
 
 Run `build/Fort.exe`. It contains the game data; Godot and Blender are not required to play. Alternatively, open `project.godot` in Godot 4.5.2 and press F5.
 
-Everyone must run **Fort 12**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. Solo play starts with one dwarf. Classes are unique: if a requested class is taken, the host assigns a free one. Late joining a running expedition is supported.
+Everyone must run **Fort 17**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. Solo play starts with one dwarf. Classes are unique: if a requested class is taken, the host assigns a free one. Late joining a running expedition is supported.
 
 - Same PC: join `127.0.0.1`.
 - Same LAN: join the host's local IPv4 address.
@@ -22,7 +32,9 @@ Everyone must run **Fort 12**. The host chooses a UDP port (default **24567**) a
 
 Connection attempts can be cancelled. Contacting the host and registering in its lobby each have a separate 15-second deadline and error message. **127.0.0.1 means this computer**, not another computer on your Wi-Fi. See `NETWORK_HELP.md` for troubleshooting and a read-only diagnostic script. A version in a new folder needs a firewall rule for that exact executable path. The game never changes Windows Firewall; enabling internet hosting requests a router UDP mapping and removes it on normal leave/exit. Uncheck the option for LAN-only / manual forwarding.
 
-The host must stay in the game. Leaving the host ends the session for everyone. Sessions are not saved.
+The host must stay in the game. Leaving the host ends the live session for everyone; **Save & return to title** preserves the expedition first. Closing the host window also attempts an exit checkpoint and stays open if saving fails. Manual saves and dawn autosaves remain separate. Saving does not pause the crew.
+
+Saves live in `%APPDATA%\Godot\app_userdata\Fort\expeditions`, not alongside the executable. Each slot has a verified backup; loading automatically tries it if the primary is damaged. Copy the whole `expeditions` folder to transfer saves to another host. Dwarf progress belongs to the four **class slots**, not player names or network IDs: choose your previous class before joining. Saves are local only, with no cloud sync or host migration. Fort 13 had no save files to import.
 
 ## Controls
 
@@ -36,6 +48,7 @@ The host must stay in the game. Leaving the host ends the session for everyone. 
 | E at workshop / C | Open weapons, backpacks and relics / cycle owned weapons |
 | Right mouse held with crossbow / Repeater | Aim while walking; shoulder camera and projected impact cursor |
 | G beside a defense | Upgrade, cancel construction, or confirm daylight salvage of a completed building |
+| K beside a castle sign | Plan wings, fund projects, add walls, or use room services; close and hold E to build |
 | E at a treasure chest | Unlock with 2 shared crystals after defeating any guards |
 | Hold R | Repair a nearby defense or the hearth using shared wood |
 | U near the hearth, during daytime | Review / buy a shared hearth upgrade |
@@ -74,7 +87,7 @@ Raiders and hearth runners look for short routes around exposed wall ends, then 
 
 **Rustscar Quarry** now has two climbable terraces and connected ramps/landings, with eight iron deposits above ground level. Explore its crane, timber crossing, retaining walls, ore carts, short mine rails and sealed mine entrance. The Fort 6 quarry pass added five Blender assets; Fort 7 brings the library to 64 models. The entrance is decorative, not a separate dungeon; the other regions retain their existing layouts.
 
-When someone falls, hold E beside them for three revive interactions. Without help, they recover at the hearth after 18 seconds; solo gets one 8-second rescue per night. The hearth reaching zero ends the run. Nights continue beyond ten, with a giant Colossus every tenth night. Days last 150 seconds plus 30 per hearth upgrade; solo gets another 30 seconds on the opening day. Nights grow with progression and reserve travel time on larger maps; see RELEASE_NOTES_9.md. Sessions still are not saved.
+When someone falls, hold E beside them for three revive interactions. Without help, they recover at the hearth after 18 seconds; solo gets one 8-second rescue per night. The hearth reaching zero ends the run. Nights continue beyond ten, with a giant Colossus every tenth night. Days last 150 seconds plus 30 per hearth upgrade; solo gets another 30 seconds on the opening day. Nights grow with progression and reserve travel time on larger maps; see RELEASE_NOTES_9.md. Saves preserve the day/night clock and ongoing raid budget.
 
 ## Weapon forge — version 3
 
@@ -86,7 +99,7 @@ Walk beside the **WORKSHOP**, press **E**, and choose **Craft & Equip**. Weapon 
 | Hearthbreaker hammer | 14 | 18 | 2 | Slower, stronger sweep; knocks back and briefly stuns up to five enemies |
 | Trailguard crossbow | 22 | 8 | 4 | Aimed single-target shots, with a reload delay and reusable ammunition |
 
-Close the forge with **Esc**. Press **C** to cycle owned weapons and **hold left-click** to attack. Crossbows and ballistae aim in three dimensions, including at flying enemies. Their cursor uses the same targeting calculation as the shot: red over an enemy, gold when blocked by terrain or a building. The crossbow cursor is visible while stationary or while holding **right mouse** to aim on the move; mounted ballistae always show it. Switching cannot cancel an attack cooldown. Gathering and repairing temporarily bring back the axe, then restore the equipped weapon. Gear survives rescue, but sessions still are not saved. The workshop does not pause the raid.
+Close the forge with **Esc**. Press **C** to cycle owned weapons and **hold left-click** to attack. Crossbows and ballistae aim in three dimensions, including at flying enemies. Their cursor uses the same targeting calculation as the shot: red over an enemy, gold when blocked by terrain or a building. The crossbow cursor is visible while stationary or while holding **right mouse** to aim on the move; mounted ballistae always show it. Switching cannot cancel an attack cooldown. Gathering and repairing temporarily bring back the axe, then restore the equipped weapon. Gear survives rescue and is included in expedition saves. The workshop does not pause the raid.
 
 ## The Marchlands
 
@@ -135,7 +148,7 @@ Nine permanent treasure locations include the original caches/camps and three gu
 - **Rustscar Stronghold:** Ironheart armor, +40 maximum health and 20% incoming-damage reduction.
 - **Stormglass Sanctum:** Stormstring, a crystal-limbed rare crossbow with 80 bolt damage.
 
-Rare rewards go to **every crew member**, including late joiners, so nobody has to fight over loot. Supply caches add shared materials. Relics, backpacks and upgrades last for the current run and survive rescue, but are not saved between sessions.
+Rare rewards go to **every crew member**, including late joiners, so nobody has to fight over loot. Supply caches add shared materials. Relics, backpacks and upgrades survive rescue and save/load. Claimed treasures stay claimed when resuming.
 
 ## Art and animation
 

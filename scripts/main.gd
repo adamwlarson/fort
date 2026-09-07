@@ -2,7 +2,7 @@ extends Node
 
 const WorldScript = preload("res://scripts/world.gd")
 const InternetScript = preload("res://scripts/fort_internet.gd")
-const BUILD_VERSION := "12"
+const BUILD_VERSION := "17"
 
 var menu:Control
 var status_label:Label
@@ -32,6 +32,8 @@ var internet_toggle: CheckBox
 var internet_label: Label
 var public_copy: Button
 var transport_connected := false
+var pending_save:Dictionary={}
+var save_menu:FortSaveMenu
 
 func _process(_delta: float) -> void:
 	if connecting and Time.get_ticks_msec() > connection_deadline:
@@ -50,6 +52,8 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	_build_menu()
+	save_menu=FortSaveMenu.new();save_menu.main=self;add_child(save_menu)
+	get_tree().auto_accept_quit=false
 	if "--autohost" in OS.get_cmdline_user_args():
 		_host.call_deferred()
 	elif "--autojoin" in OS.get_cmdline_user_args():
@@ -63,6 +67,26 @@ func _capture_preview()->void:
 	var image:=get_viewport().get_texture().get_image()
 	image.save_png(ProjectSettings.globalize_path("res://build/preview.png"))
 	get_tree().quit()
+
+func _notification(what:int)->void:
+	if what==NOTIFICATION_WM_CLOSE_REQUEST:
+		if is_instance_valid(world) and multiplayer.is_server() and not world.ended and world.autosave_enabled:
+			if not world.save_expedition("exit"):return
+		if internet:internet.stop()
+		get_tree().quit()
+
+func load_expedition(slot:String)->void:
+	if is_instance_valid(world) or lobby_active or connecting:return
+	var result:=FortSave.read_slot(slot)
+	if result.error!="":status_label.text="Load failed: "+result.error;return
+	pending_save=result.data
+	_host()
+	if not lobby_active:pending_save={};return
+	if result.get("recovered",false):internet_label.text+="\nRecovered the previous backup checkpoint."
+
+func save_and_leave()->void:
+	if not is_instance_valid(world) or not multiplayer.is_server():return
+	if world.save_expedition("exit"):_leave_game("Expedition saved. Load 'Save & exit' to continue.")
 
 func _build_menu() -> void:
 	preview_holder=null
@@ -176,12 +200,14 @@ func _build_menu() -> void:
 	var guide := Label.new()
 	guide.position = Vector2(650, 563)
 	guide.size = Vector2(530, 120)
-	guide.text = "GATHER  /  DEPOSIT  /  BUILD  /  DEFEND\nBring your pack to the STOCKPILE and hold E.\nShared supplies build defenses for the whole crew.\n\nWASD move   /   E interact   /   B build   /   F ability"
+	guide.text="GATHER / BUILD / DEFEND / RETURN\nSaved dwarves are restored by class. Select your previous\nclass, then load an expedition to open its host lobby."
 	guide.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guide.add_theme_font_size_override("font_size", 16)
 	guide.add_theme_color_override("font_color", Color("d8e3e5"))
 	guide.add_theme_constant_override("line_spacing", 5)
 	menu.add_child(guide)
+	var load_button:=Button.new();load_button.text="LOAD EXPEDITION";load_button.position=Vector2(650,648);load_button.size=Vector2(530,40);menu.add_child(load_button)
+	load_button.pressed.connect(func():save_menu.open_panel(false))
 	var preview_frame:=PanelContainer.new()
 	preview_frame.position=Vector2(642,202);preview_frame.size=Vector2(541,341)
 	preview_frame.add_theme_stylebox_override("panel",FortInterface.frame(true));menu.add_child(preview_frame)
@@ -408,6 +434,7 @@ func _refresh_lobby() -> void:
 		lobby_roster.add_child(label)
 	if multiplayer.is_server():
 		lobby_action.text = "START EXPEDITION (%d / 4)" % player_info.size()
+		if not pending_save.is_empty():lobby_action.text="RESUME DAY %d (%d / 4)"%[int(pending_save.world.wave)+ (0 if pending_save.world.night else 1),player_info.size()]
 		lobby_action.disabled = not _crew_ready()
 	else:
 		lobby_action.text = "NOT READY" if player_info.get(multiplayer.get_unique_id(),{}).get("ready",false) else "READY UP"
@@ -447,12 +474,14 @@ func _start_match() -> void:
 	if not multiplayer.is_server() or not lobby_active or not _crew_ready() or is_instance_valid(world):return
 	lobby_active = false
 	_start_world()
+	var resuming:=not pending_save.is_empty()
+	if resuming:FortSave.restore(world,pending_save);pending_save={}
 	world.add_network_player(1, player_info[1])
 	for id in player_info:
 		if id == 1:continue
 		world.prepare_network_player(id, player_info[id])
 		begin_remote.rpc_id(id, player_info)
-	world.configure_opening_day()
+	if not resuming:world.configure_opening_day()
 
 func _safe_name() -> String:
 	var value := name_edit.text.strip_edges().left(18)
@@ -499,6 +528,10 @@ func client_world_ready()->void:
 		for other_id in _connected_ready():
 			deliver_world.rpc_id(int(other_id),"recv_player",[peer_id,player_info[peer_id]])
 		deliver_world.rpc_id(peer_id,"recv_full",[world.full_state()])
+		var p:FortPlayer=world.players[peer_id]
+		if world.saved_characters.has(p.class_id):
+			deliver_world.rpc_id(peer_id,"recv_teleport",[peer_id,p.position])
+			personal_event.rpc_id(peer_id,"resume_dwarf",{"yaw":p.look_yaw,"pitch":p.look_pitch,"fuel":p.fuel})
 		ready_peers[peer_id]=true
 
 @rpc("authority", "call_remote", "reliable")
@@ -542,6 +575,8 @@ func _on_server_disconnected() -> void:
 func _leave_game(reason:="Returned to title.") -> void:
 	if returning_to_menu:return
 	returning_to_menu=true
+	pending_save={}
+	if save_menu:save_menu.panel.hide()
 	Input.mouse_mode=Input.MOUSE_MODE_VISIBLE
 	connecting = false; lobby_active = false
 	transport_connected = false
@@ -628,4 +663,6 @@ func send_personal_event(id:int,kind:String,data:Dictionary)->void:
 func personal_event(kind:String,data:Dictionary)->void:
 	if not is_instance_valid(world):return
 	if kind=="notice":world.show_toast(data.text)
+	elif kind=="resume_dwarf" and world.local_player():
+		world.local_player().look_yaw=data.yaw;world.local_player().look_pitch=data.pitch;world.local_player().fuel=data.fuel
 	elif kind=="dash" and world.local_player():world.local_player().dash_time=0.40

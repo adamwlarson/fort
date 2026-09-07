@@ -43,6 +43,7 @@ static func resource_position(rng:RandomNumberGenerator,kind:String,index:int,co
 			var site:Dictionary=LANDMARKS[0 if kind=="wood" else (1 if kind=="stone" else 2)]
 			selected=site.pos+Vector3(cos(angle),0,sin(angle))*rng.randf_range(7,16)
 		if selected.length()<13 or selected.length()>68 or trail_distance(selected)<3.0:continue
+		if absf(selected.x)<12 and absf(selected.z)<12:continue
 		if selected.distance_to(Vector3(36,0,-36))<6.2:continue
 		var clear:=true
 		for camp in FortProgression.SITES:
@@ -65,6 +66,8 @@ static func build_base(parent:Node3D)->void:
 	FortArt.box_collider(parent,Vector3(1440,0.2,1440),Vector3(0,-0.11,0))
 
 static func clear_for_scenery(world:Node3D,pos:Vector3,radius:float)->bool:
+	# Reserve four initial castle connections for harvestable resources, not immovable props.
+	if (absf(pos.x)<10+radius and absf(pos.z)<30+radius) or (absf(pos.z)<10+radius and absf(pos.x)<30+radius):return false
 	if pos.length()<12 or pos.length()>69 or trail_distance(pos)<radius+1.9:return false
 	for site in FortProgression.SITES:
 		if pos.distance_to(site.pos)<(14 if site.get("village",false) else 8):return false
@@ -108,11 +111,11 @@ static func populate(world:Node3D)->void:
 	FortFoliage.populate(root,world,12,70,1201,"meadow")
 	make_landmarks(root)
 	# Camp dressing fits inside the walls and stays out of the four gateway lanes.
-	var tent:=place(root,"camp_tent",Vector3(-4.6,0,4.3),-0.35,0.88)
+	var tent:=place(root,"camp_tent",Vector3(-4.6,FortCastle.BASE,4.3),-0.35,0.88)
 	FortArt.box_collider(tent,Vector3(1.9,1.45,1.8),Vector3(0,0.7,0))
-	var barrel:=place(root,"barrel",Vector3(5.7,0,-4.0),0,0.85)
+	var barrel:=place(root,"barrel",Vector3(5.7,FortCastle.BASE,-4.0),0,0.85)
 	FortArt.box_collider(barrel,Vector3(0.8,0.95,0.8),Vector3(0,0.48,0))
-	place(root,"supply_crate",Vector3(4.7,0,-4.7),0.12,0.72)
+	place(root,"supply_crate",Vector3(4.7,FortCastle.BASE,-4.7),0.12,0.72)
 
 static func place(parent:Node3D,key:String,pos:Vector3,yaw:=0.0,scale_factor:=1.0)->Node3D:
 	var model:=FortArt.asset(key)

@@ -91,16 +91,21 @@ func interact(player_id:int)->bool:
 	world.shared.crystal-=2
 	site.opened=true
 	var reward:String=SITES[id].reward
+	var received:Dictionary={};var new_items:Array=[]
 	if reward=="Supplies":
 		for kind in ["wood","stone","crystal"]:world.shared[kind]=int(world.shared.get(kind,0))+8
+		for kind in ["wood","stone","crystal"]:received[kind]=8
 		if SITES[id].tier>=2:world.shared.iron=int(world.shared.get("iron",0))+8
 		if SITES[id].tier>=3:world.shared.aether=int(world.shared.get("aether",0))+6
+		if SITES[id].tier>=2:received.iron=8
+		if SITES[id].tier>=3:received.aether=6
 	else:
-		if reward not in unlocked:unlocked.append(reward)
+		if reward not in unlocked:unlocked.append(reward);new_items.append(reward)
 		for dwarf in world.players.values():grant_loot(dwarf)
 	world.broadcast("recv_full",[world.full_state()])
 	world.broadcast("recv_notice",["%s unlocked %s for the WHOLE CREW!"%[p.display_name,reward]])
 	world.broadcast("recv_fx",[SITES[id].pos+Vector3.UP,Color("#d0a2f0"),reward,"ability"])
+	world.broadcast("recv_loot",[SITES[id].name,received,new_items,{"crystal":2}])
 	return true
 
 func grant_loot(p:FortPlayer)->void:

@@ -204,19 +204,22 @@ func interact(player_id:int) -> bool:
 		world.personal(player_id,"Treasure already claimed." if site.phase=="claimed" else "Defeat this site's guardians first.");return true
 	site.phase="claimed";site.seen=true;revision+=1
 	var tier:int=site.spec.tier;var rare:bool=site.spec.type=="dragon"
+	var received:Dictionary={};var new_items:Array=[]
 	for resource in GameData.RESOURCES:
 		if resource=="iron" and tier<2 or resource=="aether" and tier<3:continue
-		world.shared[resource]+=int((12+tier*3 if resource in ["wood","stone"] else 3+tier)*(2 if rare else 1))
+		var amount:=int((12+tier*3 if resource in ["wood","stone"] else 3+tier)*(2 if rare else 1))
+		world.shared[resource]+=amount;received[resource]=amount
 	var weapon:=""
 	if rare:weapon="Greatmaul" if tier<=4 else ("Runestaff" if tier<=6 else "Runeblade")
 	elif site.spec.type=="ruins" and tier>=2:weapon="Warpick" if tier<=3 else "Longrifle"
-	if not weapon.is_empty() and weapon not in unlocked:unlocked.append(weapon)
-	if rare and "Ironheart" not in world.progression.unlocked:world.progression.unlocked.append("Ironheart")
+	if not weapon.is_empty() and weapon not in unlocked:unlocked.append(weapon);new_items.append(weapon)
+	if rare and "Ironheart" not in world.progression.unlocked:world.progression.unlocked.append("Ironheart");new_items.append("Ironheart")
 	for dwarf in world.players.values():world.progression.grant_loot(dwarf);grant_loot(dwarf)
 	_visual(site)
 	world.broadcast("recv_full",[world.full_state()])
 	world.broadcast("recv_notice",[site.spec.name+" / Treasure deposited for the whole crew!"+(" Unlocked "+weapon+"." if not weapon.is_empty() else "")])
 	world.broadcast("recv_fx",[site.chest.global_position+Vector3.UP,COLORS[site.spec.type],"CREW TREASURE","ability"])
+	world.broadcast("recv_loot",[site.spec.name,received,new_items,{}])
 	return true
 
 func grant_loot(p:FortPlayer) -> void:

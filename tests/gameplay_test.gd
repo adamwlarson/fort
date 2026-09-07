@@ -104,11 +104,12 @@ func run()->void:
 	await wait(0.55)
 
 	world.shared={"wood":150,"stone":100,"crystal":25}
-	player.position=Vector3(0,0.05,16)
-	world.server_action(1,"build",{"kind":"Ballista","pos":Vector3(0,0,12),"rotation":0.0})
+	player.position=Vector3(5,0.05,17)
+	# Fort 15 reserves the keep's central entrance; build beside it instead.
+	world.server_action(1,"build",{"kind":"Ballista","pos":Vector3(5,0,13),"rotation":0.0})
 	check(world.defenses.size()==1,"valid build spends resources and creates usable defense")
 	var bid:=int(world.defenses.keys()[0])
-	player.position=Vector3(0,0.05,13.3)
+	player.position=Vector3(5,0.05,14.3)
 	for i in 10:
 		world.clock+=.8;world.server_action(1,"work_defense",{"id":bid})
 	check(not FortConstruction.pending(world.defenses[bid]),"held construction work completes the ballista before use")

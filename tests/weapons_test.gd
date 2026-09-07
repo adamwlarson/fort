@@ -25,7 +25,7 @@ func run()->void:
 	await wait(0.2)
 	check(p.weapon=="Axe" and p.owned_weapons==PackedStringArray(["Axe"]),"dwarves start with their original axe")
 	check(FortEquipment.body_mesh.get_surface_count()>0 and FortEquipment.axe_mesh.get_surface_count()>0,"body and skinned tool are split without replacing original asset")
-	var original:Node3D=load("res://assets/models/dwarf.glb").instantiate()
+	var original:Node3D=FortArt.asset(["dwarf_vanguard","dwarf_warden","dwarf_engineer","dwarf_ranger"][p.class_id])
 	var mesh:Mesh=original.find_children("*","MeshInstance3D",true,false)[0].mesh
 	var original_count:=0
 	var split_count:=0

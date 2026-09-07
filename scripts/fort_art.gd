@@ -97,7 +97,7 @@ static func tint_dwarf(node: Node, role: int) -> void:
 				node.set_surface_override_material(i,dwarf_palette[cache_key])
 				continue
 			var mat: StandardMaterial3D = original.duplicate()
-			var key := original.resource_name
+			var key := original.resource_name.get_slice(".",0)
 			if key == "MAT_Tunic": mat.albedo_color = GameData.class_data(role).color.darkened(0.16)
 			elif key == "MAT_Dark_Steel": mat.albedo_color = GameData.class_data(role).color.darkened(0.55)
 			elif key == "MAT_Beard": mat.albedo_color = [Color("#894f2c"), Color("#b0aaa0"), Color("#50372e"), Color("#cda558")][role]
@@ -154,6 +154,9 @@ static func lantern(parent: Node3D, pos: Vector3, light := true) -> void:
 		parent.add_child(lamp)
 
 static func make_fort(parent: Node3D) -> void:
+	if not exporting:
+		FortCastleArt.make_keep(parent)
+		return
 	var fort := Node3D.new()
 	fort.name = "Hearthhold"
 	parent.add_child(fort)

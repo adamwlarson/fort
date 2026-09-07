@@ -20,6 +20,11 @@ if (Test-Path -LiteralPath $notesPath) { Copy-Item -LiteralPath $notesPath -Dest
 if ($Version -ge 10) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_9.md') -Destination $folderPath }
 if ($Version -ge 11) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_10.md') -Destination $folderPath }
 if ($Version -ge 12) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_11.md') -Destination $folderPath }
+if ($Version -ge 13) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_12.md') -Destination $folderPath }
+if ($Version -ge 14) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_13.md') -Destination $folderPath }
+if ($Version -ge 15) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_14.md') -Destination $folderPath }
+if ($Version -ge 16) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_15.md') -Destination $folderPath }
+if ($Version -ge 17) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_16.md') -Destination $folderPath }
 Compress-Archive -LiteralPath $folderPath -DestinationPath $archivePath -CompressionLevel Optimal
 $sourceHash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash
 if ((Get-FileHash -LiteralPath (Join-Path $folderPath 'Fort.exe') -Algorithm SHA256).Hash -ne $sourceHash) {

@@ -101,7 +101,8 @@ func _ready() -> void:
 	add_child(col)
 	visual_root = Node3D.new()
 	add_child(visual_root)
-	var dwarf: Node3D = preload("res://assets/models/dwarf.glb").instantiate()
+	var dwarf:Node3D=FortArt.asset(["dwarf_vanguard","dwarf_warden","dwarf_engineer","dwarf_ranger"][class_id])
+	if not dwarf:dwarf=preload("res://assets/models/dwarf.glb").instantiate()
 	# The authored rig faces +Z, matching visual_root's movement heading.
 	dwarf.rotation.y = 0
 	visual_root.add_child(dwarf)
@@ -180,6 +181,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("attack"): _try_attack()
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode==KEY_U:world.hud.hearth_menu.open_panel()
+		if event.physical_keycode==KEY_K:world.castle.menu.open_nearest()
 		if event.physical_keycode==KEY_G:world.hud.upgrade_menu.open_nearest()
 		if event.physical_keycode==KEY_0:world.select_build(9)
 		if event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_9:
@@ -403,6 +405,7 @@ func apply_progression(pack_level:int,items:PackedStringArray,ironheart:bool,rev
 	relics=items.duplicate()
 	backpack_level=clampi(pack_level,0,2)
 	carry_limit=(26 if class_id==3 else 18)+(GameData.BACKPACKS[backpack_level-1].bonus if backpack_level>0 else 0)
+	if world.castle:carry_limit+=world.castle.pack_bonus()
 	max_health=GameData.class_data(class_id).hp+(40 if ironheart else 0)
 	armor=ironheart
 	if backpack_level>0 and (not is_instance_valid(backpack_visual) or backpack_visual.get_meta("tier",0)!=backpack_level):

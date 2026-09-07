@@ -3,13 +3,17 @@ extends RefCounted
 
 static var body_mesh: ArrayMesh
 static var axe_mesh: ArrayMesh
+static var variants:Dictionary={}
 
 # The source dwarf has a skinned axe merged into its body. Split only triangles
 # fully weighted to hand.R and not using skin, leaving the original asset intact.
 static func prepare(dwarf: Node3D) -> Dictionary:
 	var skeleton:Skeleton3D=dwarf.find_children("*","Skeleton3D",true,false)[0]
 	var source:MeshInstance3D=dwarf.find_children("*","MeshInstance3D",true,false)[0]
-	if body_mesh==null:
+	var variant_key:=source.mesh.get_instance_id()
+	if variants.has(variant_key):
+		body_mesh=variants[variant_key][0];axe_mesh=variants[variant_key][1]
+	else:
 		body_mesh=ArrayMesh.new();axe_mesh=ArrayMesh.new()
 		var hand_bind:=-1
 		for i in source.skin.get_bind_count():
@@ -41,6 +45,7 @@ static func prepare(dwarf: Node3D) -> Dictionary:
 				part[Mesh.ARRAY_INDEX]=pair[1]
 				mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,part)
 				mesh.surface_set_material(mesh.get_surface_count()-1,material)
+		variants[variant_key]=[body_mesh,axe_mesh]
 	source.mesh=body_mesh
 	var axe:=MeshInstance3D.new()
 	axe.name="GatheringAxe";axe.mesh=axe_mesh;axe.skin=source.skin

@@ -31,6 +31,10 @@ var director:FortRaidDirector
 var expedition:FortExpedition
 var pets:FortPets
 var encounters:FortEncounters
+var castle:FortCastle
+var saved_characters:Dictionary={}
+var autosave_enabled:=not "--fort-test" in OS.get_cmdline_user_args()
+var save_status:=""
 var solo_rescue_wave:=-1
 var is_night := false
 var wave := 0
@@ -70,6 +74,7 @@ var sound: FortSound
 var focused_resource := -1
 var focus_ring: MeshInstance3D
 var focus_label: Label3D
+var readability:FortReadability
 
 func _ready() -> void:
 	player_root = _root("Players")
@@ -93,6 +98,8 @@ func _ready() -> void:
 	progression.unlock_zones(1)
 	encounters=FortEncounters.new(self)
 	encounters.unlock(1)
+	castle=FortCastle.new(self)
+	castle.rebuild()
 	var ring_mesh:=TorusMesh.new()
 	ring_mesh.inner_radius=0.87
 	ring_mesh.outer_radius=0.92
@@ -113,6 +120,7 @@ func _ready() -> void:
 	add_child(sound)
 	hud = HUDScript.new()
 	add_child(hud)
+	readability=FortReadability.new();readability.world=self;add_child(readability)
 	show_toast("Welcome to Hearthhold. Hold E to gather; return your pack to the stockpile.",6)
 
 func _root(title: String) -> Node3D:
@@ -212,6 +220,9 @@ func broadcast(method:String,args:Array=[]) -> void:
 		receive(method,args)
 
 func receive(method:String,args:Array) -> void:
+	if method=="recv_gain":readability.gain.callv(args);return
+	if method=="recv_loot":readability.loot.callv(args);return
+	if method=="recv_castle":castle.receive(args[0]);return
 	if method not in ["recv_player","recv_remove_player","recv_snapshot","recv_full","recv_resource","recv_defense","recv_remove_defense","recv_enemy","recv_enemy_hit","recv_enemy_dead","recv_action","recv_fx","recv_notice","recv_phase","recv_health","recv_teleport","recv_mount","recv_end","recv_loadout"]:return
 	callv(method,args)
 
@@ -249,7 +260,10 @@ func recv_player(id:int,info:Dictionary) -> void:
 	player.name=str(id)
 	player.setup(id,info)
 	player_root.add_child(player)
+	player.position.y=maxf(player.position.y,FortCastle.BASE+.1)
+	player.target_position=player.position
 	players[id]=player
+	if multiplayer.is_server():FortSave.restore_player(self,player)
 	if multiplayer.is_server() and progression:progression.grant_loot(player)
 	if multiplayer.is_server() and encounters:encounters.grant_loot(player)
 	if multiplayer.is_server() and expedition and expedition.bosses_defeated>0:
@@ -262,6 +276,10 @@ func remove_network_player(id:int) -> void:
 
 func recv_remove_player(id:int) -> void:
 	if players.has(id):
+		if multiplayer.is_server():saved_characters[players[id].class_id]=FortSave.player_state(players[id])
+		if multiplayer.is_server():
+			for d in defenses.values():
+				if d.get("work_owner",-1)==id:d["owner_class"]=players[id].class_id
 		players[id].queue_free()
 		players.erase(id)
 	ready_votes.erase(id)
@@ -292,6 +310,7 @@ func snapshot() -> Dictionary:
 
 func full_state() -> Dictionary:
 	var state:=snapshot()
+	state["castle"]=castle.state()
 	var resources:Dictionary={}
 	for id in resource_nodes:resources[id]=resource_nodes[id].amount
 	state["resources"]=resources
@@ -320,6 +339,7 @@ func recv_full(state:Dictionary) -> void:
 	if state.ended:recv_end(state.victory)
 
 func recv_snapshot(state:Dictionary) -> void:
+	castle.receive(state.get("castle",{}))
 	expedition.receive(state.get("expedition",{}))
 	if not multiplayer.is_server():pets.receive(state.get("pets",{}))
 	set_hearth_level(int(state.get("hearth_level",1)))
@@ -382,6 +402,7 @@ func _process(delta:float) -> void:
 	phase_time=maxf(0,phase_time-delta)
 	if not multiplayer.is_server():return
 	expedition.tick(delta)
+	castle.tick()
 	progression.tick()
 	encounters.tick()
 	raiders.tick()
@@ -421,13 +442,14 @@ func _process(delta:float) -> void:
 func _update_lighting(delta:float)->void:
 	var t:=1.0-clampf(phase_time/(night_length(wave) if is_night else day_length()),0,1)
 	var energy:=0.23 if is_night else lerpf(0.65,0.44,t)
-	sun.light_energy=lerpf(sun.light_energy,energy,delta*1.2)
-	sun.light_color=sun.light_color.lerp(Color("#9aaee0") if is_night else Color("#ffdea5"),delta)
+	sun.light_energy=lerpf(sun.light_energy,energy,clampf(delta*1.2,0,1))
+	var blend:=clampf(delta,0,1)
+	sun.light_color=sun.light_color.lerp(Color("#9aaee0") if is_night else Color("#ffdea5"),blend)
 	sun.rotation_degrees=Vector3(-48+sin(t*PI)*12,-32,0)
-	environment.ambient_light_energy=lerpf(environment.ambient_light_energy,0.23 if is_night else 0.32,delta)
-	environment.fog_light_color=environment.fog_light_color.lerp(Color("#263b51") if is_night else Color("#9bb0bd"),delta)
-	sky_material.sky_top_color=sky_material.sky_top_color.lerp(Color("#162638") if is_night else Color("#638cab"),delta)
-	sky_material.sky_horizon_color=sky_material.sky_horizon_color.lerp(Color("#40505d") if is_night else Color("#c6c9bc"),delta)
+	environment.ambient_light_energy=lerpf(environment.ambient_light_energy,0.23 if is_night else 0.32,blend)
+	environment.fog_light_color=environment.fog_light_color.lerp(Color("#263b51") if is_night else Color("#9bb0bd"),blend)
+	sky_material.sky_top_color=sky_material.sky_top_color.lerp(Color("#162638") if is_night else Color("#638cab"),blend)
+	sky_material.sky_horizon_color=sky_material.sky_horizon_color.lerp(Color("#40505d") if is_night else Color("#c6c9bc"),blend)
 
 func _advance_phase()->void:
 	ready_votes.clear()
@@ -439,6 +461,7 @@ func _advance_phase()->void:
 		expedition.day_start()
 		for p in players.values():
 			if p.health>0:_set_health(p.peer_id,minf(p.max_health,p.health+35))
+		if autosave_enabled:save_expedition("autosave")
 	else:
 		raid_spawned=0
 		broadcast("recv_phase",[true,wave+1,night_length(wave+1)])
@@ -457,6 +480,7 @@ func night_length(night:int)->float:
 func day_length()->float:return DAY_LENGTH+(hearth_level-1)*30.0
 
 func resource_respawn_clear(r:Dictionary)->bool:
+	if castle and castle.blocks_resource(r.node.position):return false
 	for d in defenses.values():
 		var offset:Vector3=(r.node.position-d.node.position).rotated(Vector3.UP,-d.node.rotation.y)
 		if FortPlacement.is_wall(d.kind):
@@ -482,6 +506,15 @@ func server_action(id:int,kind:String,data:Dictionary) -> void:
 	var p:FortPlayer=players[id]
 	if p.health<=0:return
 	match kind:
+		"castle_plan":
+			var target:Dictionary=data.get("target",{})
+			if target.has_all(["x","z","floor"]):castle.plan(id,str(data.get("from","")),{"x":int(target.x),"z":int(target.z),"floor":int(target.floor)},str(data.get("kind","")),int(data.get("revision",-1)))
+		"castle_fund":castle.fund(id,str(data.get("key","")),bool(data.get("shared",false)),int(data.get("revision",-1)))
+		"castle_task":castle.begin_task(id,str(data.get("key","")),str(data.get("task","")),int(data.get("revision",-1)))
+		"castle_cancel":castle.cancel(id,str(data.get("key","")),int(data.get("revision",-1)))
+		"castle_trade":castle.trade(id,str(data.get("key","")),str(data.get("resource","")),int(data.get("revision",-1)))
+		"castle_assign":castle.assign(id,str(data.get("key","")),str(data.get("resource","")),int(data.get("revision",-1)))
+		"castle_remodel":FortCastleRemodel.begin(castle,id,str(data.get("key","")),str(data.get("kind","")),int(data.get("revision",-1)))
 		"attack":
 			var dir:Vector3=data.get("direction",Vector3.FORWARD)
 			if not dir.is_finite() or Vector2(dir.x,dir.z).length()<0.01:return
@@ -623,6 +656,8 @@ func _interact(id:int)->void:
 		_deposit(id)
 		return
 	if expedition.interact(id) or progression.interact(id) or encounters.interact(id):return
+	var castle_key:=castle.nearest(p.position)
+	if castle_key!="" and castle.rooms[castle_key].task!="":castle.work(id,castle_key);return
 	var work_id:=construction.nearest(p)
 	if work_id>=0:construction.work(id,work_id);return
 	var resource_id:=nearest_resource(p.position)
@@ -682,7 +717,8 @@ func _gather(id:int,resource_id:int)->void:
 	r.respawn=65.0
 	broadcast("recv_action",[id,"gather",r.node.position])
 	broadcast("recv_resource",[resource_id,r.amount-amount,true])
-	broadcast("recv_fx",[r.node.position+Vector3.UP,GameData.resource_color(r.kind),"+%d %s"%[amount,r.kind],"chop" if FortForestry.is_tree(r) else "mine"])
+	broadcast("recv_fx",[r.node.position+Vector3.UP,GameData.resource_color(r.kind),"","chop" if FortForestry.is_tree(r) else "mine"])
+	broadcast("recv_gain",[id,r.node.position+Vector3.UP,r.kind,amount,"PACK"])
 
 func recv_resource(id:int,amount:int,hit:bool)->void:
 	if not resource_nodes.has(id):return
@@ -798,7 +834,7 @@ func _ability(id:int)->void:
 			broadcast("recv_fx",[p.position,Color("#8fe0c5"),"RALLY · HEAL + HASTE","ability"])
 		2:
 			var pos:=p.position+Vector3(2.4,0,0)
-			pos.y=0
+			pos.y=castle.floor_at(pos)
 			if not build_block_reason("Watchtower",pos,0,true).is_empty():
 				p.ability_cooldown=0;cooldowns.erase("%d/ability"%id)
 				personal(id,"Move to open ground to deploy your field turret.")
@@ -832,7 +868,7 @@ func _update_preview()->void:
 		add_child(preview)
 	preview.show()
 	build_position=p.position+p.aim_direction()*4.3
-	build_position=Vector3(snappedf(build_position.x,0.5),0,snappedf(build_position.z,0.5))
+	build_position=Vector3(snappedf(build_position.x,0.5),castle.floor_at(build_position),snappedf(build_position.z,0.5))
 	build_position=FortPlacement.snap(self,kind,build_position,build_rotation)
 	preview.position=build_position
 	preview.rotation.y=build_rotation
@@ -857,13 +893,13 @@ func can_afford(p:FortPlayer,kind:String)->bool:
 
 func build_block_reason(kind:String,pos:Vector3,rotation_y:float,_temporary:=false)->String:
 	if not pos.is_finite() or not is_finite(rotation_y):return "Invalid location"
+	if castle and absf(pos.y-castle.floor_at(pos))>.15:return "Build on a completed floor"
+	var castle_clearance:=FortPlacement.wall_width(kind)*.5 if FortPlacement.is_wall(kind) else 1.2
+	if castle and castle.placement_reason(pos,castle_clearance)!="":return castle.placement_reason(pos,castle_clearance)
 	if hearth_level<int(GameData.RECIPES[kind].get("tier",1)):return "Requires Hearth tier %d"%GameData.RECIPES[kind].tier
 	if Vector2(pos.x,pos.z).length()>build_radius():return "Build within %dm of the hearth (upgrade to expand)"%build_radius()
 	if Vector2(pos.x,pos.z).length()<3.1:return "Keep the hearth clear"
 	if pos.distance_to(Vector3(4.6,0,0))<3 or pos.distance_to(Vector3(-4.6,0,0))<3:return "Keep the stockpile and workshop clear"
-	var radius:=Vector2(pos.x,pos.z).length()
-	if radius>6.6 and radius<9.8:
-		return "Leave the walls and gateways clear"
 	var footprint:=2.7 if kind=="Watchtower" else 2.0
 	for obstacle in scenery_keepouts:
 		if pos.distance_to(obstacle.pos)<footprint+obstacle.radius:return "Keep scenery and camp supplies clear"
@@ -1050,7 +1086,7 @@ func frontier_radius()->float:
 	return [73.0,153.0,243.0][hearth_level-1] if hearth_level<=3 else 243.0+(hearth_level-3)*80.0
 
 func build_radius()->float:
-	return [23.0,65.0,115.0][hearth_level-1] if hearth_level<=3 else 115.0+(hearth_level-3)*45.0
+	return [36.0,65.0,115.0][hearth_level-1] if hearth_level<=3 else 115.0+(hearth_level-3)*45.0
 
 func set_hearth_level(level:int)->void:
 	level=clampi(level,1,GameData.MAX_HEARTH)
@@ -1193,7 +1229,8 @@ func _simulate_enemies(delta:float)->void:
 			if body.position.distance_to(portal)<1.7:portal=axis*6.5
 			to_target=portal-body.position
 			to_target.y=0
-		var direction:=FortSiege.route(self,e,body.position+to_target)
+		var route_goal:=castle.approach(body.position,body.position+to_target) if siege_target<0 and not ally else body.position+to_target
+		var direction:=FortSiege.route(self,e,route_goal)
 		var separation:=Vector3.ZERO
 		var cell:=Vector2i(floori(body.position.x/1.5),floori(body.position.z/1.5))
 		for x in range(-1,2):
@@ -1213,7 +1250,7 @@ func _simulate_enemies(delta:float)->void:
 
 func _simulate_ashwing(e:Dictionary,delta:float)->void:
 	var body:CharacterBody3D=e.node
-	var target:=Vector3.ZERO
+	var target:=Vector3(0,FortCastle.BASE,0)
 	var ally:FortPlayer=null
 	var nearest:=9.0
 	for p in players.values():
@@ -1302,8 +1339,7 @@ func _animate_enemies(delta:float)->void:
 			body.position=body.position.lerp(e.target,1-exp(-14*delta))
 			body.rotation.y=lerp_angle(body.rotation.y,e.yaw,1-exp(-14*delta))
 		FortArt.animate_enemy(e.visual,clock+int(id)*0.3,e.attack>0.85,e.moving)
-		e.label.text="%d"%ceili(e.hp) if e.hp<e.max_hp else ""
-		if FortEncounters.is_wild(int(e.get("camp",-1))):e.label.text=e.kind+" / %d"%ceili(e.hp);e.label.visibility_range_end=38
+		e.label.text=e.kind if FortEncounters.is_wild(int(e.get("camp",-1))) else ""
 	for d in defenses.values():
 		var label:Label3D=d.node.get_node("Status")
 		label.text="%s · %d%%"%[d.kind,int(d.hp/d.max_hp*100)]
@@ -1311,6 +1347,7 @@ func _animate_enemies(delta:float)->void:
 		label.visible=false
 
 func _damage_enemy(id:int,damage:float,knockback:=Vector3.ZERO,source:="player_damage",piercing:=false)->void:
+	if castle and source in ["tower_damage","field_turret_damage"]:damage*=castle.tower_multiplier()
 	if not enemies.has(id):return
 	var e:Dictionary=enemies[id]
 	if e.kind=="Shieldguard" and source in ["tower_damage","field_turret_damage"] and not piercing:damage*=.7
@@ -1391,7 +1428,7 @@ func _respawn(id:int)->void:
 	var p:FortPlayer=players[id]
 	# The pack is retained; a rescue costs time, not an unrecoverable resource loss.
 	p.invulnerable=4.0
-	broadcast("recv_teleport",[id,Vector3((p.class_id-1.5)*1.3,0.2,5)])
+	broadcast("recv_teleport",[id,Vector3((p.class_id-1.5)*1.3,FortCastle.BASE+.2,5)])
 	broadcast("recv_health",[id,p.max_health*0.65,0.0])
 	broadcast("recv_notice",["%s was rescued at the hearth."%p.display_name])
 
@@ -1469,6 +1506,8 @@ func show_toast(message:String,duration:=3.0)->void:
 	toast_text=message;toast_time=duration
 
 func toggle_pause()->void:
+	if get_parent().save_menu.panel.visible:get_parent().save_menu.close_panel();return
+	if castle.menu.panel.visible:castle.menu.close_panel();return
 	if hud.upgrade_menu.visible: hud.upgrade_menu.close_panel();return
 	if hud.hearth_menu.visible:
 		hud.hearth_menu.close_panel()
@@ -1487,6 +1526,12 @@ func open_forge()->void:
 	hud.forge.show();hud.menu.hide()
 	Input.mouse_mode=Input.MOUSE_MODE_VISIBLE
 
+func save_expedition(slot:String)->bool:
+	var error:=FortSave.write_slot(slot,self)
+	save_status="Saved / "+FortSave.LABELS[FortSave.SLOTS.find(slot)]+" / "+Time.get_time_string_from_system() if error=="" else "Save failed: "+error
+	show_toast(save_status,5)
+	return error==""
+
 func objective_text()->String:
 	for e in enemies.values():
 		if e.kind=="Colossus":return "COLOSSUS / %d%% HEALTH\nDodge the slam. It does not retreat at dawn."%ceili(e.hp/e.max_hp*100)
@@ -1504,6 +1549,7 @@ func context_prompt(p:FortPlayer)->String:
 		if ally.health<=0 and p.position.distance_to(ally.position)<2.7:return "HOLD E   Revive "+ally.display_name
 	if p.position.distance_to(Vector3(4.6,0,0))<3.2 and p.total_carried()>0:return "E   Deposit pack into SHARED stockpile"
 	if p.position.distance_to(Vector3(-4.6,0,0))<3.2:return "E   Open WORKSHOP   /   Craft & equip weapons"
+	if castle.prompt(p)!="":return castle.prompt(p)
 	var work_id:=construction.nearest(p)
 	if work_id>=0:return "HOLD E   %s %d%%   /   Crew can help   /   G project"%[defenses[work_id].kind,int(FortConstruction.fraction(defenses[work_id])*100)]
 	var chest:=progression.nearest(p.position)

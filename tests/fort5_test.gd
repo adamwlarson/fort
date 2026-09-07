@@ -18,8 +18,8 @@ func run()->void:
 	var w:FortWorld=main.world;var p:FortPlayer=w.local_player()
 	w.set_process(false);p.set_physics_process(false);p.position=Vector3(0,0,18)
 	w.shared={"wood":500,"stone":500,"crystal":100,"iron":100,"aether":100}
-	check(FortWorld.FINAL_WAVE==10 and w.build_radius()==23,"ten-night campaign and starting construction radius")
-	check(w.build_block_reason("Watchtower",Vector3(40,0,0),0).contains("23m"),"tier one rejects distant builds")
+	check(FortWorld.FINAL_WAVE==10 and w.build_radius()==36,"ten-night campaign and castle-compatible starting construction radius")
+	check(w.build_block_reason("Watchtower",Vector3(40,0,0),0).contains("36m"),"tier one rejects distant builds")
 	check(w.build_block_reason("MetalWall",Vector3(15,0,0),0).contains("tier 2"),"iron construction requires tier two")
 	p.position=Vector3(-4.6,0,2)
 	w.server_action(1,"craft_pack",{"level":0});var stock:=w.shared.duplicate()

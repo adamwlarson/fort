@@ -27,6 +27,7 @@ var stock_progress: Label
 var stock_meter: ProgressBar
 var hints: Label
 var menu_scrim: ColorRect
+var stock_icons:HFlowContainer
 var forge:FortForge
 var weapon_label:Label
 var hearth_menu:FortHearth
@@ -39,6 +40,10 @@ func _ready() -> void:
 	phase=label(top,Vector2(18,10),24,Color("#f1ce8f"))
 	hearth=bar(top,Vector2(18,50),Vector2(288,10),Color("#d9a865"))
 	economy=label(top,Vector2(18,74),15,Color("#d5ddd6"))
+	stock_icons=HFlowContainer.new();stock_icons.position=Vector2(18,96);stock_icons.size=Vector2(305,60);stock_icons.add_theme_constant_override("h_separation",5);stock_icons.add_theme_constant_override("v_separation",1);top.get_node("Content").add_child(stock_icons)
+	for kind in GameData.RESOURCES:
+		var chip:=FortReadability.chip(kind,"0");chip.name=kind;chip.custom_minimum_size.x=89;chip.tooltip_text=kind.capitalize()+" / shared stockpile";stock_icons.add_child(chip)
+		chip.get_child(0).get_child(0).custom_minimum_size=Vector2(19,19)
 	var middle:=panel(Vector2(370,18),Vector2(530,62))
 	objective=label(middle,Vector2(14,10),16,Color("#efe8d7"))
 	objective.size=Vector2(502,48);objective.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -66,18 +71,28 @@ func _ready() -> void:
 	menu_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	menu_scrim.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	add_child(menu_scrim);menu_scrim.hide()
-	menu=panel(Vector2(430,155),Vector2(420,410))
+	menu=panel(Vector2(430,95),Vector2(420,535))
 	var menu_style:=FortInterface.frame(true)
 	menu_style.set_content_margin_all(24)
 	menu.add_theme_stylebox_override("panel",menu_style)
 	menu.theme=FortInterface.theme()
-	var stack:=VBoxContainer.new();stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);stack.offset_left=30;stack.offset_right=-30;stack.offset_top=25;stack.add_theme_constant_override("separation",18);menu.add_child(stack)
+	var stack:=VBoxContainer.new();stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);stack.offset_left=30;stack.offset_right=-30;stack.offset_top=25;stack.add_theme_constant_override("separation",10);menu.add_child(stack)
 	var title:=Label.new();title.text="CAMP MENU";title.add_theme_font_size_override("font_size",28);stack.add_child(title)
 	var resume:=Button.new();resume.text="Return to the crew";resume.custom_minimum_size.y=46;resume.pressed.connect(world.toggle_pause);stack.add_child(resume)
 	var sensitivity:=Label.new();sensitivity.text="Mouse sensitivity";stack.add_child(sensitivity)
 	var slider:=HSlider.new();slider.min_value=0.001;slider.max_value=0.005;slider.step=0.0001;slider.value=world.mouse_sensitivity;slider.value_changed.connect(func(value):world.mouse_sensitivity=value);stack.add_child(slider)
 	var sound:=CheckButton.new();sound.text="Sound effects";sound.button_pressed=true;sound.toggled.connect(func(value):world.sound.enabled=value);stack.add_child(sound)
 	var exit_button:=Button.new();exit_button.text="Leave fort";exit_button.custom_minimum_size.y=44;exit_button.pressed.connect(func():world.return_to_menu.emit("Returned to title."));stack.add_child(exit_button)
+	if multiplayer.is_server():
+		var save_button:=Button.new();save_button.text="Save expedition…";save_button.custom_minimum_size.y=40;stack.add_child(save_button);stack.move_child(save_button,stack.get_child_count()-2)
+		save_button.pressed.connect(func():world.get_parent().save_menu.open_panel(true))
+		var save_exit:=Button.new();save_exit.text="Save & return to title";save_exit.custom_minimum_size.y=40;stack.add_child(save_exit);stack.move_child(save_exit,stack.get_child_count()-2)
+		save_exit.pressed.connect(world.get_parent().save_and_leave)
+		exit_button.text="Leave without saving (click twice)"
+		for connection in exit_button.pressed.get_connections():exit_button.pressed.disconnect(connection.callable)
+		exit_button.pressed.connect(func():
+			if not exit_button.has_meta("confirmed"):exit_button.set_meta("confirmed",true);exit_button.text="Confirm leave WITHOUT saving";return
+			world.return_to_menu.emit("Left without a new save."))
 	var note:=Label.new();note.text="The crew keeps playing while this menu is open.";note.add_theme_font_size_override("font_size",13);stack.add_child(note)
 	menu.hide()
 	_build_work_panels()
@@ -141,11 +156,12 @@ func _process(delta:float)->void:
 	damage.color.a=move_toward(damage.color.a,0,delta*0.8)
 	if not is_instance_valid(world):return
 	menu_scrim.visible=world.menu_open
+	menu_scrim.color.a=.08 if world.castle and world.castle.menu.panel.visible else .6
 	var p:FortPlayer=world.local_player()
 	phase.text="%s %d  /  %02d:%02d"%["NIGHT" if world.is_night else "DAY",world.wave if world.is_night else world.wave+1,maxi(0,int(world.phase_time))/60,maxi(0,int(world.phase_time))%60]
 	hearth.value=world.fort_health/world.fort_max_health*100
-	economy.text="HEARTH T%d   %d / %d\nSHARED   %d wood   %d stone   %d crystal"%[world.hearth_level,world.fort_health,world.fort_max_health,world.shared.wood,world.shared.stone,world.shared.crystal]
-	if world.hearth_level>1:economy.text+="\n%d iron / %d aether"%[world.shared.get("iron",0),world.shared.get("aether",0)]
+	economy.text="HEARTH T%d   %d / %d · SHARED"%[world.hearth_level,world.fort_health,world.fort_max_health]
+	for kind in GameData.RESOURCES:stock_icons.get_node(kind+"/HBoxContainer/Text").text=str(world.shared.get(kind,0))
 	if p:
 		weapon_label.text="[C] %s   /   %s"%[GameData.weapon_title(p),"RMB aim / LMB fire" if GameData.ranged(p.weapon) else "Hold click to attack"]
 		weapon_label.visible=not world.menu_open

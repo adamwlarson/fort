@@ -140,7 +140,12 @@ func event_visual()->void:
 func interact(id:int)->bool:
 	if event_name!="Supply Caravan" or event_claimed or world.players[id].position.distance_to(CACHE_POS)>3:return false
 	event_claimed=true;event_revision+=1
-	for resource in GameData.RESOURCES:world.shared[resource]+=12 if resource in ["wood","stone"] else (4 if resource=="crystal" or world.hearth_level>=3 else 0)
+	var received:Dictionary={}
+	for resource in GameData.RESOURCES:
+		var amount:=12 if resource in ["wood","stone"] else (4 if resource=="crystal" or world.hearth_level>=3 else 0)
+		world.shared[resource]+=amount
+		if amount>0:received[resource]=amount
+	world.broadcast("recv_loot",["Supply Caravan",received,[],{}])
 	world.broadcast("recv_full",[world.full_state()]);world.broadcast("recv_notice",["Caravan supplies delivered to the shared stockpile."]);event_visual();return true
 func gather_multiplier()->int:return 2 if event_name=="Bountiful Dawn" and not world.is_night else 1
 func tick(delta:float)->void:

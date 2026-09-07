@@ -67,7 +67,7 @@ def bake_enemy_palette(scene):
             polygon.material_index=0
         obj.data.materials.clear();obj.data.materials.append(material)
 
-def finish_asset(key, source_scene=None, authored_clips=None):
+def finish_asset(key, source_scene=None, authored_clips=None, preserve_animation=False):
     old_scene = bpy.context.window.scene
     scene = source_scene or bpy.data.scenes.new("Fort_" + key)
     bpy.context.window.scene = scene
@@ -89,7 +89,8 @@ def finish_asset(key, source_scene=None, authored_clips=None):
         bmesh.ops.remove_doubles(mesh, verts=list(mesh.verts), dist=0.00001)
         mesh.to_mesh(obj.data)
         mesh.free()
-        bevel = obj.modifiers.new("Hand softened edges", 'BEVEL')
+        bevel = next((m for m in obj.modifiers if m.type == 'BEVEL'), None) if preserve_animation else None
+        if bevel is None: bevel = obj.modifiers.new("Hand softened edges", 'BEVEL')
         bevel.width = float(obj.get("fort_bevel", 0.025 if key not in ("bolt", "jetpack") else 0.01))
         bevel.segments = 2
         bevel.limit_method = 'ANGLE'
@@ -106,7 +107,7 @@ def finish_asset(key, source_scene=None, authored_clips=None):
                         node.inputs["Emission Color"].default_value = node.inputs["Base Color"].default_value
                         node.inputs["Emission Strength"].default_value = 0.3
     clips = authored_clips or []
-    if key in ("raider", "brute", "sapper", "emberrunner", "chieftain", "sapper7", "cinderlobber", "shieldguard", "hexer", "colossus", "prowler", "pet_badger", "pet_mole", "pet_sprite"):
+    if not preserve_animation and key in ("raider", "brute", "sapper", "emberrunner", "chieftain", "sapper7", "cinderlobber", "shieldguard", "hexer", "colossus", "prowler", "pet_badger", "pet_mole", "pet_sprite"):
         clips = ["Idle", "Walk", "Attack", "Hit", "Death"]
         movers = [o for o in objects if o.name.split(".")[0] in ("ArmL","ArmR","LegL","LegR")] + [asset_root]
         for obj in movers:

@@ -28,7 +28,7 @@ func work(player_id:int,id:int)->void:
 	if not world.defenses.has(id):return
 	var d:Dictionary=world.defenses[id];var p:FortPlayer=world.players[player_id]
 	if not pending(d) or p.health<=0 or p.mounted_ballista>=0 or p.position.distance_to(d.node.position)>3.8 or not world._allow(player_id,"construction",.65):return
-	d.work=minf(d.work_total,d.work+(2.0 if p.class_id==2 else 1.0)*FortBalance.work_multiplier(world.players.size()));d.work_revision+=1
+	d.work=minf(d.work_total,d.work+(2.0 if p.class_id==2 else 1.0)*FortBalance.work_multiplier(world.players.size())*world.castle.work_multiplier());d.work_revision+=1
 	visual(d)
 	world.broadcast("recv_action",[player_id,"construct",d.node.position])
 	world.broadcast("recv_fx",[d.node.position+Vector3.UP*.65,Color("#dcc296"),"","construction"])

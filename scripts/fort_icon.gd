@@ -89,11 +89,23 @@ func _draw() -> void:
 				draw_line(Vector2(15,y),Vector2(46,y-7),tint,13,true)
 				draw_circle(Vector2(15,y),7,Color("#e0bf83"))
 				draw_arc(Vector2(15,y),4,0,TAU,16,dark,1.5,true)
-		"stone","iron":
+		"iron":
+			draw_colored_polygon(PackedVector2Array([Vector2(8,44),Vector2(17,23),Vector2(46,17),Vector2(57,37),Vector2(47,49),Vector2(18,54)]),tint)
+			draw_polyline(PackedVector2Array([Vector2(17,23),Vector2(25,39),Vector2(57,37)]),Color("#f3d6ae"),3,true)
+			draw_line(Vector2(25,39),Vector2(18,54),dark,3,true)
+		"aether":
+			draw_circle(Vector2(32,32),14,tint)
+			draw_arc(Vector2(32,32),24,-.4,4.6,32,tint,3,true)
+			draw_circle(Vector2(54,20),5,Color("#eee1ff"))
+			draw_line(Vector2(32,8),Vector2(32,56),Color("#e8d7ff"),2,true)
+		"Ironheart":
+			draw_colored_polygon(PackedVector2Array([Vector2(20,9),Vector2(27,16),Vector2(37,16),Vector2(44,9),Vector2(58,22),Vector2(48,32),Vector2(46,56),Vector2(18,56),Vector2(16,32),Vector2(6,22)]),tint)
+			draw_line(Vector2(32,21),Vector2(32,50),dark,4,true)
+		"stone":
 			draw_colored_polygon(PackedVector2Array([Vector2(7,47),Vector2(17,18),Vector2(37,10),Vector2(55,31),Vector2(49,51)]),tint)
 			draw_polyline(PackedVector2Array([Vector2(17,18),Vector2(34,31),Vector2(55,31)]),dark,2,true)
 			draw_line(Vector2(34,31),Vector2(28,50),dark,2,true)
-		"crystal","aether":
+		"crystal":
 			draw_colored_polygon(PackedVector2Array([Vector2(32,5),Vector2(47,25),Vector2(43,47),Vector2(32,58),Vector2(20,47),Vector2(17,25)]),tint)
 			draw_polyline(PackedVector2Array([Vector2(32,5),Vector2(29,29),Vector2(32,58)]),Color("#deead8"),2,true)
 		_:

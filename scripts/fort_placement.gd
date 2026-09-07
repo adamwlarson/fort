@@ -16,6 +16,7 @@ static func snap(world:FortWorld,kind:String,pos:Vector3,yaw:float)->Vector3:
 				if candidate.distance_to(pos)<distance:best=candidate;distance=candidate.distance_to(pos)
 	return best
 static func wall_overlap(a:Vector3,ay:float,ak:String,b:Vector3,by:float,bk:String)->bool:
+	if absf(a.y-b.y)>2.8:return false
 	# Separating-axis test allows touching ends/corners but rejects crossing walls.
 	var aa:=Vector2(cos(ay),-sin(ay));var ab:=Vector2(-aa.y,aa.x)
 	var ba:=Vector2(cos(by),-sin(by));var bb:=Vector2(-ba.y,ba.x)

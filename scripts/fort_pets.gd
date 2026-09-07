@@ -93,7 +93,8 @@ func tick(delta:float)->void:
 						var amount:=mini(int(r.amount),mini(int(spec.capacity)-int(p.cargo),2*world.expedition.gather_multiplier()))
 						p.cargo_kind=r.kind;p.cargo+=amount;r.respawn=65
 						world.broadcast("recv_resource",[p.target,int(r.amount)-amount,true])
-						world.broadcast("recv_fx",[goal+Vector3.UP,GameData.resource_color(r.kind),"+%d / PET"%amount,"hit"])
+						world.broadcast("recv_fx",[goal+Vector3.UP,GameData.resource_color(r.kind),"","hit"])
+						world.broadcast("recv_gain",[-1,goal+Vector3.UP,r.kind,amount,"PET CARGO"])
 						if p.cargo>=int(spec.capacity) or r.amount<=0:p.mode="RETURN"
 					continue
 			if p.mode=="RETURN" and body.position.distance_to(goal)<2.4:

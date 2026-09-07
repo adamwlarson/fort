@@ -4,15 +4,32 @@ var world:FortWorld
 var reticle_visible:=false
 var reticle_position:=Vector2.ZERO
 var bar_count:=0
+var enemy_bar_count:=0
 func _ready()->void:
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 func _process(_delta:float)->void:queue_redraw()
 func _draw()->void:
-	reticle_visible=false;bar_count=0
+	reticle_visible=false;bar_count=0;enemy_bar_count=0
 	var p:=world.local_player()
 	if not p or world.menu_open or p.health<=0 or world.ended:return
 	var camera:=p.camera
+	for e in world.enemies.values():
+		if e.hp<=0 or e.hp>=e.max_hp:continue
+		var boss:bool=e.kind=="Colossus" or e.kind in FortEncounters.DRAGONS
+		if p.position.distance_to(e.node.position)>(90 if boss else 40):continue
+		var point:Vector3=e.label.global_position+Vector3.UP*.18
+		if camera.is_position_behind(point):continue
+		var screen:=camera.unproject_position(point)
+		if not get_viewport_rect().has_point(screen):continue
+		if not world.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(camera.global_position,point,1)).is_empty():continue
+		var width:=80.0 if boss else 44.0
+		var pos:=screen-Vector2(width/2,2)
+		draw_rect(Rect2(pos-Vector2(1,1),Vector2(width+2,6)),Color(.04,.025,.025,.9))
+		draw_rect(Rect2(pos,Vector2(width,4)),Color("#51332e"))
+		draw_rect(Rect2(pos,Vector2(width*clampf(e.hp/e.max_hp,0,1),4)),Color("#e77c65"))
+		enemy_bar_count+=1
+		if enemy_bar_count>=80:break
 	for d in world.defenses.values():
 		var distance:float=p.position.distance_to(d.node.position)
 		if distance>22 or (d.hp>=d.max_hp and distance>6 and not FortConstruction.pending(d)):continue
