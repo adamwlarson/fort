@@ -28,7 +28,7 @@ static func player_state(p:FortPlayer)->Dictionary:
 	for k in ["health","carrying","travel_mode","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel","weapon","owned_weapons","loadout_revision","backpack_level","relics","armor","progression_revision","weapon_levels","weapon_revision"]:data[k]=clean(p.get(k))
 	return data
 static func capture(w:FortWorld)->Dictionary:
-	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"17","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
+	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"19","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
 	data.world.players={};data.world.enemies={};data.world.defenses={}
 	for p in w.players.values():data.characters[p.class_id]=player_state(p)
 	for id in w.enemies:
@@ -96,6 +96,7 @@ static func validate(data:Variant)->String:
 		if not r.funded is Dictionary or not r.walls is Array or not r.sign is Vector3:return "Invalid castle project ledger"
 		if r.task=="remodel" and not FortCastle.TYPES.has(r.get("remodel_kind","")):return "Invalid room remodeling project"
 	if not strings(s.castle.research):return "Invalid research"
+	if not strings(s.castle.get("cleared_scenery",[])) or s.castle.get("cleared_scenery",[]).size()>4096:return "Invalid cleared scenery"
 	if not s.pets.get("list") is Array or s.pets.list.size()>3 or not number(s.pets.get("revision")):return "Invalid pets"
 	for p in s.pets.list:
 		if not p is Dictionary or not p.has_all(["id","kind","resource","cargo_kind","cargo","mode","revision","pos","yaw"]):return "Invalid pet record"
@@ -161,7 +162,15 @@ static func write_slot(slot:String,w:FortWorld)->String:
 static func restore(w:FortWorld,data:Dictionary)->void:
 	var s:Dictionary=data.world
 	w.clock=float(data.clock);w.saved_characters=data.characters.duplicate(true)
-	w.expedition.receive(s.expedition);w.set_hearth_level(s.hearth_level)
+	w.expedition.receive(s.expedition)
+	# Never bury buildings from a pre-terrain checkpoint. This compatibility flag
+	# is saved and sent to peers, so everyone reconstructs the same world.
+	if not s.expedition.has("terrain_enabled"):
+		for d in data.defenses.values():
+			if FortTerrain.reserved(d.position,w.expedition.seed_value,5):w.expedition.terrain_enabled=false
+		for r in s.castle.rooms.values():
+			if FortTerrain.reserved(FortCastle.position(r),w.expedition.seed_value,15):w.expedition.terrain_enabled=false
+	w.set_hearth_level(s.hearth_level)
 	w.progression.receive(s.progression);w.encounters.unlock(w.hearth_level);w.encounters.receive(s.encounters)
 	w.shared=s.shared.duplicate();w.workshop_level=s.level;w.lifetime_crystal=s.crystals;w.fort_health=s.fort
 	w.is_night=s.night;w.wave=s.wave;w.phase_time=s.time;w.raid_spawned=s.raid_spawned;w.solo_rescue_wave=s.solo_rescue_wave
@@ -201,6 +210,8 @@ static func restore_player(w:FortWorld,p:FortPlayer)->void:
 	for k in ["health","carrying","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel"]:
 		if saved.has(k):p.set(k,clean(saved[k]))
 	p.set_travel_mode(int(saved.get("travel_mode",0)));p.position=saved.position;p.target_position=p.position
+	if w.hearth_level>=2 and w.expedition.terrain_enabled and FortTerrain.reserved(p.position,w.expedition.seed_value):
+		p.position=FortTerrain.safe_position(p.position,w.expedition.seed_value);p.target_position=p.position
 	p.visual_root.rotation.y=saved.yaw;p.target_yaw=saved.yaw;p.invulnerable=3.0
 	for d in w.defenses.values():
 		if d.get("owner_class",-1)==p.class_id:d.work_owner=p.peer_id

@@ -7,9 +7,20 @@ var elapsed := 0.0
 func _ready() -> void:
 	name = "Campfire"
 	var logs := FortArt.asset("campfire_logs")
-	if logs: add_child(logs)
+	var bed_offset:=0.0
+	if logs:
+		# The Blender asset was authored on the old .435-high hearth pedestal.
+		# Ground the actual coal bed on the current castle floor, not its origin.
+		var bottom:=INF
+		for point in FortSolids.vertices(logs):bottom=minf(bottom,point.y)
+		if is_finite(bottom):bed_offset=-bottom
+		logs.position.y=bed_offset;add_child(logs)
+	for i in 12:
+		var angle:=i*TAU/12
+		var stone:=Visuals.sphere(.23,FortArt.STONE.lightened(.04*(i%3)),Vector3(cos(angle)*1.15,.14,sin(angle)*1.15))
+		stone.scale=Vector3(1.2,.65,1);add_child(stone)
 	var flames := FortParticles.emitter("Flames", 34, 0.95, FortParticles.quad(Vector2(0.7,1.2), true))
-	flames.position.y = 0.85
+	flames.position.y = 0.85+bed_offset
 	flames.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	flames.emission_sphere_radius = 0.4
 	flames.spread = 12
@@ -21,7 +32,7 @@ func _ready() -> void:
 	flames.scale_amount_max = 1.15
 	flames.scale_amount_curve = FortParticles.curve([0.7,1.0,0.1])
 	var embers := FortParticles.emitter("Embers", 22, 2.3, FortParticles.quad(Vector2(0.055,0.055)))
-	embers.position.y = 0.95
+	embers.position.y = 0.95+bed_offset
 	embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	embers.emission_sphere_radius = 0.5
 	embers.spread = 25
@@ -32,7 +43,7 @@ func _ready() -> void:
 	embers.tangential_accel_max = 0.35
 	embers.color_ramp = FortParticles.ramp([Color("#ffe399"),Color("#f99542"),Color(0.8,0.18,0.03,0)])
 	var smoke := FortParticles.emitter("Smoke", 14, 3.5, FortParticles.quad(Vector2(1.1,1.1)))
-	smoke.position.y = 1.55
+	smoke.position.y = 1.55+bed_offset
 	smoke.spread = 15
 	smoke.initial_velocity_min = 0.45
 	smoke.initial_velocity_max = 0.7

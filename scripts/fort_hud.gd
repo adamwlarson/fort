@@ -33,6 +33,20 @@ var weapon_label:Label
 var hearth_menu:FortHearth
 var upgrade_menu:FortUpgradeMenu
 var combat_overlay:FortCombatOverlay
+var fps_toggle:CheckButton
+var fps_counter:Label
+var fps_refresh:=0.0
+static var test_settings_file:=""
+
+static func fps_settings_path()->String:
+	if "--fort-test" in OS.get_cmdline_user_args():return test_settings_file if test_settings_file!="" else "res://build/fps_settings_%d.cfg"%OS.get_process_id()
+	return "user://display_settings.cfg"
+
+func set_fps_display(enabled:bool)->void:
+	fps_counter.visible=enabled;fps_refresh=0
+	var config:=ConfigFile.new();config.load(fps_settings_path());config.set_value("display","show_fps",enabled)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(fps_settings_path()).get_base_dir())
+	if config.save(fps_settings_path())!=OK:world.show_toast("FPS display changed, but the preference could not be saved.")
 
 func _ready() -> void:
 	world=get_parent()
@@ -82,6 +96,7 @@ func _ready() -> void:
 	var sensitivity:=Label.new();sensitivity.text="Mouse sensitivity";stack.add_child(sensitivity)
 	var slider:=HSlider.new();slider.min_value=0.001;slider.max_value=0.005;slider.step=0.0001;slider.value=world.mouse_sensitivity;slider.value_changed.connect(func(value):world.mouse_sensitivity=value);stack.add_child(slider)
 	var sound:=CheckButton.new();sound.text="Sound effects";sound.button_pressed=true;sound.toggled.connect(func(value):world.sound.enabled=value);stack.add_child(sound)
+	fps_toggle=CheckButton.new();fps_toggle.text="Show FPS counter";fps_toggle.tooltip_text="Display this computer's frames per second. Saved locally.";stack.add_child(fps_toggle)
 	var exit_button:=Button.new();exit_button.text="Leave fort";exit_button.custom_minimum_size.y=44;exit_button.pressed.connect(func():world.return_to_menu.emit("Returned to title."));stack.add_child(exit_button)
 	if multiplayer.is_server():
 		var save_button:=Button.new();save_button.text="Save expedition…";save_button.custom_minimum_size.y=40;stack.add_child(save_button);stack.move_child(save_button,stack.get_child_count()-2)
@@ -102,6 +117,10 @@ func _ready() -> void:
 	combat_overlay=FortCombatOverlay.new();combat_overlay.world=world;add_child(combat_overlay)
 	weapon_label=label(null,Vector2(390,691),13,FortInterface.GOLD)
 	weapon_label.size=Vector2(500,22);weapon_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	fps_counter=label(null,Vector2(904,22),13,FortInterface.PAPER);fps_counter.size=Vector2(70,22);fps_counter.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var config:=ConfigFile.new();config.load(fps_settings_path());var preference:Variant=config.get_value("display","show_fps",false)
+	fps_toggle.button_pressed=preference is bool and preference;fps_counter.visible=fps_toggle.button_pressed
+	fps_toggle.toggled.connect(set_fps_display)
 
 func icon(parent: Control, kind: String, pos: Vector2, extent := 48.0) -> void:
 	var glyph := FortIcon.new()
@@ -153,6 +172,9 @@ func bar(parent:Node,pos:Vector2,size:Vector2,color:Color)->ProgressBar:
 	return item
 
 func _process(delta:float)->void:
+	if fps_counter.visible:
+		fps_refresh-=delta
+		if fps_refresh<=0:fps_counter.text="%d FPS"%Engine.get_frames_per_second();fps_refresh=.25
 	damage.color.a=move_toward(damage.color.a,0,delta*0.8)
 	if not is_instance_valid(world):return
 	menu_scrim.visible=world.menu_open

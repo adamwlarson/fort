@@ -78,7 +78,9 @@ func run()->void:
 	var roost:Dictionary=w.encounters.sites[305];roost.phase="sleeping";w.encounters.activate(305)
 	var dragon_id:int=w.encounters.members(305)[0];var dragon:Dictionary=w.enemies[dragon_id]
 	check(dragon.kind=="Emberdrake" and dragon.max_hp==720,"first dragon has a solo-scaled health pool")
-	p.position=dragon.node.position+Vector3(0,0,10);p.health=p.max_health
+	# Run the breath fixture in the clear apron, not through the now-solid hoard.
+	dragon.node.position=roost.spec.pos+Vector3(0,0,-10)
+	p.position=dragon.node.position+Vector3(-10,0,0);p.health=p.max_health
 	await wait(.1)
 	w.encounters.simulate(dragon,.05)
 	check(float(dragon.get("windup",0))>w.clock and p.health==p.max_health,"dragon telegraphs before applying damage")

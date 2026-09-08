@@ -18,6 +18,7 @@ func run()->void:
 	w.expedition.configure(909);w.set_hearth_level(8)
 	var edge:=0;var amber:=0;var caps:=0;var original:=0
 	for id in w.resource_nodes:
+		if id>=10000 and not FortForestry.is_tree(w.resource_nodes[id]):continue # Ridge minerals are not canopy.
 		if id<10000:original+=1
 		elif id<20000:edge+=1
 		else:

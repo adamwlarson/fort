@@ -46,6 +46,7 @@ static func layout(seed_value: int) -> Array:
 	return result
 
 static func reserved(pos: Vector3, tier: int, seed_value: int) -> bool:
+	if tier==2 and FortTerrain.reserved(pos,seed_value,3):return true
 	for spec in layout(seed_value):
 		if spec.tier==tier and pos.distance_to(spec.pos)<spec.radius+2: return true
 	return false

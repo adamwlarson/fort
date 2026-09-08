@@ -508,7 +508,7 @@ func server_action(id:int,kind:String,data:Dictionary) -> void:
 	match kind:
 		"castle_plan":
 			var target:Dictionary=data.get("target",{})
-			if target.has_all(["x","z","floor"]):castle.plan(id,str(data.get("from","")),{"x":int(target.x),"z":int(target.z),"floor":int(target.floor)},str(data.get("kind","")),int(data.get("revision",-1)))
+			if target.has_all(["x","z","floor"]):castle.plan(id,str(data.get("from","")),{"x":int(target.x),"z":int(target.z),"floor":int(target.floor)},str(data.get("kind","")),int(data.get("revision",-1)),str(data.get("clearance_token","")))
 		"castle_fund":castle.fund(id,str(data.get("key","")),bool(data.get("shared",false)),int(data.get("revision",-1)))
 		"castle_task":castle.begin_task(id,str(data.get("key","")),str(data.get("task","")),int(data.get("revision",-1)))
 		"castle_cancel":castle.cancel(id,str(data.get("key","")),int(data.get("revision",-1)))
@@ -736,8 +736,7 @@ func recv_resource(id:int,amount:int,hit:bool)->void:
 		var leaf_color:=Color("#cf963d") if r.get("species","")=="Amberwood" else (Color("#bfa6d2") if r.get("tree",false) and r.kind!="wood" else Color.TRANSPARENT)
 		FortParticles.tree_destroyed(self,node.global_position,id%3==2,leaf_color)
 		tree_burst_count+=1
-	var trunk:StaticBody3D=node.get_node_or_null("TreeTrunk")
-	if trunk:trunk.collision_layer=1 if amount>0 else 0
+	FortSolids.harvest_collision(node,amount>0)
 	var anim:AnimationPlayer=r.animation
 	if amount>0:
 		node.visible=true
@@ -1071,6 +1070,11 @@ func _spawn_enemy(requested_kind:="",requested_angle:=INF)->bool:
 	if wave>=4 and id%13==0:kind="Bombwing";pos.y=5.8
 	if not requested_kind.is_empty():
 		kind=requested_kind;pos.y=5.8 if kind=="Bombwing" else (3.8 if kind=="Ashwing" else 0.0)
+	if hearth_level>=2 and expedition.terrain_enabled and FortTerrain.reserved(pos,expedition.seed_value):
+		# Keep the raid spawn out of the terrain volume and the narrow cave walls.
+		for attempt in 32:
+			if not FortTerrain.reserved(pos,expedition.seed_value,4):break
+			pos=pos.rotated(Vector3.UP,.07)
 	var hp:float=(135+wave*10 if kind=="Brute" else (40+wave*5 if kind=="Ashwing" else 55+wave*6))*(1.0+(hearth_level-1)*0.05)
 	if kind=="Shieldguard":hp*=2.0
 	if kind=="Hexer":hp*=1.3
@@ -1319,7 +1323,8 @@ func _steer_around_scenery(body:CharacterBody3D,direction:Vector3,id:int,enemy:D
 	var start:=body.position+Vector3.UP*0.75
 	var query:=PhysicsRayQueryParameters3D.create(start,start+direction*1.65,1)
 	var state:=get_world_3d().direct_space_state
-	if state.intersect_ray(query).is_empty():enemy.clear_until=clock+0.15;return direction
+	var hit:=state.intersect_ray(query)
+	if hit.is_empty() or hit.normal.dot(Vector3.UP)>cos(body.floor_max_angle):enemy.clear_until=clock+0.15;return direction
 	var side:=1.0 if id%2==0 else -1.0
 	for turn in [0.85,1.35,-0.85,-1.35,1.8]:
 		var candidate:=direction.rotated(Vector3.UP,turn*side)

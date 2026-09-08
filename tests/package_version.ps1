@@ -25,6 +25,8 @@ if ($Version -ge 14) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_N
 if ($Version -ge 15) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_14.md') -Destination $folderPath }
 if ($Version -ge 16) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_15.md') -Destination $folderPath }
 if ($Version -ge 17) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_16.md') -Destination $folderPath }
+if ($Version -ge 18) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_17.md') -Destination $folderPath }
+if ($Version -ge 19) { Copy-Item -LiteralPath (Join-Path $projectPath 'RELEASE_NOTES_18.md') -Destination $folderPath }
 Compress-Archive -LiteralPath $folderPath -DestinationPath $archivePath -CompressionLevel Optimal
 $sourceHash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash
 if ((Get-FileHash -LiteralPath (Join-Path $folderPath 'Fort.exe') -Algorithm SHA256).Hash -ne $sourceHash) {

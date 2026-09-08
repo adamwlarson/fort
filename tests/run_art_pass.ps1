@@ -26,12 +26,18 @@ function Run-GodotCheck([string]$Name, [string[]]$Arguments, [int]$Timeout = 600
 }
 
 Run-GodotCheck 'art_import' @('--headless', '--editor', '--quit')
+Run-GodotCheck 'escape19_test' @('--headless', '--script', 'res://tests/escape19_test.gd', '--', '--fort-test')
+Run-GodotCheck 'terrain19_test' @('--headless', '--script', 'res://tests/terrain19_test.gd', '--', '--fort-test')
+Run-GodotCheck 'clearance18_test' @('--headless', '--script', 'res://tests/clearance18_test.gd', '--', '--fort-test')
 Run-GodotCheck 'shared_castle17_test' @('--headless', '--script', 'res://tests/shared_castle17_test.gd', '--', '--fort-test')
 Run-GodotCheck 'readability16_test' @('--headless', '--script', 'res://tests/readability16_test.gd', '--', '--fort-test')
 foreach ($test in @('asset_test', 'gameplay_test', 'raid_test', 'world_test', 'particles_test', 'interface_test', 'weapons_test', 'fort4_test', 'fort5_test', 'fort6_test', 'fort7_test', 'fort8_test', 'fort9_test', 'arsenal9_test', 'internet10_test', 'wilderness11_test', 'foliage12_test', 'castle13_test', 'cast13_test', 'save14_test', 'save14_edge_test', 'remodel15_test')) {
     Run-GodotCheck $test @('--headless', '--script', "res://tests/$test.gd", '--', '--fort-test')
 }
 if ($Render) {
+	Run-GodotCheck 'terrain19_render' @('--script', 'res://tests/terrain19_test.gd', '--', '--fort-test')
+	Run-GodotCheck 'escape19_render' @('--script', 'res://tests/escape19_test.gd', '--', '--fort-test')
+	Run-GodotCheck 'clearance18_render' @('--script', 'res://tests/clearance18_test.gd', '--', '--fort-test')
 	Run-GodotCheck 'readability16_render' @('--script', 'res://tests/readability16_test.gd', '--', '--fort-test')
     foreach ($test in @('art_gallery', 'visual_review', 'particles_review', 'interface_test', 'weapons_test', 'fort4_test', 'fort5_test', 'fort6_test', 'fort7_test', 'fort8_test', 'fort9_test', 'internet10_test', 'wilderness11_test', 'foliage12_test', 'castle13_test', 'cast13_test', 'save14_test', 'save14_edge_test', 'remodel15_test', 'swarm_test')) {
         Run-GodotCheck $test @('--script', "res://tests/$test.gd", '--', '--fort-test')
@@ -83,6 +89,9 @@ if ($Network) {
 	if ($Export) { & (Join-Path $PSScriptRoot 'run_network.ps1') -Packaged -Driver readability_network_driver }
 	else { & (Join-Path $PSScriptRoot 'run_network.ps1') -Driver readability_network_driver }
 	if ($LASTEXITCODE -ne 0) { throw 'Four-player readability test failed.' }
+	if ($Export) { & (Join-Path $PSScriptRoot 'run_network.ps1') -Packaged -Driver clearance_network_driver }
+	else { & (Join-Path $PSScriptRoot 'run_network.ps1') -Driver clearance_network_driver }
+	if ($LASTEXITCODE -ne 0) { throw 'Four-player castle clearance test failed.' }
 }
 if ($Export) {
     Compress-Archive -LiteralPath (Join-Path $projectPath 'build/Fort.exe'), (Join-Path $projectPath 'README.md') -DestinationPath (Join-Path $projectPath 'build/Fort-Windows.zip') -Force

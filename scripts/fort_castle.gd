@@ -21,6 +21,7 @@ var visuals:Dictionary={}
 var menu:FortCastleMenu
 var research:PackedStringArray=[]
 var next_tick:=0.0
+var cleared_scenery:Dictionary={}
 
 func _init(w:FortWorld)->void:
 	world=w;root=Node3D.new();root.name="CastleWings";world.add_child(root)
@@ -28,10 +29,13 @@ func _init(w:FortWorld)->void:
 	menu=FortCastleMenu.new();menu.castle=self;world.add_child(menu)
 static func key(x:int,z:int,floor:int)->String:return "%d:%d:%d"%[x,z,floor]
 static func position(r:Dictionary)->Vector3:return Vector3(int(r.x)*CELL,BASE+int(r.floor)*HEIGHT,int(r.z)*CELL)
-func state()->Dictionary:return {"revision":revision,"rooms":rooms.duplicate(true),"research":research.duplicate()}
+func state()->Dictionary:return {"revision":revision,"rooms":rooms.duplicate(true),"research":research.duplicate(),"cleared_scenery":cleared_scenery.keys()}
 func receive(data:Dictionary)->void:
 	if data.is_empty() or int(data.revision)<revision:return
 	if int(data.revision)==revision and not visuals.is_empty():return
+	cleared_scenery.clear()
+	for key in data.get("cleared_scenery",[]):cleared_scenery[key]=true
+	FortCastleClearance.apply_scenery(self)
 	revision=int(data.revision);rooms=data.rooms.duplicate(true);research=PackedStringArray(data.research);rebuild()
 	refresh_packs()
 func changed()->void:
@@ -76,25 +80,31 @@ func plan_reason(from:String,target:Dictionary,kind:String)->String:
 	var pos:=position(target)
 	if Vector2(pos.x,pos.z).length()+CELL*.71>world.build_radius():return "Upgrade hearth to expand the castle boundary"
 	if target.floor==0:
-		for r in world.resource_nodes.values():
-			if r.amount>0 and absf(r.node.position.x-pos.x)<10.8 and absf(r.node.position.z-pos.z)<10.8:return "Chop / mine the resources inside this wing's footprint first"
 		for obstacle in world.scenery_keepouts:
-			var edge:=Vector2(maxf(0,absf(obstacle.pos.x-pos.x)-10),maxf(0,absf(obstacle.pos.z-pos.z)-10))
-			if edge.length()<float(obstacle.radius):return "This wing overlaps scenery or an encounter. Choose another connection"
-	for d in world.defenses.values():
-		if absf(d.node.position.y-pos.y)<3 and absf(d.node.position.x-pos.x)<10 and absf(d.node.position.z-pos.z)<10:return "Move or salvage existing defenses in the new footprint first"
+			if not obstacle.get("clearable",false) and FortCastleClearance.scenery_overlap(target,obstacle):return "This wing overlaps a protected landmark or encounter. Choose another connection"
+	var clearance:=FortCastleClearance.inspect(self,target)
+	if not clearance.defenses.is_empty():
+		if world.is_night:return "Expand over defenses during daylight so they can be salvaged safely"
+		for id in clearance.defenses:
+			if world._nearest_enemy(world.defenses[id].node.position,12)>=0:return "Clear enemies near the defenses before expanding over them"
 	return ""
 func authorized(id:int,k:String)->bool:
 	return world.players.has(id) and rooms.has(k) and world.players[id].health>0 and world.players[id].mounted_ballista<0 and world.players[id].position.distance_to(rooms[k].sign)<4.0
-func plan(id:int,from:String,target:Dictionary,kind:String,expected:int)->void:
+func plan(id:int,from:String,target:Dictionary,kind:String,expected:int,clearance_token:="")->void:
 	if expected!=revision or not authorized(id,from) or not target.has_all(["x","z","floor"]):return
 	var reason:=plan_reason(from,target,kind)
 	if not reason.is_empty():world.personal(id,reason);return
+	var clearance:=FortCastleClearance.inspect(self,target)
+	if not clearance.defenses.is_empty() and clearance_token!=clearance.token:
+		world.personal(id,"Confirm the expansion's defense removal and refund in K. Costs may have changed.");return
 	var r:=target.duplicate();var pos:=position(r);var parent_pos:=position(rooms[from]);var upper:bool=r.floor>rooms[from].floor
 	r.merge({"kind":kind,"complete":false,"funded":{},"work":0.0,"total":float(TYPES[kind].work),"sign":rooms[from].sign if upper else pos+(parent_pos-pos).normalized()*8,"walls":[],"task":"build","resource":"wood"},true)
 	# An upstairs project uses the landing at the lower stair's foot until finished.
 	if upper:r.sign=parent_pos+Vector3(4 if int(rooms[from].floor)%2==0 else -4,0,-5)
-	rooms[key(r.x,r.z,r.floor)]=r;changed()
+	rooms[key(r.x,r.z,r.floor)]=r
+	FortCastleClearance.apply(self,clearance);changed()
+	world.broadcast("recv_full",[world.full_state()])
+	if not clearance.defenses.is_empty():world.broadcast("recv_notice",["CASTLE CLEARANCE / %d defenses salvaged · %s returned to shared stock"%[clearance.defenses.size(),GameData.supplies_text(clearance.refund,true)]])
 func cost(r:Dictionary)->Dictionary:
 	if r.task=="dismantle":return {}
 	if r.task=="remodel":return TYPES[r.remodel_kind].cost
@@ -220,6 +230,7 @@ func floor_at(pos:Vector3)->float:
 func placement_reason(pos:Vector3,clearance:=0.0)->String:
 	for r in rooms.values():
 		var p:=position(r)
+		if not r.complete and absf(pos.y-p.y)<3 and absf(pos.x-p.x)<10+clearance and absf(pos.z-p.z)<10+clearance:return "Finish or cancel this castle blueprint before placing defenses inside it"
 		if r.task in ["remodel","dismantle"] and FortCastleRemodel.inside(r,pos,clearance):return "Finish or cancel this remodeling project before placing defenses"
 		if pos.distance_to(r.sign)<1.5:return "Keep the castle signpost clear"
 		var stair_x:=6.0 if int(r.floor)%2==0 else -6.0
@@ -233,7 +244,7 @@ func placement_reason(pos:Vector3,clearance:=0.0)->String:
 func blocks_resource(pos:Vector3)->bool:
 	for r in rooms.values():
 		var p:=position(r)
-		if r.floor==0 and absf(pos.x-p.x)<10.7 and absf(pos.z-p.z)<10.7:return true
+		if r.floor==0 and absf(pos.x-p.x)<10.8 and absf(pos.z-p.z)<10.8:return true
 	return false
 func approach(pos:Vector3,goal:Vector3)->Vector3:
 	# Ground attackers must approach low platforms by an exposed stair, not an invisible ledge.

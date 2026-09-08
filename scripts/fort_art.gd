@@ -18,6 +18,7 @@ static func asset(key: String) -> Node3D:
 	if not ResourceLoader.exists(path): return null
 	if not scene_cache.has(path):scene_cache[path]=load(path)
 	var model:Node3D=(scene_cache[path] as PackedScene).instantiate()
+	FortSolids.attach(model,key)
 	if key in ["raider","brute","sapper","ashwing","emberrunner","chieftain","sapper7","cinderlobber","bombwing","shieldguard","prowler","hexer","colossus","razorback","direwolf","stonebear","emberdrake","frostwyrm"] and ProjectSettings.get_setting("rendering/renderer/rendering_method")=="gl_compatibility":
 		_compatibility_palette(model)
 	return model

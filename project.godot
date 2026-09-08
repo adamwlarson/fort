@@ -1,6 +1,6 @@
 [application]
 config/name="Fort"
-config/version="17"
+config/version="19"
 config/description="A four-player cooperative dwarf survival game"
 run/main_scene="res://scenes/main.tscn"
 config/icon="res://icon.svg"
@@ -33,7 +33,7 @@ build_mode={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":66)
 travel={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":84)]}
 cycle_weapon={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":67)]}
 attack={"deadzone":0.2,"events":[Object(InputEventMouseButton,"button_index":1)]}
-cancel={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":27)]}
+cancel={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":4194305)]}
 sprint={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":4194325)]}
 rotate_build={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":81)]}
 ready_night={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":4194309)]}

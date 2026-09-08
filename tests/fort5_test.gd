@@ -130,10 +130,11 @@ func run()->void:
 	p.position=Vector3(0,0,28);p.velocity=Vector3.ZERO;p.camera_pivot.rotation=Vector3(-.22,0,0)
 	await capture("fort5_healthbars")
 	if DisplayServer.get_name()!="headless":check(w.hud.combat_overlay.bar_count>0,"nearby damaged building shows small health bar")
-	w._spawn_defense("Ballista",Vector3(0,0,96),0,false);var ballista:int=w.next_defense_id-1
-	p.position=Vector3(0,0,98);w._mount(1,ballista)
+	# Keep the targeting fixture in the flat gap beyond the new tier-two ridge.
+	w._spawn_defense("Ballista",Vector3(0,0,160),0,false);var ballista:int=w.next_defense_id-1
+	p.position=Vector3(0,0,162);w._mount(1,ballista)
 	p.camera_pivot.rotation=Vector3(-.1,0,0)
-	w.recv_enemy(985,"Ashwing",Vector3(0,4,85),500);await physics_frame
+	w.recv_enemy(985,"Ashwing",Vector3(0,4,149),500);await physics_frame
 	direction=(w.enemies[985].node.position+Vector3.UP*.85-FortAim.origin(w,p)).normalized()
 	w.clock+=2;w._fire_ballista(1,direction)
 	check(w.enemies[985].hp==370,"mounted ballista uses three-dimensional targeting")

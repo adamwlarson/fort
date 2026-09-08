@@ -25,8 +25,8 @@ static func build(world:FortWorld)->void:
 		var cliff:=FortLandscape.place(root,"cliff_chunk",Vector3(143,2,-6+i*8),PI/2,1.3)
 		cliff.scale.y=1.7
 	for pos in [Vector3(104,0,14),Vector3(122,2,27),Vector3(134,4,0)]:
-		FortLandscape.place(root,"quarry_cart",pos,.5,.9)
-		world.scenery_keepouts.append({"pos":pos,"radius":1.8})
+		var cart:=FortLandscape.place(root,"quarry_cart",pos,.5,.9)
+		world.scenery_keepouts.append({"pos":pos,"radius":1.8,"clearable":true,"node":cart})
 	for i in 9:
 		root.add_child(Visuals.box(Vector3(.16,.1,1.9),Color("#6b4e38"),Vector3(95+i*1.4,.06,0)))
 	for z in [-.7,.7]:root.add_child(Visuals.box(Vector3(14,.1,.08),Color("#7f8e91"),Vector3(101,.15,z)))

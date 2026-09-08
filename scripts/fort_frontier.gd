@@ -46,7 +46,7 @@ func _build_ring(level:int)->void:
 	var radius:=112.0 if level==2 else 202.0
 	var grove:=Node3D.new();grove.name="OuterMarchTier%d"%level;add_child(grove)
 	var quarry_ore:=0
-	if level==2:FortRustscar.build(world)
+	if level==2:FortRustscar.build(world);FortTerrain.build(world)
 	# Deterministic IDs and positions ensure live upgrades and late joins agree.
 	for i in 72:
 		var id:=1000+level*100+i
@@ -76,13 +76,14 @@ func _build_ring(level:int)->void:
 			var shape:=CollisionShape3D.new();var cylinder:=CylinderShape3D.new();cylinder.radius=0.24;cylinder.height=1.8
 			shape.shape=cylinder;shape.position.y=0.9;trunk.add_child(shape)
 		world.resource_nodes[id]={"kind":kind,"amount":6 if kind in ["crystal","aether"] else 12,"node":node,"animation":anim,"respawn":0.0}
-		if i%4==0:
+		if i%4==0 and not FortTerrain.reserved(pos,world.expedition.seed_value,5):
 			FortLandscape.place(grove,"moss_rock",pos+Vector3(3,0,2),angle,0.8)
 			FortLandscape.place(grove,"fern",pos+Vector3(-2,0,1),angle,1.5)
 	for i in 4:
 		if level==2 and i==1:continue # Authored quarry replaces the old generic eastern camp.
 		var angle:=i*TAU/4
 		var pos:=Vector3(sin(angle),0,cos(angle))*radius
+		if FortTerrain.reserved(pos,world.expedition.seed_value,30):continue
 		FortLandscape.place(grove,"ruin_arch",pos+Vector3(4,0,4),angle,0.8)
 		FortLandscape.place(grove,"camp_tent",pos+Vector3(-4,0,3),angle,0.85)
 		var zone:String=("RUSTSCAR QUARRY / IRON" if pos.x>10 else "ELDERWOOD / TIMBER") if level==2 else ("STORMGLASS BASIN / AETHER" if pos.z<0 else "FROSTVEIN RIDGE / IRON & CRYSTAL")
@@ -97,6 +98,7 @@ func _build_ring(level:int)->void:
 	for i in 9000:
 		var angle:=rng.randf()*TAU
 		var p:=Vector3(sin(angle),0,cos(angle))*sqrt(rng.randf_range(pow(74 if level==2 else 154,2),pow(152 if level==2 else 240,2)))
+		if FortTerrain.reserved(p,world.expedition.seed_value):continue
 		# Leave broad cardinal travel lanes between the new resource camps.
 		if absf(p.x)<3 or absf(p.z)<3:continue
 		var lush:bool=level==2 and p.x<0

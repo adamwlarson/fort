@@ -99,7 +99,7 @@ static func populate(world:Node3D)->void:
 		if not clear_for_scenery(world,p,1.3):continue
 		var rock:=place(root,"moss_rock",p,rng.randf_range(0,TAU),rng.randf_range(0.65,1.15))
 		FortArt.box_collider(rock,Vector3(1.35,0.82,1.0),Vector3(0,0.4,0))
-		world.scenery_keepouts.append({"pos":p,"radius":1.25})
+		world.scenery_keepouts.append({"pos":p,"radius":1.25,"clearable":true,"node":rock})
 	# Broken ridgelines beyond the playable boundary replace the identical hills.
 	for i in 14:
 		var a:=i*TAU/14
@@ -109,7 +109,7 @@ static func populate(world:Node3D)->void:
 		cliff.scale.y*=rng.randf_range(0.85,1.3)
 	# Edge woods now unlock as real harvest nodes with the second hearth ring.
 	FortFoliage.populate(root,world,12,70,1201,"meadow")
-	make_landmarks(root)
+	make_landmarks(root,world)
 	# Camp dressing fits inside the walls and stays out of the four gateway lanes.
 	var tent:=place(root,"camp_tent",Vector3(-4.6,FortCastle.BASE,4.3),-0.35,0.88)
 	FortArt.box_collider(tent,Vector3(1.9,1.45,1.8),Vector3(0,0.7,0))
@@ -125,7 +125,7 @@ static func place(parent:Node3D,key:String,pos:Vector3,yaw:=0.0,scale_factor:=1.
 	model.scale*=scale_factor
 	return model
 
-static func make_landmarks(parent:Node3D)->void:
+static func make_landmarks(parent:Node3D,world:FortWorld)->void:
 	for i in LANDMARKS.size():
 		var landmark:Dictionary=LANDMARKS[i]
 		var pos:Vector3=landmark.pos
@@ -133,6 +133,7 @@ static func make_landmarks(parent:Node3D)->void:
 		site.name=landmark.name.replace(" ","")
 		site.position=pos
 		parent.add_child(site)
+		world.scenery_keepouts.append({"pos":pos,"radius":10.0,"node":site,"clearable":true})
 		var marker:=place(site,"waystone",Vector3(-3.5,0,0))
 		FortArt.box_collider(marker,Vector3(0.8,1.8,0.8),Vector3(0,0.9,0))
 		var label:=Visuals.label_3d(landmark.name.to_upper(),landmark.color,2.35)
@@ -158,8 +159,9 @@ static func collect_parts(node:Node,pose:Transform3D,parts:Array)->void:
 	if node is MeshInstance3D:parts.append({"mesh":node.mesh,"pose":pose})
 	for child in node.get_children():collect_parts(child,pose,parts)
 
-static func instance_asset(parent:Node3D,key:String,poses:Array[Transform3D])->void:
-	if poses.is_empty():return
+static func instance_asset(parent:Node3D,key:String,poses:Array[Transform3D])->Array[MultiMeshInstance3D]:
+	var batches:Array[MultiMeshInstance3D]=[]
+	if poses.is_empty():return batches
 	if not asset_parts.has(key):
 		var source:=FortArt.asset(key)
 		var collected:Array=[];collect_parts(source,Transform3D.IDENTITY,collected)
@@ -175,6 +177,8 @@ static func instance_asset(parent:Node3D,key:String,poses:Array[Transform3D])->v
 		for i in poses.size():multimesh.set_instance_transform(i,poses[i]*part.pose)
 		batch.multimesh=multimesh
 		parent.add_child(batch)
+		batches.append(batch)
+	return batches
 
 static func make_grass(parent:Node3D,world:Node3D,rng:RandomNumberGenerator)->void:
 	var verts:=PackedVector3Array()

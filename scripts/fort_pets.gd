@@ -86,7 +86,7 @@ func tick(delta:float)->void:
 			if p.mode=="GATHER":
 				if not world.resource_nodes.has(p.target) or world.resource_nodes[p.target].amount<=0:p.mode="SEEK";continue
 				var r:Dictionary=world.resource_nodes[p.target];goal=r.node.position
-				if body.position.distance_to(goal)<2.5 and FortSiege.clear(world,body.position,goal+(body.position-goal).normalized()*.7):
+				if body.position.distance_to(goal)<2.5 and FortSolids.harvest_reachable(world,body.position,r.node):
 					body.velocity=Vector3.ZERO
 					if world.clock>=float(p.work_at):
 						p.work_at=world.clock+1.5

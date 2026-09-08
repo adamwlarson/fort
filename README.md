@@ -4,6 +4,12 @@ A playable Godot co-op survival build for one to four dwarves. Gather by day, re
 
 ## Play
 
+Fort 19 also grounds the hearth fire, fills collision gaps on solid world props, and adds **Hollowback Ridge at hearth level 2**: a lantern-lit walk-through cavern with crystal and a climbable summit with iron. Find its trail sign beyond the original ward; its direction varies by expedition seed. The starting castle remains on flat ground.
+
+Fort 19 fixes the Escape-key binding so the camp/save menu opens correctly. Press Esc → Save expedition as host, or enable Show FPS counter for a small persistent performance display. If a building preview is active, Esc first cancels it; press again to open the menu. See [RELEASE_NOTES_19.md](RELEASE_NOTES_19.md).
+
+Fort 18 automatically clears trees, rocks and loose scenery when you place a castle wing. Overlapping defenses can be removed with an itemized partial refund to shared stock after confirmation. Hold E at the new sign to supply and build. See [RELEASE_NOTES_18.md](RELEASE_NOTES_18.md) for salvage, safety and persistence details.
+
 Fort 17 lets you **hold E at a castle project sign to supply and build directly from shared stock**, with carried materials covering any shortage. Keep holding E to finish the work; the K-menu funding button is optional. See [RELEASE_NOTES_17.md](RELEASE_NOTES_17.md).
 
 Fort 16 makes gathering and rewards easier to read: RTS-style resource badges and shared-stock icons, floating harvest gains, itemized treasure receipts, and small health bars above damaged enemies. Castle signs now explain locked options and the **plan → supply → hold E to build** sequence. See [RELEASE_NOTES_16.md](RELEASE_NOTES_16.md). Fort 14/15 saves remain supported.
@@ -24,7 +30,7 @@ Fort 9 adds eight hearth tiers, five seeded random biomes, endless nights and mi
 
 Run `build/Fort.exe`. It contains the game data; Godot and Blender are not required to play. Alternatively, open `project.godot` in Godot 4.5.2 and press F5.
 
-Everyone must run **Fort 17**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. Solo play starts with one dwarf. Classes are unique: if a requested class is taken, the host assigns a free one. Late joining a running expedition is supported.
+Everyone must run **Fort 19**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. Solo play starts with one dwarf. Classes are unique: if a requested class is taken, the host assigns a free one. Late joining a running expedition is supported.
 
 - Same PC: join `127.0.0.1`.
 - Same LAN: join the host's local IPv4 address.

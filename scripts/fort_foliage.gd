@@ -20,6 +20,7 @@ static func clump_mesh()->ArrayMesh:
 	return blade_mesh
 
 static func clear(_world:FortWorld,p:Vector3,inner:float)->bool:
+	if inner>=20 and _world.expedition and FortTerrain.reserved(p,_world.expedition.seed_value):return false
 	if p.length()<12:return false
 	if inner<20 and FortLandscape.trail_distance(p)<2.1:return false
 	if inner>=20 and (absf(p.x)<3.4 or absf(p.z)<3.4):return false

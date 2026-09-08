@@ -10,6 +10,7 @@ const BIOMES := [
 ]
 var world:FortWorld
 var seed_value:=0
+var terrain_enabled:=true
 var order:Array[int]=[]
 var rng:=RandomNumberGenerator.new()
 var event_name:=""
@@ -28,15 +29,17 @@ func configure(value:int)->void:
 	for i in range(4,0,-1):
 		var j:=rng.randi_range(0,i);var old:=order[i];order[i]=order[j];order[j]=old
 func state()->Dictionary:
-	return {"seed":seed_value,"event":event_name,"revision":event_revision,"time":event_time,"claimed":event_claimed,"boss_night":boss_night,"bosses_defeated":bosses_defeated}
+	return {"seed":seed_value,"terrain_enabled":terrain_enabled,"event":event_name,"revision":event_revision,"time":event_time,"claimed":event_claimed,"boss_night":boss_night,"bosses_defeated":bosses_defeated}
 func receive(data:Dictionary)->void:
 	if data.is_empty():return
+	terrain_enabled=bool(data.get("terrain_enabled",true))
 	if seed_value!=int(data.seed):configure(int(data.seed))
 	if int(data.revision)<event_revision:return
 	event_revision=data.revision;event_name=data.event;event_time=data.time;event_claimed=data.claimed
 	boss_night=data.boss_night;bosses_defeated=data.bosses_defeated;event_visual()
 func biome(level:int)->Dictionary:return BIOMES[order[clampi(level-4,0,4)]]
 func region_name(pos:Vector3)->String:
+	if terrain_enabled and world.hearth_level>=2 and FortTerrain.reserved(pos,seed_value):return "Hollowback Ridge / Cavern & Summit"
 	var distance:=Vector2(pos.x,pos.z).length()
 	return FortLandscape.region_name(pos) if distance<=243 else biome(clampi(4+int((distance-243)/80),4,8)).name
 func build_ring(parent:Node3D,level:int)->void:
@@ -74,7 +77,8 @@ func build_ring(parent:Node3D,level:int)->void:
 			if r.node.position.distance_to(point)<6:clear=false;break
 		if clear:transforms.append(Transform3D(Basis(Vector3.UP,angle).scaled(Vector3.ONE*random.randf_range(.8,1.4)),point))
 	var living_grove:bool=spec.name in ["AMBERWOOD","MYCELIUM HOLLOW"]
-	if not living_grove:FortLandscape.instance_asset(grove,spec.asset,transforms)
+	var batches:Array[MultiMeshInstance3D]=[]
+	if not living_grove:batches=FortLandscape.instance_asset(grove,spec.asset,transforms)
 	for index in transforms.size():
 		var pose:Transform3D=transforms[index]
 		if living_grove:
@@ -84,7 +88,7 @@ func build_ring(parent:Node3D,level:int)->void:
 				FortForestry.add_tree(world,20000+level*1000+index*3+j,"amber" if spec.name=="AMBERWOOD" else ("starcap" if j==0 else "mooncap"),tree_pose)
 			continue
 		var obstacle:=Node3D.new();obstacle.transform=pose;grove.add_child(obstacle)
-		world.scenery_keepouts.append({"pos":pose.origin,"radius":4.0})
+		world.scenery_keepouts.append({"pos":pose.origin,"radius":4.0,"clearable":true,"node":obstacle,"batches":batches,"index":index})
 		if spec.name=="ANCIENT GARDENS":
 			for x in [-2,2]:FortArt.box_collider(obstacle,Vector3(.8,4.2,.8),Vector3(x,2.1,0))
 			FortArt.box_collider(obstacle,Vector3(5,.5,.9),Vector3(0,4.1,0))
