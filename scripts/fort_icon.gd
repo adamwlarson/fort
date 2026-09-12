@@ -12,6 +12,13 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO,0,Vector2.ONE*s)
 	var dark := Color("#45605a")
 	match kind:
+		"Gatehouse":
+			for x in [6,46]:
+				draw_rect(Rect2(x,12,12,44),tint)
+				for dx in [0,8]:draw_rect(Rect2(x+dx,6,4,10),tint)
+			draw_arc(Vector2(32,32),15,PI,TAU,18,tint,7,true)
+			for x in [23,32,41]:draw_line(Vector2(x,30),Vector2(x,55),tint,3,true)
+			for y in [35,47]:draw_line(Vector2(20,y),Vector2(44,y),tint,3,true)
 		"Embercoil":
 			draw_rect(Rect2(23,18,18,39),dark)
 			for y in [29,39,49]:draw_arc(Vector2(32,y),13,0,TAU,20,tint,4,true)

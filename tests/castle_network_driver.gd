@@ -34,12 +34,17 @@ func run()->void:
 		var w:FortWorld=main.world;var p:=w.local_player()
 		verify(await until(func():return w.castle.rooms.has("1:0:0")),"late join restores wing blueprint")
 		verify(w.castle.rooms["1:0:0"].funded.wood==3 and not w.castle.rooms["1:0:0"].complete,"late join restores partial material ledger")
+		# The floor planner is local inspection, not permission to build remotely.
+		p.position=w.castle.rooms["0:0:0"].sign;w.castle.menu.open_nearest();w.castle.menu.planner.select_room("1:0:0")
+		verify(w.castle.menu.planner.cells["1:0:0"].status=="project" and w.castle.menu.fund_button.disabled,"late-join planner shows unfinished remote rooms without authorizing remote funding")
+		w.castle.menu.close_panel()
 		verify(await until(func():return p.position.distance_to(w.castle.rooms["1:0:0"].sign)<3.8),"remote dwarf reaches construction sign")
 		for i in 17:
 			if w.castle.rooms["1:0:0"].complete:break
 			# Holding E alone funds from shared stock; repeated concurrent input must not overcharge.
 			w.request_action("interact");w.request_action("interact");await wait(.72)
 		verify(w.castle.rooms["1:0:0"].complete,"finished floor replaces scaffold on each client")
+		w.castle.menu.planner.refresh();verify(w.castle.menu.planner.cells["1:0:0"].status=="finished","remote construction completion changes the shared floor plan")
 		verify(await until(func():return w.castle.rooms["0:0:0"].walls.size()==16),"curtain-wall layout replicates")
 		verify(await until(func():return w.shared.wood==933 and w.shared.stone==845),"wing and curtain-wall costs replicate without duplicate charge")
 		var skins:=0

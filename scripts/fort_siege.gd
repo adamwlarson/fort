@@ -5,10 +5,12 @@ static func priority(world:FortWorld,e:Dictionary)->int:
 	var best:=-1;var score:=INF
 	for id in world.defenses:
 		var d:Dictionary=world.defenses[id];var distance:float=e.node.position.distance_to(d.node.position)
+		if d.kind=="Gatehouse" and FortGates.passable(d):continue
 		if distance>24:continue
 		var candidate:=distance
 		if e.kind=="Brute" and FortPlacement.is_wall(d.kind):candidate-=12
 		if e.kind=="Sapper":candidate-=18 if FortConstruction.pending(d) else (10 if not FortPlacement.is_wall(d.kind) else 0)
+		if d.kind=="Gatehouse":candidate-=8
 		if candidate<score:score=candidate;best=id
 	return best
 static func obstacle_id(node:Node)->int:
@@ -17,9 +19,10 @@ static func obstacle_id(node:Node)->int:
 		node=node.get_parent()
 	return -1
 static func clear(world:FortWorld,a:Vector3,b:Vector3)->bool:
-	return world.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(a+Vector3.UP*.7,b+Vector3.UP*.7,1)).is_empty()
+	return FortNavigation.clear(world,a,b)
 static func route(world:FortWorld,e:Dictionary,goal:Vector3)->Vector3:
 	var pos:Vector3=e.node.position
+	if int(e.get("route_revision",-1))!=world.navigation_revision:e.route_until=0.0;e.route_revision=world.navigation_revision;e.breach=-1
 	if world.clock<float(e.get("route_until",0)) and e.get("route_goal",goal).distance_to(goal)<2:
 		var waypoints:Array=e.get("route_points",[])
 		while not waypoints.is_empty() and pos.distance_to(waypoints[0])<.65:waypoints.pop_front()
@@ -28,14 +31,21 @@ static func route(world:FortWorld,e:Dictionary,goal:Vector3)->Vector3:
 		return ((world.defenses[breach].node.position if world.defenses.has(breach) else goal)-pos).normalized()
 	e.route_until=world.clock+.8;e.route_goal=goal;e.breach=-1;e.route_points=[]
 	var hit:=world.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pos+Vector3.UP*.7,goal+Vector3.UP*.7,1))
-	if hit.is_empty():return (goal-pos).normalized()
+	if hit.is_empty():return FortNavigation.direction(world,e.node,e,goal) if not clear(world,pos,goal) else (goal-pos).normalized()
 	var blocker:=obstacle_id(hit.collider)
 	if blocker<0:
-		var direction:=world._steer_around_scenery(e.node,(goal-pos).normalized(),e.node.get_instance_id(),e)
-		e.route_points=[pos+direction*1.5];e.route_until=world.clock+.4
-		return direction
+		e.route_until=0.0
+		return FortNavigation.direction(world,e.node,e,goal)
 	if e.kind in ["Brute","Sapper"]:e.breach=blocker;return (world.defenses[blocker].node.position-pos).normalized()
 	var best:Array=[];var score:float=pos.distance_to(goal)+14
+	# An open gateway is a real route through a wall chain, not a target to hit.
+	for d in world.defenses.values():
+		if not FortGates.passable(d) or d.node.position.distance_to(pos)>24:continue
+		var normal:=Vector3.BACK.rotated(Vector3.UP,d.node.rotation.y)
+		if (pos-d.node.position).dot(normal)<0:normal=-normal
+		var near:Vector3=d.node.position+normal*2.2;var far:Vector3=d.node.position-normal*2.2
+		var length:float=pos.distance_to(near)+near.distance_to(far)+far.distance_to(goal)
+		if length<score and clear(world,pos,near) and clear(world,near,far) and clear(world,far,goal):best=[near,far];score=length
 	# Check exposed ends of the wall chain, not merely this one segment.
 	for d in world.defenses.values():
 		if not FortPlacement.is_wall(d.kind) or d.node.position.distance_to(pos)>20:continue

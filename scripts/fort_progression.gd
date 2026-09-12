@@ -170,6 +170,7 @@ func upgrade_defense(player_id:int,id:int,expected:int)->void:
 	world.personal(player_id,"Upgrade reserved. Hold E beside the structure; anyone can help.")
 
 func defense_visual(d:Dictionary)->void:
+	if d.kind=="Gatehouse":FortGates.pose(d);return
 	var level:int=d.get("level",1)
 	if int(d.get("visual_level",1))==level:return
 	d.visual_level=level

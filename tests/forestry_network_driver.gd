@@ -28,6 +28,7 @@ func run()->void:
 		verify(await until(func():return r.amount==0),"remote dwarves cooperatively fell the same amber tree")
 		var total:=0
 		for p in w.players.values():total+=p.total_carried()
+		print("FORESTRY_PACK_AUDIT ",total," ",w.players.values().map(func(p):return {"class":p.class_id,"pack":p.carrying,"pos":p.position}))
 		verify(total==24,"concurrent chopping never duplicates or loses timber")
 		verify(r.node.get_node("TreeTrunk").collision_layer==0,"host collision clears immediately")
 		await wait(.8)

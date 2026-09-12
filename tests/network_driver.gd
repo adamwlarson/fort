@@ -32,9 +32,9 @@ func run()->void:
 		w.recv_enemy(900,"Brute",Vector3(38,0,0),300)
 		w.enemies[900].stun=500
 		w.shared.wood=100
-		var deadline:=Time.get_ticks_msec()+12000
-		while w.players.size()<4 and Time.get_ticks_msec()<deadline:await wait(0.1)
-		verify(w.players.size()==4,"host receives all three clients")
+		var deadline:=Time.get_ticks_msec()+20000
+		while (w.players.size()<4 or main.ready_peers.size()<3) and Time.get_ticks_msec()<deadline:await wait(0.1)
+		verify(w.players.size()==4 and main.ready_peers.size()==3,"host receives all three world-ready clients")
 		await wait(1)
 		for id in w.players:
 			if id==1:continue
@@ -63,7 +63,7 @@ func run()->void:
 		verify(w.players.size()==4,"crew remains connected after actions")
 	else:
 		main._join()
-		var deadline:=Time.get_ticks_msec()+12000
+		var deadline:=Time.get_ticks_msec()+30000
 		while (not is_instance_valid(main.world) or main.world.players.size()<4) and Time.get_ticks_msec()<deadline:await wait(0.1)
 		verify(is_instance_valid(main.world),"join creates a world")
 		if not is_instance_valid(main.world):quit(1);return

@@ -132,7 +132,7 @@ func night_start()->void:
 	for e in world.enemies.values():
 		if e.kind=="Colossus":return
 	boss_night=world.wave
-	var hp:float=1800.0*[.8,1.25,1.7,2.2][clampi(world.players.size(),1,4)-1]*(1.0+.3*(world.wave/10-1))*(1+.22*(world.hearth_level-1))
+	var hp:float=1800.0*FortBalance.colossus_multiplier(world.players.size())*(1.0+.3*(world.wave/10-1))*(1+.22*(world.hearth_level-1))
 	world.broadcast("recv_enemy",[900000+world.wave,"Colossus",Vector3(0,0,maxf(52,world.build_radius()+18)),hp,-10])
 	world.broadcast("recv_notice",["NIGHT %d / THE RUNEFORGED COLOSSUS. It will not retreat at dawn!"%world.wave])
 func event_visual()->void:

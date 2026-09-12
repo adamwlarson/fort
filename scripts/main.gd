@@ -2,7 +2,7 @@ extends Node
 
 const WorldScript = preload("res://scripts/world.gd")
 const InternetScript = preload("res://scripts/fort_internet.gd")
-const BUILD_VERSION := "19"
+const BUILD_VERSION := "24"
 
 var menu:Control
 var status_label:Label
@@ -20,7 +20,7 @@ var port_edit: SpinBox
 var connection_buttons: HBoxContainer
 var cancel_connection: Button
 var lobby: PanelContainer
-var lobby_roster: VBoxContainer
+var lobby_roster: GridContainer
 var lobby_action: Button
 var session_port := 24567
 var connecting := false
@@ -255,7 +255,7 @@ func _replace_preview_dwarf()->void:
 	if is_instance_valid(preview_dwarf):
 		preview_holder.remove_child(preview_dwarf)
 		preview_dwarf.queue_free()
-	preview_dwarf=preload("res://assets/models/dwarf.glb").instantiate()
+	preview_dwarf=FortArt.asset(GameData.dwarf_asset(selected_class))
 	preview_holder.add_child(preview_dwarf)
 	FortArt.tint_dwarf(preview_dwarf,selected_class)
 	var anim:=FortPlayer.find_animation(preview_dwarf)
@@ -368,10 +368,11 @@ func _show_lobby() -> void:
 		if child is Control and child.position.y>=190:child.hide()
 	lobby = PanelContainer.new()
 	lobby.position = Vector2(64,194); lobby.size = Vector2(1130,494)
-	lobby.add_theme_stylebox_override("panel", _panel_style(FortInterface.INK, FortInterface.GOLD))
+	var lobby_style:=_panel_style(FortInterface.INK,FortInterface.GOLD);lobby_style.set_content_margin_all(16)
+	lobby.add_theme_stylebox_override("panel",lobby_style)
 	menu.add_child(lobby)
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 6); lobby.add_child(stack)
+	stack.add_theme_constant_override("separation", 4); lobby.add_child(stack)
 	var title := Label.new(); title.text = "CREW LOBBY  /  FORT " + BUILD_VERSION; title.add_theme_font_size_override("font_size",28); stack.add_child(title)
 	var address := Label.new()
 	address.add_theme_font_size_override("font_size",15)
@@ -404,7 +405,7 @@ func _show_lobby() -> void:
 		retry.pressed.connect(func(): internet.start(session_port))
 		internet_row.add_child(retry)
 		_refresh_internet()
-	lobby_roster = VBoxContainer.new(); lobby_roster.add_theme_constant_override("separation",8); stack.add_child(lobby_roster)
+	lobby_roster = GridContainer.new();lobby_roster.columns=2;lobby_roster.add_theme_constant_override("h_separation",20);lobby_roster.add_theme_constant_override("v_separation",4);stack.add_child(lobby_roster)
 	var note := Label.new()
 	note.text = "Allow THIS Fort.exe in Windows Firewall. Router mapping does not bypass the firewall.\nPublic-IP tests need a player on another internet connection. No relay / CGNAT bypass."
 	note.add_theme_font_size_override("font_size",13); note.modulate = FortInterface.MUTED; stack.add_child(note)
@@ -424,17 +425,17 @@ func _refresh_lobby() -> void:
 	if not is_instance_valid(lobby_roster):return
 	for child in lobby_roster.get_children():lobby_roster.remove_child(child);child.queue_free()
 	for i in GameData.MAX_PLAYERS:
-		var label := Label.new(); label.custom_minimum_size.y = 35
+		var label := Label.new();label.custom_minimum_size=Vector2(525,42);label.add_theme_font_size_override("font_size",14)
 		if i < player_info.size():
 			var id: int = player_info.keys()[i]
 			var info: Dictionary = player_info[id]
-			label.text = "%02d   %s%s   /   %s   /   %s" % [i+1, info.name, " (HOST)" if id==1 else "", GameData.class_data(info["class"]).name, "READY" if info.get("ready",false) else "PREPARING"]
+			label.text = "%02d   %s%s   /   %s\n       %s" % [int(info["class"])+1, info.name, " (HOST)" if id==1 else "", "READY" if info.get("ready",false) else "PREPARING",GameData.class_data(info["class"]).name]
 			label.modulate = GameData.class_data(info["class"]).color.lightened(0.3)
 		else: label.text = "%02d   Waiting for a dwarf…" % (i+1); label.modulate = FortInterface.MUTED
 		lobby_roster.add_child(label)
 	if multiplayer.is_server():
-		lobby_action.text = "START EXPEDITION (%d / 4)" % player_info.size()
-		if not pending_save.is_empty():lobby_action.text="RESUME DAY %d (%d / 4)"%[int(pending_save.world.wave)+ (0 if pending_save.world.night else 1),player_info.size()]
+		lobby_action.text = "START EXPEDITION (%d / %d)" % [player_info.size(),GameData.MAX_PLAYERS]
+		if not pending_save.is_empty():lobby_action.text="RESUME DAY %d (%d / %d)"%[int(pending_save.world.wave)+ (0 if pending_save.world.night else 1),player_info.size(),GameData.MAX_PLAYERS]
 		lobby_action.disabled = not _crew_ready()
 	else:
 		lobby_action.text = "NOT READY" if player_info.get(multiplayer.get_unique_id(),{}).get("ready",false) else "READY UP"
@@ -506,10 +507,10 @@ func register_player(display_name:String, class_id:int) -> void:
 		connection_rejected.rpc_id(peer_id)
 		return
 	var taken:Array=[]
-	class_id = clampi(class_id,0,3)
+	class_id = clampi(class_id,0,GameData.MAX_PLAYERS-1)
 	for info in player_info.values():taken.append(int(info["class"]))
 	if class_id in taken:
-		for candidate in 4:
+		for candidate in GameData.MAX_PLAYERS:
 			if candidate not in taken:class_id=candidate;break
 	var info := {"name":display_name.strip_edges().left(18), "class":class_id, "ready":false}
 	if info.name.is_empty():info.name = "Nameless Dwarf"
@@ -546,7 +547,7 @@ func begin_remote(roster:Dictionary) -> void:
 
 @rpc("authority","call_remote","reliable")
 func connection_rejected()->void:
-	_leave_game("That fort already has four dwarves.")
+	_leave_game("That fort already has eight dwarves.")
 
 func _start_world() -> void:
 	if is_instance_valid(menu):

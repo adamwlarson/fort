@@ -28,7 +28,7 @@ static func player_state(p:FortPlayer)->Dictionary:
 	for k in ["health","carrying","travel_mode","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel","weapon","owned_weapons","loadout_revision","backpack_level","relics","armor","progression_revision","weapon_levels","weapon_revision"]:data[k]=clean(p.get(k))
 	return data
 static func capture(w:FortWorld)->Dictionary:
-	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"19","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
+	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"24","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
 	data.world.players={};data.world.enemies={};data.world.defenses={}
 	for p in w.players.values():data.characters[p.class_id]=player_state(p)
 	for id in w.enemies:
@@ -64,11 +64,11 @@ static func validate(data:Variant)->String:
 	if s.ended or float(s.fort)<=0:return "This expedition has already ended"
 	if not s.castle.get("rooms") is Dictionary or not s.castle.rooms.has("0:0:0") or s.castle.rooms.size()>128:return "Invalid castle layout"
 	if not s.castle.has_all(["revision","research"]) or not s.expedition.has_all(["seed","event","revision","time","claimed","boss_night","bosses_defeated"]):return "Incomplete castle / world seed"
-	if data.characters.size()>4 or data.enemies.size()>2000 or data.defenses.size()>10000 or data.resources.size()>20000:return "Save exceeds supported world limits"
+	if data.characters.size()>GameData.MAX_PLAYERS or data.enemies.size()>2000 or data.defenses.size()>10000 or data.resources.size()>20000:return "Save exceeds supported world limits"
 	for id in data.characters:
 		if not id is int or not data.characters[id] is Dictionary:return "Invalid dwarf slot"
 		var p:Dictionary=data.characters[id]
-		if int(id)<0 or int(id)>3 or not p.has_all(["position","weapon","owned_weapons","weapon_levels","health","carrying","backpack_level","relics","armor","progression_revision","loadout_revision","weapon_revision"]):return "Invalid dwarf slot"
+		if int(id)<0 or int(id)>=GameData.MAX_PLAYERS or not p.has_all(["position","weapon","owned_weapons","weapon_levels","health","carrying","backpack_level","relics","armor","progression_revision","loadout_revision","weapon_revision"]):return "Invalid dwarf slot"
 		if not p.position is Vector3 or not p.position.is_finite() or not GameData.WEAPONS.has(p.weapon):return "Invalid dwarf location / equipment"
 		if not p.get("yaw") is float or not p.carrying is Dictionary or not p.weapon_levels is Dictionary or not strings(p.owned_weapons) or not strings(p.relics):return "Invalid dwarf equipment data"
 		for k in ["health","backpack_level","progression_revision","loadout_revision","weapon_revision"]:
@@ -78,6 +78,10 @@ static func validate(data:Variant)->String:
 		var d:Dictionary=data.defenses[id]
 		if not d.has_all(["kind","position","rotation","hp","max_hp","level","temporary"]) or not GameData.RECIPES.has(d.kind):return "Invalid saved defense"
 		if not d.position is Vector3 or not d.position.is_finite():return "Invalid defense location"
+		if d.kind=="Gatehouse":
+			for k in ["gate_open","gate_target"]:
+				if not number(d.get(k,1.0)) or float(d.get(k,1))<0 or float(d.get(k,1))>1:return "Invalid gate mechanism position"
+			if not d.get("gate_auto",false) is bool or not number(d.get("gate_revision",0)):return "Invalid gate settings"
 	for id in data.enemies:
 		if not id is int or not data.enemies[id] is Dictionary:return "Invalid enemy record"
 		var e:Dictionary=data.enemies[id]

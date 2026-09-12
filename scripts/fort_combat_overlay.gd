@@ -34,6 +34,7 @@ func _draw()->void:
 		var distance:float=p.position.distance_to(d.node.position)
 		if distance>22 or (d.hp>=d.max_hp and distance>6 and not FortConstruction.pending(d)):continue
 		var point:Vector3=d.node.position+Vector3.UP*(3.6 if d.kind=="Watchtower" else 2.5)
+		if d.kind=="Gatehouse":point=d.node.position+Vector3.UP*(1.8+FortConstruction.fraction(d)*4 if FortConstruction.foundation(d) else 6.6)
 		if camera.is_position_behind(point):continue
 		var screen:=camera.unproject_position(point)
 		if not get_viewport_rect().has_point(screen):continue
@@ -44,6 +45,12 @@ func _draw()->void:
 		draw_rect(Rect2(rect.position-Vector2(2,2),rect.size+Vector2(4,4)),Color(.025,.045,.04,.85))
 		draw_rect(Rect2(rect.position,Vector2(56*clampf(d.hp/d.max_hp,0,1),4)),Color("#a8d3a2") if d.hp>d.max_hp*.35 else Color("#de956e"))
 		bar_count+=1
+		if d.kind=="Gatehouse" and not FortConstruction.foundation(d):
+			var gate_color:=Color("#ddae70") if not FortGates.passable(d) else Color("#9ad3b6")
+			if d.get("gate_blocked",false):gate_color=Color("#ed937a")
+			var glyph:=screen+Vector2(-39,-4)
+			draw_rect(Rect2(glyph,Vector2(7,9)),gate_color,false,1.5)
+			if not FortGates.passable(d):draw_line(glyph+Vector2(0,5),glyph+Vector2(7,5),gate_color,2)
 		if FortConstruction.pending(d):draw_rect(Rect2(rect.position+Vector2(0,7),Vector2(56*FortConstruction.fraction(d),3)),Color("#e4bd78"))
 	reticle_visible=not world.local_build_mode and (p.mounted_ballista>=0 or (GameData.ranged(p.weapon) and (p.aiming() or Vector2(p.velocity.x,p.velocity.z).length()<0.3)))
 	if not reticle_visible:return

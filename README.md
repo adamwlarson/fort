@@ -1,8 +1,18 @@
 # Fort — Hold the Hearth
 
-A playable Godot co-op survival build for one to four dwarves. Gather by day, return resources to a shared stockpile, recruit gathering pets, explore new biomes, and keep the hearth alive through endless night raids.
+A playable Godot co-op survival build for one to eight dwarves. Gather by day, return resources to a shared stockpile, recruit gathering pets, explore new biomes, and keep the hearth alive through endless night raids.
 
 ## Play
+
+Fort 24 adds **up to eight online dwarves** and **hand-built animated gatehouses**. Four ability roles each have two distinct character palettes and independent save slots. Press **B → Page Down → 1** to select Gatehouse; hold **E** to build it, tap **E** to open/close, and use **G** for reinforcement and optional dusk closing. See [RELEASE_NOTES_24.md](RELEASE_NOTES_24.md).
+
+Fort 23 simplifies the minimap: a fixed-scale north-up local view, clear crew and home markers, grouped threats, and only nearby discovered sites. **Press M to toggle resource patches**, off by default. See [RELEASE_NOTES_23.md](RELEASE_NOTES_23.md).
+
+Fort 22 adds **Siege Watch**: compass attack fronts and live raider counts, damaged-building and hearth repair warnings, and capped priority markers for bombers, heavies, artillery and hearth rushers. Lit fuses take priority; arrows guide you toward threats outside the central view. Warnings hide during menus and placement. See [RELEASE_NOTES_22.md](RELEASE_NOTES_22.md).
+
+Fort 21 adds a **floor-by-floor castle plan to K**: inspect rooms, select expansion spots, highlight missing support below, and mark the sign you need. Mouse wheel zooms; middle-drag pans. Building still requires the relevant sign. Body-width routing, local scenery detours, stair pursuit, safe pet recall and authoritative fall recovery improve traversal. See [RELEASE_NOTES_21.md](RELEASE_NOTES_21.md).
+
+Fort 20 adds **Esc → I'm stuck / move to safe ground**, smoother campfire collision, non-blocking decorative hearth runes, and short steps over low ledges. Recovery preserves your pack and health and is handled by the host. Upstairs choices now show exact ground-wing progress and the requirement beside the placement button. Finish **four ground wings, including a stairwell but excluding the starting keep**, before adding upstairs. See [RELEASE_NOTES_20.md](RELEASE_NOTES_20.md).
 
 Fort 19 also grounds the hearth fire, fills collision gaps on solid world props, and adds **Hollowback Ridge at hearth level 2**: a lantern-lit walk-through cavern with crystal and a climbable summit with iron. Find its trail sign beyond the original ward; its direction varies by expedition seed. The starting castle remains on flat ground.
 
@@ -30,7 +40,7 @@ Fort 9 adds eight hearth tiers, five seeded random biomes, endless nights and mi
 
 Run `build/Fort.exe`. It contains the game data; Godot and Blender are not required to play. Alternatively, open `project.godot` in Godot 4.5.2 and press F5.
 
-Everyone must run **Fort 19**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. Solo play starts with one dwarf. Classes are unique: if a requested class is taken, the host assigns a free one. Late joining a running expedition is supported.
+Everyone must run **Fort 24**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. One host plus up to seven guests can play. Character slots are unique: if your choice is taken, the host assigns a free one. There are four ability roles, with two character choices per role. Late joining a running expedition is supported.
 
 - Same PC: join `127.0.0.1`.
 - Same LAN: join the host's local IPv4 address.
@@ -40,7 +50,7 @@ Connection attempts can be cancelled. Contacting the host and registering in its
 
 The host must stay in the game. Leaving the host ends the live session for everyone; **Save & return to title** preserves the expedition first. Closing the host window also attempts an exit checkpoint and stays open if saving fails. Manual saves and dawn autosaves remain separate. Saving does not pause the crew.
 
-Saves live in `%APPDATA%\Godot\app_userdata\Fort\expeditions`, not alongside the executable. Each slot has a verified backup; loading automatically tries it if the primary is damaged. Copy the whole `expeditions` folder to transfer saves to another host. Dwarf progress belongs to the four **class slots**, not player names or network IDs: choose your previous class before joining. Saves are local only, with no cloud sync or host migration. Fort 13 had no save files to import.
+Saves live in `%APPDATA%\Godot\app_userdata\Fort\expeditions`, not alongside the executable. Each slot has a verified backup; loading automatically tries it if the primary is damaged. Copy the whole `expeditions` folder to transfer saves to another host. Dwarf progress belongs to the eight **character slots**, not player names or network IDs: choose your previous character before joining. Existing four-character saves keep their original slots. Saves are local only, with no cloud sync or host migration. Fort 13 had no save files to import.
 
 ## Controls
 
@@ -125,7 +135,7 @@ During the day, stand within 5m of the hearth and press **U**. The panel explain
 
 Each upgrade adds 72 core resource deposits, plus harvestable forests in the relevant rings. Tier two opens **Rustscar Quarry** to the east for iron and **Elderwood** to the west for timber, stone and crystal. Tier three opens **Stormglass Basin** to the north for aether and **Frostvein Ridge** to the south for iron and crystal, bringing the map to 486m across with 234 core deposits plus the new edge woods and additional camps and waystones. Tiers 4–8 each reveal a randomly ordered new biome with distinct ground, foliage and landmarks: Amberwood, Mycelium Hollow, Cinder Wastes, Glacier Reach or Ancient Gardens. The maximum map is **1,286m across with 594 core deposits plus hundreds of individually harvestable forest trees and giant mushrooms**. The visible ward moves outward and the minimap rescales. Each upgrade restores 500 hearth health, adds runestones around the fire and increases daylight by 30 seconds. Upgrades persist for the current run only. See [Fort 9 release notes](RELEASE_NOTES_9.md) for the full eight-tier table.
 
-Nights have three assaults (four from night 4), with finite threat allowances scaled by crew size: **1 / 1.75 / 2.6 / 3.5**. Stronger enemies cost more allowance; simultaneous bombers and Sappers are limited. Reinforcements pause between assaults so you can repair while finishing off survivors. Orange minimap arrows show the attack fronts. Each hearth upgrade adds **10% base threat allowance and 5% base enemy health**, not extra active slots. Raiders spawn beyond your expanded construction perimeter, with a travel-aware reinforcement cutoff before dawn. Camp guards scale when first activated. Ordinary raiders retreat at dawn, but Colossi stay until defeated. Night ten is no longer the end of the expedition.
+Nights have three assaults (four from night 4), with finite threat allowances scaled by crew size: **1 / 1.75 / 2.6 / 3.5 / 4.45 / 5.45 / 6.5 / 7.6** for one through eight dwarves. Stronger enemies cost more allowance; simultaneous bombers and Sappers are limited. Reinforcements pause between assaults so you can repair while finishing off survivors. Siege Watch shows attack fronts. Each hearth upgrade adds **10% base threat allowance and 5% base enemy health**, not extra active slots. Raiders spawn beyond your expanded construction perimeter, with a travel-aware reinforcement cutoff before dawn. Camp guards scale when first activated. The raid population remains capped at 100 active enemies; larger crews receive more total pressure, not an unbounded simultaneous swarm. Ordinary raiders retreat at dawn, but Colossi stay until defeated. Night ten is no longer the end of the expedition.
 
 - **Ashwing:** appears from night 2. Animated bat-like flyer that bypasses walls and dives down to strike dwarves or the hearth. Counter it with crossbows, watchtowers, ballistas, or melee during its low dive; ground melee cannot reach cruising flyers overhead.
 - **Ember Runner:** appears from night 1. Fast furnace-backed raider that ignores nearby dwarves and heads for the hearth. Block the gates, stun it, or focus ranged fire. It attacks nearby defenses and deals heavy hearth damage.
@@ -148,7 +158,7 @@ The Engineer's construction discount applies to these recipes. Stand within 4m o
 
 At the workshop, open **Backpacks and Relics**. The **Trail Pack** costs 16 wood and 2 crystal and adds 12 capacity. Its upgrade, the **Expedition Frame**, costs 24 wood, 4 crystal and 12 iron, requires Hearth 2, and replaces that bonus with 28. Normal dwarves carry 18 / 30 / 46; Scouts carry 26 / 38 / 54. Both have visible Blender-made equipment models.
 
-Nine permanent treasure locations include the original caches/camps and three guarded villages. Press **E** near a chest to spend **2 shared crystals** on its lock. Guards activate as you approach and remain through daylight. Defeat one through four escorts (depending on crew size) and a Chieftain first. Chests can be claimed once per run. The random Supply Caravan is a separate, free event chest.
+Nine permanent treasure locations include the original caches/camps and three guarded villages. Press **E** near a chest to spend **2 shared crystals** on its lock. Guards activate as you approach and remain through daylight. Defeat one through eight escorts (depending on crew size) and a Chieftain first. Chests can be claimed once per run. The random Supply Caravan is a separate, free event chest.
 
 - **Redfang Camp:** Embermaul, a crowned rare hammer with +28 damage and a longer stun.
 - **Rustscar Stronghold:** Ironheart armor, +40 maximum health and 20% incoming-damage reduction.
@@ -210,7 +220,7 @@ $godotExe = '.tools\godot45\Godot_v4.5.2-stable_win64_console.exe'
 
 The network test launches one host and three separate clients. It checks class uniqueness, late-join state, gathering/deposit actions, action animations, tree-destruction effects, downed state, and recovery on the controlling client. Gameplay checks include input routing, animation transitions, delayed melee, construction, ballista mounting, repairs/revival, traversal, gateway navigation, tower firing/climbing, and victory. Particle checks cover all three tree varieties, duplicate/late-join suppression, regrowth, cleanup, and continuous campfire emitters. `tests/visual_review.gd` captures staged title/day/night/crew/travel views; `tests/particles_review.gd` captures the campfire and successive tree-destruction frames. These captures are visual checks, not balance tests.
 
-**Scope of validation:** local four-process networking has been tested. A real four-person session across different internet connections, latency/loss testing, and extended balance/performance playtesting are still needed. This is a playable development build, not a claim of a fully tested commercial release. There is no host migration, persistent campaign, or anti-cheat hardening.
+**Scope of validation:** local eight-process networking has been tested, including a ninth connection probe, shared deposits, gate commands, 100-enemy state delivery and reconnecting character progress. Real multi-PC internet sessions, latency/loss testing, and extended balance/performance playtesting are still needed. This is a playable development build, not a claim of a fully tested commercial release. Expeditions can be saved locally; there is no host migration, cloud save or anti-cheat hardening.
 
 ## Export
 
@@ -220,6 +230,6 @@ The network test launches one host and three separate clients. It checks class u
 
 The Windows preset embeds game data and excludes tools, tests, Blender sources, and previous builds. Export templates for the matching Godot version must be installed.
 
-For the complete art-pass validation, rendered galleries, export, and packaged four-player check, run `tests/run_art_pass.ps1 -Render -Export -Network`. Rendered previews are saved in `build/`; the helper stops if a check reports an error.
+For the complete art-pass validation, rendered galleries, export, and packaged eight-player capacity and four-player regression checks, run `tests/run_art_pass.ps1 -Render -Export -Network`. Rendered previews are saved in `build/`; the helper stops if a check reports an error.
 
 The helper uses isolated test ports and runs the general multiplayer, weapon-crafting/combat, and custom-port lobby/reconnect suites. Fort 4 checks also cover live hearth expansion, replicated flyers/runners, duplicate upgrade rejection, and a rendered 100-enemy stress scene. To preserve a successful export as a new version, run `tests/package_version.ps1 -Version 4` (use the next unused number). It creates a versioned folder and ZIP, verifies the archived executable's SHA-256, and refuses to overwrite saved versions.

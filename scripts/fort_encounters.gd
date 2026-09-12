@@ -159,14 +159,14 @@ func activate(id:int) -> void:
 	if not world.multiplayer.is_server() or not sites.has(id):return
 	var site:Dictionary=sites[id]
 	if site.phase!="sleeping":return
-	var crew:=clampi(world.players.size(),1,4);var list:=roster(site.spec,crew);var live:=0
+	var crew:=clampi(world.players.size(),1,GameData.MAX_PLAYERS);var list:=roster(site.spec,crew);var live:=0
 	for enemy in world.enemies.values():
 		if is_wild(int(enemy.get("camp",-1))):live+=1
 	if live+list.size()>24:return
 	site.crew=crew;site.phase="cleared" if list.is_empty() else "active";site.away=0;revision+=1
 	for i in list.size():
 		var kind:String=list[i];var tier:int=site.spec.tier
-		var hp:float=(720+(tier-3)*260 if kind in DRAGONS else (130+tier*25 if kind in ["Stonebear","Shieldguard"] else 65+tier*14))*[1.0,1.3,1.65,2.0][crew-1]
+		var hp:float=(720+(tier-3)*260 if kind in DRAGONS else (130+tier*25 if kind in ["Stonebear","Shieldguard"] else 65+tier*14))*FortBalance.wilderness_multiplier(crew)
 		world.broadcast("recv_enemy",[2000000+id*16+i,kind,site.spec.pos+Vector3((i-list.size()*.5)*2,0,-1),hp,-1000-id])
 	_visual(site)
 

@@ -19,6 +19,8 @@ func expand(level:int)->void:
 	for i in (level-1)*4:
 		if has_node("HearthRune%d"%i):continue
 		var rune:=FortArt.asset("waystone")
+		# Hearth upgrade trim is decoration, not a ring of movement obstacles.
+		for body in rune.find_children("*","StaticBody3D",true,false):body.collision_layer=0;body.collision_mask=0
 		rune.name="HearthRune%d"%i
 		var angle:=PI/4+i*TAU/8
 		rune.position=Vector3(sin(angle)*2.5,0,cos(angle)*2.5)

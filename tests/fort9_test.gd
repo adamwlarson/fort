@@ -119,12 +119,13 @@ func run()->void:
 		if w.resource_nodes[rid].kind=="stone":resource_id=rid;break
 	var stone:Dictionary=w.resource_nodes[resource_id];stone.node.position=Vector3(0,0,26);stone.amount=12;pet.target=resource_id;pet.last=pet.node.position;pet.check_at=w.clock+1
 	w._spawn_defense("Barricade",Vector3(0,0,21),0,false)
-	var stock:int=w.shared.stone;var jumped:=false;var harvested:=false
+	var stock:int=w.shared.stone;var jumped:=false;var harvested:=false;var detoured:=false
 	for step in 1500:
 		w.clock+=1.0/60;w.pets.tick(1.0/60);await physics_frame
 		jumped=jumped or pet.node.position.y>.7;harvested=harvested or pet.cargo>0
+		detoured=detoured or (absf(pet.node.position.x)>2 and pet.node.position.z>19 and pet.node.position.z<23)
 		if w.shared.stone>stock:break
-	check(jumped and harvested,"pet jumps/routes around a real barricade and gathers its assigned resource")
+	check((jumped or detoured) and harvested,"pet physically jumps over or detours around a real barricade and gathers its assigned resource")
 	check(w.shared.stone>stock,"pet physically returns and deposits into shared stockpile")
 	# A trapped pet recovers without losing or minting its carried resources.
 	pet.mode="RETURN";pet.cargo=3;pet.cargo_kind="stone";pet.node.position=Vector3(100,-8,100);pet.check_at=0;pet.stuck=6

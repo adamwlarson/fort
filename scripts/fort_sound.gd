@@ -5,7 +5,7 @@ var clips: Dictionary = {}
 var enabled := true
 
 func _ready() -> void:
-	for kind in ["hit","chop","mine","build","deposit","ability","shot","hurt","night","dawn","step","hammer","crossbow","arc","frost_shell","fuse","blast"]:
+	for kind in ["hit","chop","mine","build","deposit","ability","shot","hurt","night","dawn","step","hammer","crossbow","arc","frost_shell","fuse","blast","gate_move","gate_stop"]:
 		clips[kind] = _synthesize(kind)
 
 func play(kind: String, volume := -13.0) -> void:
@@ -24,6 +24,7 @@ func _synthesize(kind: String) -> AudioStreamWAV:
 	durations["hammer"]=0.35;durations["crossbow"]=0.18
 	durations["arc"]=.22;durations["frost_shell"]=.5
 	durations["fuse"]=1.5;durations["blast"]=.65
+	durations["gate_move"]=1.8;durations["gate_stop"]=.4
 	var duration: float = durations[kind]
 	var count := int(duration*22050)
 	var bytes := PackedByteArray()
@@ -36,6 +37,8 @@ func _synthesize(kind: String) -> AudioStreamWAV:
 		var frequency:=120.0
 		var noise:=0.0
 		match kind:
+			"gate_move":frequency=48+sin(t*7)*6;noise=rng.randf_range(-1,1)*(.12+.65*pow(maxf(0,sin(t*75)),14))
+			"gate_stop":frequency=55+150*exp(-t*35);noise=rng.randf_range(-1,1)*.7*exp(-t*12)
 			"fuse":frequency=650+t*650;noise=rng.randf_range(-1,1)*.7*(.5+.5*sin(t*80))
 			"blast":frequency=42+110*exp(-t*16);noise=rng.randf_range(-1,1)*.9*exp(-t*7)
 			"arc":frequency=1100*exp(-t*7)+sin(t*400)*160;noise=rng.randf_range(-1,1)*.4

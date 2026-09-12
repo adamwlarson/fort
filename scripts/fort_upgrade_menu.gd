@@ -5,6 +5,8 @@ var target:=-1
 var detail:Label
 var upgrade:Button
 var cancel:Button
+var gate_auto:CheckButton
+var gate_toggle:Button
 var confirming:=false
 func _ready()->void:
 	position=Vector2(390,230);size=Vector2(500,255);theme=FortInterface.theme()
@@ -14,6 +16,13 @@ func _ready()->void:
 	upgrade=Button.new();upgrade.text="UPGRADE";upgrade.pressed.connect(func():
 		if world.defenses.has(target):world.request_action("upgrade_defense",{"id":target,"level":world.defenses[target].get("level",1)}))
 	stack.add_child(upgrade)
+	gate_toggle=Button.new();stack.add_child(gate_toggle)
+	gate_toggle.pressed.connect(func():
+		if world.defenses.has(target):world.request_action("gate",{"id":target,"revision":world.defenses[target].get("gate_revision",0)}))
+	gate_auto=CheckButton.new();gate_auto.text="Close automatically at dusk";stack.add_child(gate_auto)
+	gate_auto.tooltip_text="Attempt closure at the next dusk. Occupied passages reopen safely; tap E again after clearing them. Manual opening overrides this for the current night."
+	gate_auto.toggled.connect(func(value:bool):
+		if world.defenses.has(target):world.request_action("gate",{"id":target,"revision":world.defenses[target].get("gate_revision",0),"auto":value}))
 	cancel=Button.new();cancel.text="CANCEL PROJECT / REFUND UNUSED MATERIALS";stack.add_child(cancel)
 	cancel.pressed.connect(func():
 		if not confirming:confirming=true;return
@@ -33,6 +42,11 @@ func _process(_delta:float)->void:
 	var p:=world.local_player()
 	if not world.defenses.has(target) or not p or p.health<=0 or p.position.distance_to(world.defenses[target].node.position)>4 or world.ended:close_panel();return
 	var d:Dictionary=world.defenses[target];var level:int=d.get("level",1)
+	gate_auto.visible=d.kind=="Gatehouse";gate_toggle.visible=gate_auto.visible
+	gate_auto.disabled=FortConstruction.pending(d);gate_toggle.disabled=gate_auto.disabled
+	gate_auto.set_pressed_no_signal(bool(d.get("gate_auto",false)))
+	gate_toggle.text=("CLOSE GATE" if float(d.get("gate_target",1))>0 else "OPEN GATE")+" / "+FortGates.title(d)
+	position.y=155 if gate_auto.visible else 230
 	var cost:=world.progression.upgrade_cost(target)
 	cancel.visible=not d.temporary
 	cancel.disabled=p.peer_id not in [1,int(d.get("work_owner",0))] if FortConstruction.pending(d) else world.is_night
@@ -43,7 +57,7 @@ func _process(_delta:float)->void:
 	cancel.text="CONFIRM SALVAGE / REMOVE BUILDING" if confirming else "SALVAGE / "+GameData.supplies_text(world.construction.salvage_refund(d),true)
 	cancel.tooltip_text="Daylight only, no nearby enemies or mounted dwarf. Returns 50% of paid materials, scaled by remaining health."
 	detail.text="%s / LEVEL %d\n%d / %d health\nUpgrade: +65%% base health, +40%% base effectiveness.\nRequires Hearth tier %d.\nShared cost: %s"%[d.kind,level,d.hp,d.max_hp,level+1,GameData.supplies_text(cost,true)]
-	if d.kind in ["MetalWall","Barricade"]:detail.text=detail.text.replace(", +40% base effectiveness","")
+	if FortPlacement.is_wall(d.kind):detail.text=detail.text.replace(", +40% base effectiveness","")
 	else:detail.text+="\nCoverage: %dm > %dm"%[GameData.defense_radius(d.kind,level),GameData.defense_radius(d.kind,mini(GameData.MAX_GEAR_LEVEL,level+1))]
 	if level>=GameData.MAX_GEAR_LEVEL:detail.text="%s / LEVEL %d\n%d / %d health\nFully reinforced. Hold R nearby to repair damage."%[d.kind,level,d.hp,d.max_hp]
 	upgrade.disabled=level>=GameData.MAX_GEAR_LEVEL or d.temporary or world.hearth_level<level+1

@@ -74,9 +74,9 @@ func plan_reason(from:String,target:Dictionary,kind:String)->String:
 	if not valid:return "Choose an open connection from a finished room"
 	if int(target.floor)>=mini(8,world.hearth_level+1):return "Upgrade the hearth for another storey"
 	if int(target.floor)>0:
-		if completed_ground()<4:return "Finish four ground-floor wings before adding a second storey"
+		if completed_ground()<4:return "Ground wings: %d/4 complete. Finish %d more before building upstairs. The stairwell counts; the starting keep and unfinished blueprints do not. Close K and HOLD E at unfinished signs to build."%[completed_ground(),4-completed_ground()]
 		var below:=key(target.x,target.z,target.floor-1)
-		if not rooms.has(below) or not rooms[below].complete:return "Finish the supporting room below first"
+		if not rooms.has(below) or not rooms[below].complete:return "Finish the supporting room below first: storey %d, grid (%d, %d). Build a ground wing there, then each floor beneath this one."%[int(target.floor),int(target.x),int(target.z)]
 	var pos:=position(target)
 	if Vector2(pos.x,pos.z).length()+CELL*.71>world.build_radius():return "Upgrade hearth to expand the castle boundary"
 	if target.floor==0:
@@ -139,7 +139,7 @@ func work(id:int,k:String)->void:
 		var reason:=FortCastleRemodel.reason(self,k,r.get("remodel_kind",""),id)
 		if reason!="":world.personal(id,reason);return
 	if needs_supplies(r):fund(id,k,true,revision,true);return
-	r.work=minf(r.total,r.work+(2 if world.players[id].class_id==2 else 1)*FortBalance.work_multiplier(world.players.size())*work_multiplier())
+	r.work=minf(r.total,r.work+(2 if world.players[id].role_id==2 else 1)*FortBalance.work_multiplier(world.players.size())*work_multiplier())
 	world.broadcast("recv_action",[id,"construct",r.sign]);world.broadcast("recv_fx",[r.sign+Vector3.UP,Color("#d9bd81"),"","construction"])
 	if r.work>=r.total:
 		if r.task in ["remodel","dismantle"]:FortCastleRemodel.finish(self,k);changed();return
@@ -227,7 +227,7 @@ func floor_at(pos:Vector3)->float:
 		if below.get("kind","")=="Stairs" and absf(pos.x-p.x-stair_x)<2 and pos.z-p.z>-4 and pos.z-p.z<4.6:continue
 		height=maxf(height,p.y)
 	return height
-func placement_reason(pos:Vector3,clearance:=0.0)->String:
+func placement_reason(pos:Vector3,clearance:=0.0,kind:="",yaw:=0.0)->String:
 	for r in rooms.values():
 		var p:=position(r)
 		if not r.complete and absf(pos.y-p.y)<3 and absf(pos.x-p.x)<10+clearance and absf(pos.z-p.z)<10+clearance:return "Finish or cancel this castle blueprint before placing defenses inside it"
@@ -239,6 +239,7 @@ func placement_reason(pos:Vector3,clearance:=0.0)->String:
 			for direction in [Vector3.RIGHT,Vector3.LEFT,Vector3.FORWARD,Vector3.BACK]:
 				var entry:Vector3=p+direction*10
 				var local:Vector3=pos-entry
+				if kind=="Gatehouse" and local.length()<.65 and absf(direction.dot(Vector3.BACK.rotated(Vector3.UP,yaw)))>.99:continue
 				if absf(local.dot(direction))<2+clearance and absf(local.dot(Vector3(-direction.z,0,direction.x)))<2+clearance:return "Keep the marked room entrances clear"
 	return ""
 func blocks_resource(pos:Vector3)->bool:
@@ -267,7 +268,35 @@ func approach(pos:Vector3,goal:Vector3)->Vector3:
 			var distance:=pos.distance_to(entry)
 			if distance<score:score=distance;best=center+axis*8.6 if distance<2.5 else entry
 	return best
+func travel_goal(pos:Vector3,goal:Vector3)->Vector3:
+	# Enter raised ground through an entrance; use actual alternating stair lanes
+	# when a target is on another completed storey.
+	var level:=maxi(0,floori((pos.y-BASE+.3)/HEIGHT))
+	var goal_level:=maxi(0,floori((goal.y-BASE+.3)/HEIGHT))
+	if level==goal_level:return approach(pos,goal)
+	var ascending:=goal.y>pos.y
+	var elevated:=goal if ascending else pos
+	var elevated_floor:=goal_level if ascending else level
+	var on_castle:=false
+	for room in rooms.values():
+		var center:=position(room)
+		if room.complete and int(room.floor)==elevated_floor and absf(elevated.x-center.x)<10 and absf(elevated.z-center.z)<10:on_castle=true;break
+	if not on_castle:return approach(pos,goal)
+	var stair_floor:=level if ascending else level-1
+	var best:=Vector3.INF;var score:=INF
+	for r in rooms.values():
+		if not r.complete or r.task!="" or r.kind!="Stairs" or int(r.floor)!=stair_floor:continue
+		if not rooms.get(key(r.x,r.z,stair_floor+1),{}).get("complete",false):continue
+		var center:=position(r);var lane:=6.0 if stair_floor%2==0 else -6.0
+		var foot:=center+Vector3(lane,0,-5.7);var top:=center+Vector3(lane,HEIGHT,5.7)
+		var entry:=foot if ascending else top
+		var distance:=pos.distance_to(entry)+entry.distance_to(goal)*.25
+		if distance>=score:continue
+		score=distance;best=entry
+		if absf(pos.x-foot.x)<1.4 and pos.z>foot.z-.3 and pos.z<top.z+.8:best=top if ascending else foot
+	return best if best.is_finite() else approach(pos,goal)
 func rebuild()->void:
+	world.navigation_revision+=1
 	for k in visuals.keys():
 		if not rooms.has(k):visuals[k].queue_free();visuals.erase(k)
 	for k in rooms:

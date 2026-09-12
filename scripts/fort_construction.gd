@@ -28,7 +28,9 @@ func work(player_id:int,id:int)->void:
 	if not world.defenses.has(id):return
 	var d:Dictionary=world.defenses[id];var p:FortPlayer=world.players[player_id]
 	if not pending(d) or p.health<=0 or p.mounted_ballista>=0 or p.position.distance_to(d.node.position)>3.8 or not world._allow(player_id,"construction",.65):return
-	d.work=minf(d.work_total,d.work+(2.0 if p.class_id==2 else 1.0)*FortBalance.work_multiplier(world.players.size())*world.castle.work_multiplier());d.work_revision+=1
+	if d.kind=="Gatehouse" and foundation(d) and world.gates.occupied(d,true):
+		world.personal(player_id,"Keep clear of the gatehouse piers and arch while building. Work from beside the entrance.");return
+	d.work=minf(d.work_total,d.work+(2.0 if p.role_id==2 else 1.0)*FortBalance.work_multiplier(world.players.size())*world.castle.work_multiplier());d.work_revision+=1
 	visual(d)
 	world.broadcast("recv_action",[player_id,"construct",d.node.position])
 	world.broadcast("recv_fx",[d.node.position+Vector3.UP*.65,Color("#dcc296"),"","construction"])
@@ -79,6 +81,11 @@ func visual(d:Dictionary)->void:
 	for child in d.node.get_children():
 		if child is Node3D and child.name!="Status":child.visible=not foundation(d)
 	for shape in d.node.find_children("*","CollisionShape3D",true,false):shape.set_deferred("disabled",foundation(d))
+	if d.kind=="Gatehouse":
+		FortGates.pose(d)
+		if stage>=0 and stage<3:
+			var gate_site:=FortArt.asset("gatehouse_work_%d"%stage);gate_site.name="Worksite";d.node.add_child(gate_site)
+		return
 	if stage<0:return
 	var site:=Node3D.new();site.name="Worksite";d.node.add_child(site)
 	var width:=FortPlacement.wall_width(d.kind) if FortPlacement.is_wall(d.kind) else 2.4

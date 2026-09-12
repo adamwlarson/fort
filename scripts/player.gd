@@ -4,6 +4,8 @@ extends CharacterBody3D
 var peer_id := 1
 var display_name := "Dwarf"
 var class_id := 0
+var role_id:int:
+	get:return GameData.role(class_id)
 var health := 100.0
 var max_health := 100.0
 var carrying := {"wood":0, "stone":0, "crystal":0}
@@ -20,6 +22,8 @@ var look_pitch := -0.40
 var visual_root: Node3D
 var camera_pivot: Node3D
 var camera: Camera3D
+var stuck_time:=0.0
+var fall_retry:=0.0
 var animation_player: AnimationPlayer
 var nameplate: Label3D
 var gear_root: Node3D
@@ -81,10 +85,10 @@ func aiming()->bool:
 func setup(id: int, info: Dictionary) -> void:
 	peer_id = id
 	display_name = str(info.get("name", "Dwarf"))
-	class_id = int(info.get("class", 0))
+	class_id = clampi(int(info.get("class", 0)),0,GameData.MAX_PLAYERS-1)
 	max_health = GameData.class_data(class_id).hp
 	health = max_health
-	carry_limit = 26 if class_id == 3 else 18
+	carry_limit = 26 if role_id == 3 else 18
 
 func _ready() -> void:
 	world = get_parent().get_parent()
@@ -101,7 +105,7 @@ func _ready() -> void:
 	add_child(col)
 	visual_root = Node3D.new()
 	add_child(visual_root)
-	var dwarf:Node3D=FortArt.asset(["dwarf_vanguard","dwarf_warden","dwarf_engineer","dwarf_ranger"][class_id])
+	var dwarf:Node3D=FortArt.asset(GameData.dwarf_asset(class_id))
 	if not dwarf:dwarf=preload("res://assets/models/dwarf.glb").instantiate()
 	# The authored rig faces +Z, matching visual_root's movement heading.
 	dwarf.rotation.y = 0
@@ -136,7 +140,7 @@ func _ready() -> void:
 	arm.add_child(camera)
 	camera.current = is_local_player()
 	if is_local_player(): Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	position = Vector3((class_id - 1.5) * 0.6, 0.1, 4.8)
+	position = GameData.spawn_position(class_id)
 	target_position = position
 	visual_root.rotation.y = PI
 	target_yaw = PI
@@ -169,6 +173,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		look_yaw -= event.relative.x * world.mouse_sensitivity
 		look_pitch = clampf(look_pitch - event.relative.y * world.mouse_sensitivity, -1.05, 0.75)
 	if health <= 0: return
+	if world.local_build_mode and event is InputEventMouseButton and event.pressed:
+		if event.button_index==MOUSE_BUTTON_WHEEL_UP:world.cycle_build(-1)
+		if event.button_index==MOUSE_BUTTON_WHEEL_DOWN:world.cycle_build(1)
 	if event.is_action_pressed("jump"): jump_buffer = 0.15
 	if event.is_action_pressed("ability"): world.player_ability(self)
 	if event.is_action_pressed("travel"): world.cycle_travel(self)
@@ -184,9 +191,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.physical_keycode==KEY_U:world.hud.hearth_menu.open_panel()
 		if event.physical_keycode==KEY_K:world.castle.menu.open_nearest()
 		if event.physical_keycode==KEY_G:world.hud.upgrade_menu.open_nearest()
-		if event.physical_keycode==KEY_0:world.select_build(9)
+		if event.physical_keycode==KEY_0:world.select_build_slot(9)
+		if event.physical_keycode in [KEY_PAGEDOWN,KEY_PAGEUP]:world.select_build(10 if world.selected_build<10 else 0)
 		if event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_9:
-			world.select_build(int(event.physical_keycode - KEY_1))
+			world.select_build_slot(int(event.physical_keycode - KEY_1))
 
 func _physics_process(delta: float) -> void:
 	attack_cooldown = maxf(0, attack_cooldown - delta)
@@ -208,7 +216,7 @@ func _physics_process(delta: float) -> void:
 		interact_timer -= delta
 		repair_timer -= delta
 		if Input.is_action_pressed("interact") and interact_timer <= 0 and mounted_ballista < 0:
-			world.player_interact(self)
+			world.player_interact(self,true)
 			interact_timer = 0.78
 		if Input.is_action_pressed("repair") and repair_timer <= 0:
 			world.player_repair(self)
@@ -243,15 +251,26 @@ func _physics_process(delta: float) -> void:
 			jump_buffer = 0
 			coyote_time = 0
 	if mounted_ballista >= 0: velocity = Vector3.ZERO
-	else: move_and_slide()
+	else:
+		var before:=position
+		FortRecovery.step_up(self,Vector3(velocity.x,0,velocity.z)*delta)
+		move_and_slide()
+		if can_act and direction.length_squared()>.1 and position.distance_to(before)<.002:stuck_time+=delta
+		else:stuck_time=0
+		if stuck_time>2.5:
+			stuck_time=0
+			if FortRecovery.occupied(world,self,position,true):world.request_action("unstuck_auto")
 	var distance_from_hearth:=Vector2(position.x,position.z).length()
 	if distance_from_hearth>world.frontier_radius():
 		var edge:Vector2=Vector2(position.x,position.z).normalized()*(world.frontier_radius()-0.1)
 		position.x=edge.x;position.z=edge.y;velocity.x=0;velocity.z=0
 		if world.toast_time<=0:world.show_toast("The hearth ward ends here. Upgrade at the hearth (U) to explore further.")
 	if position.y < -5:
-		position = Vector3(0, 0.3, 5)
 		velocity = Vector3.ZERO
+		fall_retry-=delta
+		if fall_retry<=0:
+			fall_retry=.75;world.send_movement(position,visual_root.rotation.y,velocity);world.request_action("unstuck_fall")
+	else:fall_retry=0
 	if aiming():visual_root.rotation.y=lerp_angle(visual_root.rotation.y,atan2(forward.x,forward.z),1-exp(-18*delta))
 	elif direction.length_squared() > 0.01 and action_time <= 0:
 		visual_root.rotation.y = lerp_angle(visual_root.rotation.y, atan2(direction.x, direction.z), 1.0 - exp(-16.0 * delta))
@@ -405,7 +424,7 @@ func apply_progression(pack_level:int,items:PackedStringArray,ironheart:bool,rev
 	progression_revision=revision
 	relics=items.duplicate()
 	backpack_level=clampi(pack_level,0,2)
-	carry_limit=(26 if class_id==3 else 18)+(GameData.BACKPACKS[backpack_level-1].bonus if backpack_level>0 else 0)
+	carry_limit=(26 if role_id==3 else 18)+(GameData.BACKPACKS[backpack_level-1].bonus if backpack_level>0 else 0)
 	if world.castle:carry_limit+=world.castle.pack_bonus()
 	max_health=GameData.class_data(class_id).hp+(40 if ironheart else 0)
 	armor=ironheart

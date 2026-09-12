@@ -2,7 +2,7 @@ class_name GameData
 extends RefCounted
 
 const PORT := 24567
-const MAX_PLAYERS := 4
+const MAX_PLAYERS := 8
 const MAX_HEARTH := 8
 const MAX_GEAR_LEVEL := 8
 const RESOURCES := ["wood","stone","crystal","iron","aether"]
@@ -15,7 +15,14 @@ const CLASSES := [
 	{"name":"Stone Warden", "color":Color("4c83c3"), "ability":"Rally", "desc":"120 health • heals and hastens nearby allies", "hp":120.0, "speed":6.2},
 	{"name":"Forge Engineer", "color":Color("e6a43b"), "ability":"Field Turret", "desc":"110 health • repairs twice as fast • deploys a free mini-turret", "hp":110.0, "speed":6.0},
 	{"name":"Wild Scout", "color":Color("56ad68"), "ability":"Trailblaze", "desc":"100 health • fast gatherer • dashes and carries more", "hp":100.0, "speed":7.3},
+	{"name":"Copper Vanguard", "color":Color("c78655"), "ability":"Ground Slam", "desc":"150 health • Vanguard role • copper armor and black beard", "hp":150.0, "speed":6.0},
+	{"name":"Amethyst Warden", "color":Color("9b8fe5"), "ability":"Rally", "desc":"120 health • Warden role • violet armor and auburn beard", "hp":120.0, "speed":6.2},
+	{"name":"Jade Engineer", "color":Color("55b8b1"), "ability":"Field Turret", "desc":"110 health • Engineer role • jade armor and silver beard", "hp":110.0, "speed":6.0},
+	{"name":"Dusk Scout", "color":Color("aa6a91"), "ability":"Trailblaze", "desc":"100 health • Scout role • dusk leathers and dark beard", "hp":100.0, "speed":7.3},
 ]
+static func role(index:int)->int:return posmod(index,4)
+static func dwarf_asset(index:int)->String:return ["dwarf_vanguard","dwarf_warden","dwarf_engineer","dwarf_ranger"][role(index)]
+static func spawn_position(index:int)->Vector3:return Vector3((role(index)-1.5)*1.05,FortCastle.BASE+.15,4.8+(1.2 if index>=4 else 0.0))
 const RECIPES := {
 	"Watchtower":{"wood":18,"stone":8,"crystal":0,"hp":240.0},
 	"Barricade":{"wood":12,"stone":3,"crystal":0,"hp":320.0},
@@ -27,9 +34,10 @@ const RECIPES := {
 	"Embercoil":{"wood":20,"stone":25,"iron":28,"crystal":8,"aether":10,"hp":460.0,"tier":4},
 	"GravityWell":{"wood":12,"stone":40,"iron":32,"crystal":15,"aether":22,"hp":550.0,"tier":5},
 	"Sunlance":{"wood":30,"stone":35,"iron":50,"crystal":20,"aether":35,"hp":650.0,"tier":6},
+	"Gatehouse":{"wood":40,"stone":64,"iron":18,"crystal":0,"hp":1200.0,"tier":2},
 }
-const BUILD_ORDER := ["Watchtower", "Barricade", "Ballista", "Mender", "MetalWall", "StormSpire", "FrostMortar", "Embercoil", "GravityWell", "Sunlance"]
-const BUILD_DESCS := ["Automatic ranged defense\n17m range / upgrades extend reach","A sturdy obstacle\nSlow the approaching swarm","Crew-operated heavy weapon\nE mount / click fire","Repairs nearby defenses\nHeals dwarves and hearth","Iron-plated fortification\n850 health / Hearth tier 2","Chains lightning to 3 targets\nAether / Hearth tier 3","Area frost shells slow crowds\nAether / Hearth tier 3","Scorches every nearby enemy\nClose-range area control / tier 4","Pulls and slows enemies\nCombine with area towers / tier 5","Long-range beam pierces armor\nBoss hunter / Hearth tier 6"]
+const BUILD_ORDER := ["Watchtower", "Barricade", "Ballista", "Mender", "MetalWall", "StormSpire", "FrostMortar", "Embercoil", "GravityWell", "Sunlance", "Gatehouse"]
+const BUILD_DESCS := ["Automatic ranged defense\n17m range / upgrades extend reach","A sturdy obstacle\nSlow the approaching swarm","Crew-operated heavy weapon\nE mount / click fire","Repairs nearby defenses\nHeals dwarves and hearth","Iron-plated fortification\n850 health / Hearth tier 2","Chains lightning to 3 targets\nAether / Hearth tier 3","Area frost shells slow crowds\nAether / Hearth tier 3","Scorches every nearby enemy\nClose-range area control / tier 4","Pulls and slows enemies\nCombine with area towers / tier 5","Long-range beam pierces armor\nBoss hunter / Hearth tier 6","Animated fortified entrance\nE open/close / G dusk setting / tier 2"]
 const BACKPACKS := [{"name":"Trail Pack","wood":16,"stone":0,"crystal":2,"iron":0,"bonus":12},{"name":"Expedition Frame","wood":24,"stone":0,"crystal":4,"iron":12,"bonus":28}]
 
 static func supplies_text(stock:Dictionary,compact:=false)->String:

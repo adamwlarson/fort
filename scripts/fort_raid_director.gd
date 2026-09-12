@@ -29,7 +29,7 @@ func _init(w:FortWorld)->void:
 	world=w;rng.randomize()
 
 func start()->void:
-	active=true;night=world.wave;crew=clampi(world.players.size(),1,4);hearth=world.hearth_level
+	active=true;night=world.wave;crew=clampi(world.players.size(),1,GameData.MAX_PLAYERS);hearth=world.hearth_level
 	duration=world.phase_time;elapsed=0;total=FortBalance.budget(night,hearth,crew);spent=0
 	pulses=3 if night<=3 else 4;pulse=-1;warning_pulse=-1;sequence=0;lane_base=rng.randi_range(0,3)
 	# Leave even a slow Brute time to reach the central fort, plus a cleanup window.
@@ -62,7 +62,7 @@ func tick(delta:float)->void:
 		world.broadcast("recv_notice",["ASSAULT %d / %d in 3 seconds. Prepare to defend!"%[next_index+1,pulses]])
 	if next_index<pulses and elapsed>=pulse_start(next_index):
 		# Joining/leaving changes only future assaults. Downed players still count.
-		crew=clampi(world.players.size(),1,4)
+		crew=clampi(world.players.size(),1,GameData.MAX_PLAYERS)
 		world.broadcast("recv_notice",["DEFEND %s / %d-dwarf pressure"%[heading(),crew]])
 		pulse=next_index;pulse_spent=0;next_spawn=elapsed;pending_kind=""
 		var planned:=FortBalance.budget(night,hearth,crew)

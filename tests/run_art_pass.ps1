@@ -26,6 +26,15 @@ function Run-GodotCheck([string]$Name, [string[]]$Arguments, [int]$Timeout = 600
 }
 
 Run-GodotCheck 'art_import' @('--headless', '--editor', '--quit')
+Run-GodotCheck 'gate24_test' @('--headless', '--script', 'res://tests/gate24_test.gd', '--', '--fort-test')
+Run-GodotCheck 'gate24_edge_test' @('--headless', '--script', 'res://tests/gate24_edge_test.gd', '--', '--fort-test')
+Run-GodotCheck 'crew24_test' @('--headless', '--script', 'res://tests/crew24_test.gd', '--', '--fort-test')
+Run-GodotCheck 'crew24_role_test' @('--headless', '--script', 'res://tests/crew24_role_test.gd', '--', '--fort-test')
+Run-GodotCheck 'minimap23_test' @('--headless', '--script', 'res://tests/minimap23_test.gd', '--', '--fort-test')
+Run-GodotCheck 'siege22_test' @('--headless', '--script', 'res://tests/siege22_test.gd', '--', '--fort-test')
+Run-GodotCheck 'planner21_test' @('--headless', '--script', 'res://tests/planner21_test.gd', '--', '--fort-test')
+Run-GodotCheck 'navigation21_test' @('--headless', '--script', 'res://tests/navigation21_test.gd', '--', '--fort-test')
+Run-GodotCheck 'recovery20_test' @('--headless', '--script', 'res://tests/recovery20_test.gd', '--', '--fort-test')
 Run-GodotCheck 'escape19_test' @('--headless', '--script', 'res://tests/escape19_test.gd', '--', '--fort-test')
 Run-GodotCheck 'terrain19_test' @('--headless', '--script', 'res://tests/terrain19_test.gd', '--', '--fort-test')
 Run-GodotCheck 'clearance18_test' @('--headless', '--script', 'res://tests/clearance18_test.gd', '--', '--fort-test')
@@ -35,6 +44,14 @@ foreach ($test in @('asset_test', 'gameplay_test', 'raid_test', 'world_test', 'p
     Run-GodotCheck $test @('--headless', '--script', "res://tests/$test.gd", '--', '--fort-test')
 }
 if ($Render) {
+	Run-GodotCheck 'gate24_render' @('--script', 'res://tests/gate24_test.gd', '--', '--fort-test')
+	Run-GodotCheck 'crew24_render' @('--script', 'res://tests/crew24_test.gd', '--', '--fort-test')
+	Run-GodotCheck 'gate24_review' @('--script', 'res://tests/gate24_review.gd', '--', '--fort-test')
+	Run-GodotCheck 'minimap23_render' @('--script', 'res://tests/minimap23_test.gd', '--', '--fort-test')
+	Run-GodotCheck 'siege22_render' @('--script', 'res://tests/siege22_test.gd', '--', '--fort-test')
+	Run-GodotCheck 'planner21_render' @('--script', 'res://tests/planner21_test.gd', '--', '--fort-test')
+	Run-GodotCheck 'navigation21_render' @('--script', 'res://tests/navigation21_test.gd', '--', '--fort-test')
+	Run-GodotCheck 'recovery20_render' @('--script', 'res://tests/recovery20_test.gd', '--', '--fort-test')
 	Run-GodotCheck 'terrain19_render' @('--script', 'res://tests/terrain19_test.gd', '--', '--fort-test')
 	Run-GodotCheck 'escape19_render' @('--script', 'res://tests/escape19_test.gd', '--', '--fort-test')
 	Run-GodotCheck 'clearance18_render' @('--script', 'res://tests/clearance18_test.gd', '--', '--fort-test')
@@ -47,6 +64,18 @@ if ($Export) {
     Run-GodotCheck 'art_export' @('--headless', '--export-release', '"Windows Desktop"', 'build/Fort.exe')
 }
 if ($Network) {
+	if ($Export) { & (Join-Path $PSScriptRoot 'run_network.ps1') -Packaged -Driver crew_network_driver -Players 8 -Overflow }
+	else { & (Join-Path $PSScriptRoot 'run_network.ps1') -Driver crew_network_driver -Players 8 -Overflow }
+	if ($LASTEXITCODE -ne 0) { throw 'Eight-player crew and capacity test failed.' }
+	if ($Export) { & (Join-Path $PSScriptRoot 'run_network.ps1') -Packaged -Driver gate_network_driver }
+	else { & (Join-Path $PSScriptRoot 'run_network.ps1') -Driver gate_network_driver }
+	if ($LASTEXITCODE -ne 0) { throw 'Four-player gatehouse test failed.' }
+	if ($Export) { & (Join-Path $PSScriptRoot 'run_network.ps1') -Packaged -Driver siege_network_driver }
+	else { & (Join-Path $PSScriptRoot 'run_network.ps1') -Driver siege_network_driver }
+	if ($LASTEXITCODE -ne 0) { throw 'Four-player siege indicator test failed.' }
+	if ($Export) { & (Join-Path $PSScriptRoot 'run_network.ps1') -Packaged -Driver recovery_network_driver }
+	else { & (Join-Path $PSScriptRoot 'run_network.ps1') -Driver recovery_network_driver }
+	if ($LASTEXITCODE -ne 0) { throw 'Four-player recovery test failed.' }
     if ($Export) { & (Join-Path $PSScriptRoot 'run_network.ps1') -Packaged }
     else { & (Join-Path $PSScriptRoot 'run_network.ps1') }
     if ($LASTEXITCODE -ne 0) { throw 'Four-player test failed.' }

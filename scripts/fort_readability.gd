@@ -44,6 +44,8 @@ func _process(delta:float)->void:
 			badge.visible=Rect2(15,170,1250,405).has_point(screen) and (not world.castle.menu.panel.visible or screen.x>630)
 			if badge.visible:
 				var bounds:=Rect2(badge.position,badge.size)
+				if world.hud.siege_indicators.reserves(bounds):badge.visible=false
+				if world.hud.map.reserves(bounds):badge.visible=false
 				for other in occupied:
 					if bounds.intersects(other):badge.visible=false;break
 				if badge.visible:occupied.append(bounds.grow(3))
@@ -57,6 +59,8 @@ func _process(delta:float)->void:
 			item.node.position=screen-Vector2(item.node.size.x*.5,95+item.age*35)
 			item.node.modulate.a=minf(1,(1.5-item.age)*2)
 			item.node.visible=Rect2(15,175,1250,385).encloses(Rect2(item.node.position,item.node.size))
+			if world.hud.siege_indicators.reserves(Rect2(item.node.position,item.node.size)):item.node.visible=false
+			if world.hud.map.reserves(Rect2(item.node.position,item.node.size)):item.node.visible=false
 	if not world.menu_open:
 		receipt_time=maxf(0,receipt_time-delta)
 		if receipt_time<=0 and not loot_queue.is_empty():show_loot(loot_queue.pop_front())

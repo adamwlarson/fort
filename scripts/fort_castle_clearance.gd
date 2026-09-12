@@ -33,8 +33,11 @@ static func inspect(c:FortCastle,target:Dictionary)->Dictionary:
 		var d:Dictionary=c.world.defenses[id];var extent:=Vector2.ONE*(2.7 if d.kind=="Watchtower" else 2.0)
 		if FortPlacement.is_wall(d.kind):
 			var yaw:float=d.node.rotation.y;var half:=FortPlacement.wall_width(d.kind)*.5
-			extent=Vector2(absf(cos(yaw))*half+absf(sin(yaw))*.2,absf(sin(yaw))*half+absf(cos(yaw))*.2)
-		if not overlaps(target,d.node.position,extent):continue
+			var depth:=FortPlacement.wall_depth(d.kind)
+			extent=Vector2(absf(cos(yaw))*half+absf(sin(yaw))*depth,absf(sin(yaw))*half+absf(cos(yaw))*depth)
+		var touches:=overlaps(target,d.node.position,extent)
+		if d.kind=="Gatehouse":touches=touches or overlaps(target,d.node.position+Vector3.UP*3.5,extent)
+		if not touches:continue
 		result.defenses.append(int(id));var returned:=refund(c.world,d)
 		for kind in returned:result.refund[kind]=int(result.refund.get(kind,0))+int(returned[kind])
 		var amounts:Array=[]

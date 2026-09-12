@@ -101,9 +101,13 @@ static func tint_dwarf(node: Node, role: int) -> void:
 			var key := original.resource_name.get_slice(".",0)
 			if key == "MAT_Tunic": mat.albedo_color = GameData.class_data(role).color.darkened(0.16)
 			elif key == "MAT_Dark_Steel": mat.albedo_color = GameData.class_data(role).color.darkened(0.55)
-			elif key == "MAT_Beard": mat.albedo_color = [Color("#894f2c"), Color("#b0aaa0"), Color("#50372e"), Color("#cda558")][role]
-			elif key == "MAT_Beard_Highlight": mat.albedo_color = [Color("#b67941"), Color("#ddd0ae"), Color("#80583b"), Color("#ead096")][role]
+			elif key == "MAT_Beard": mat.albedo_color = [Color("#894f2c"), Color("#b0aaa0"), Color("#50372e"), Color("#cda558"),Color("#252e36"),Color("#853d30"),Color("#c1cbd0"),Color("#413129")][role]
+			elif key == "MAT_Beard_Highlight": mat.albedo_color = [Color("#b67941"), Color("#ddd0ae"), Color("#80583b"), Color("#ead096"),Color("#53606b"),Color("#bd7150"),Color("#ecede5"),Color("#756354")][role]
 			elif key == "MAT_Steel": mat.albedo_color = Color("#8a9ea9")
+			if role>=4:
+				if key in ["FortArt2_red13","FortArt2_teal13","FortArt2_ochre13","FortArt2_green13"]:mat.albedo_color=GameData.class_data(role).color.darkened(.12)
+				elif key in ["FortArt2_beard13","FortArt2_white13","FortArt2_brown13","FortArt2_hair13"]:mat.albedo_color=[Color("#323f48"),Color("#98543b"),Color("#d4dad8"),Color("#574435")][role-4]
+				elif key=="FortArt2_iron" and role==4:mat.albedo_color=Color("#90694e")
 			mat.metallic = 0.15
 			mat.roughness = 0.86
 			dwarf_palette[cache_key] = mat
@@ -240,6 +244,7 @@ static func make_fort(parent: Node3D) -> void:
 		fort.add_child(FortCampfire.new())
 
 static func make_defense(kind: String, collision := true) -> Node3D:
+	if kind=="Gatehouse":return FortGates.make(collision)
 	var root:=Node3D.new()
 	if kind in ["MetalWall","StormSpire","FrostMortar","Embercoil","GravityWell","Sunlance"]:
 		var model:=asset(kind.to_lower());root.add_child(model)

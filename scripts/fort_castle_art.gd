@@ -46,7 +46,14 @@ static func make_keep(parent:Node3D)->void:
 		FortArt.box_collider(obj,Vector3(2.3,1.1,1.3),Vector3(0,.55,0))
 		var label:=Visuals.label_3d("STOCKPILE / HOLD E" if key=="stockpile" else "WORKSHOP / E",Color("#edca89"),3.2)
 		label.font_size=28;label.pixel_size=.006;obj.add_child(label)
-	fort.add_child(FortCampfire.new());FortArt.box_collider(fort,Vector3(2.7,.65,2.7),Vector3(0,.3,0))
+	fort.add_child(FortCampfire.new())
+	# A low, climbable fire bed rather than an invisible square with sharp corners.
+	var points:=PackedVector3Array([Vector3(0,.58,0),Vector3.ZERO])
+	for i in 16:
+		var direction:=Vector3(sin(i*TAU/16),0,cos(i*TAU/16))
+		points.append(direction*1.32);points.append(direction*.65+Vector3.UP*.48)
+	var shape:=ConvexPolygonShape3D.new();shape.points=points
+	var fire_body:=Visuals.add_static_collision(fort,shape);fire_body.name="HearthFireCollision"
 static func room(castle:FortCastle,r:Dictionary)->Node3D:
 	var root:=Node3D.new();root.position=FortCastle.position(r)
 	if r.complete:

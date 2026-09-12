@@ -82,7 +82,7 @@ func tick(delta:float)->void:
 			if p.mode=="SEEK":
 				p.target=pick_target(p)
 				p.mode="GATHER" if p.target>=0 else "RETURN"
-			var goal:Vector3=HOME+Vector3(int(p.kind)-1,0,2)
+			var goal:Vector3=HOME+Vector3(int(p.kind)-1,FortCastle.BASE,2)
 			if p.mode=="GATHER":
 				if not world.resource_nodes.has(p.target) or world.resource_nodes[p.target].amount<=0:p.mode="SEEK";continue
 				var r:Dictionary=world.resource_nodes[p.target];goal=r.node.position
@@ -106,22 +106,28 @@ func tick(delta:float)->void:
 				if p.mode=="SEEK" and pick_target(p)<0:p.mode="IDLE";p.work_at=world.clock+3
 				continue
 			if p.mode=="IDLE":continue
-			var offset:Vector3=goal-body.position;offset.y=0;var direction:=offset.normalized()
+			var routed_goal:=world.castle.travel_goal(body.position,goal)
+			var offset:Vector3=routed_goal-body.position;offset.y=0
+			var direction:=FortNavigation.direction(world,body,p,routed_goal);direction.y=0;direction=direction.normalized()
 			var hit:=world.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(body.position+Vector3.UP*.5,body.position+Vector3.UP*.5+direction*1.6,1))
 			if not hit.is_empty():
-				# Grounded companions hop low walls; steering handles trunks and tall obstacles.
-				if body.is_on_floor() and world.clock>=float(p.jump_at):body.velocity.y=12;p.jump_at=world.clock+1.4
-				direction=world._steer_around_scenery(body,direction,body.get_instance_id(),p)
-			body.velocity.x=direction.x*spec.speed;body.velocity.z=direction.z*spec.speed;body.velocity.y-=24*delta;body.move_and_slide()
+				# Hop only when the landing and overhead clearance are safe.
+				var landing:=FortNavigation.floor_point(world,body.position+direction*1.8+Vector3.UP*.7,body)
+				if body.is_on_floor() and world.clock>=float(p.jump_at) and landing.is_finite() and landing.y-body.position.y<1.0 and not body.test_move(body.global_transform,Vector3.UP*1.3):
+					body.velocity.y=7.5;p.jump_at=world.clock+1.4
+			body.velocity.x=direction.x*spec.speed;body.velocity.z=direction.z*spec.speed;body.velocity.y-=24*delta
+			FortRecovery.step_up(body,Vector3(body.velocity.x,0,body.velocity.z)*delta);body.move_and_slide()
 			body.rotation.y=lerp_angle(body.rotation.y,atan2(offset.x,offset.z),delta*8)
 			if world.clock>=float(p.check_at):
 				p.check_at=world.clock+1
 				p.stuck=float(p.stuck)+1 if body.position.distance_to(p.last)<.6 else maxf(0,float(p.stuck)-.5);p.last=body.position
+				if p.stuck>=2:p.nav_until=0.0;p.nav_points=[]
 				if p.stuck>=6 or body.position.y< -5:
 					# Visible magical recall is the final escape for sealed construction or bad terrain.
 					if p.target>=0:p.skip[p.target]=world.clock+30
 					world.broadcast("recv_fx",[body.position,Color("#b8e8d1"),"RECALL","ability"])
-					body.position=HOME+Vector3(0,1,3);body.velocity=Vector3.ZERO;p.mode="RETURN";p.target=-1;p.stuck=0
+					var safe:=FortNavigation.safe_home(world,body)
+					if safe.is_finite():body.position=safe;body.velocity=Vector3.ZERO;p.mode="RETURN";p.target=-1;p.stuck=0;p.nav_until=0.0;p.nav_points=[]
 		p.label.text="%s / %s\n%d %s / %s"%[spec.name,str(p.resource).to_upper(),p.cargo,p.cargo_kind,p.mode]
 		p.model.position.y=absf(sin(world.clock*9+int(p.kind)))*(.10 if p.mode in ["RETURN","GATHER"] else .025)
 		FortArt.animate_enemy(p.model,world.clock,false,p.mode in ["RETURN","GATHER"])
