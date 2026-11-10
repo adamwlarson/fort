@@ -45,7 +45,7 @@ func _ready()->void:
 	var packs:=VBoxContainer.new();packs.name="Backpacks and Relics";packs.add_theme_constant_override("separation",16);tabs.add_child(packs)
 	for i in 2:
 		var spec:Dictionary=GameData.BACKPACKS[i]
-		var desc:=Label.new();desc.text="%s / +%d carry slots\nShared cost: %s"%[spec.name,spec.bonus,GameData.supplies_text(spec,true)];packs.add_child(desc)
+		var desc:=Label.new();desc.text="%s  ·  +%d pack slots\nCost  %s"%[spec.name,spec.bonus,GameData.supplies_text(spec,true)];packs.add_child(desc)
 		var button:=Button.new();button.custom_minimum_size.y=46;button.pressed.connect(func():world.request_action("craft_pack",{"level":i}));packs.add_child(button);pack_buttons.append(button)
 	relic_label=Label.new();relic_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;relic_label.custom_minimum_size=Vector2(820,80);packs.add_child(relic_label)
 	var pets:=FortPetMenu.new();pets.name="Gathering Pets";pets.world=world;tabs.add_child(pets)
@@ -57,7 +57,7 @@ func _process(_delta:float)->void:
 	if not visible:return
 	var p:=world.local_player()
 	if not p:return
-	if p.health<=0 or p.position.distance_to(Vector3(-4.6,0,0))>3.5:
+	if p.health<=0 or p.position.distance_to(FortHearthGrowth.workshop(world))>3.5:
 		world.toggle_pause();return
 	supply.text="SHARED: "+GameData.supplies_text(world.shared,true)
 	for i in 2:
@@ -75,7 +75,7 @@ func _process(_delta:float)->void:
 		var owned:bool=kind in p.owned_weapons
 		var missing:PackedStringArray=[]
 		for resource in GameData.RESOURCES:
-			if int(world.shared.get(resource,0))<int(recipe.get(resource,0)):missing.append("%d %s"%[int(recipe.get(resource,0))-int(world.shared.get(resource,0)),resource])
+			if int(world.shared.get(resource,0))<int(recipe.get(resource,0)):missing.append("%d%s"%[int(recipe.get(resource,0))-int(world.shared.get(resource,0)),FortGlyphs.g(resource)])
 		costs[i].text="OWNED / No cost to re-equip" if owned else GameData.supplies_text(recipe,true)
 		buttons[i].text="EQUIPPED" if p.weapon==kind else ("EQUIP" if owned else ("CRAFT & EQUIP" if missing.is_empty() else "NEED SUPPLIES"))
 		buttons[i].tooltip_text="Missing "+", ".join(missing) if not owned and not missing.is_empty() else ""

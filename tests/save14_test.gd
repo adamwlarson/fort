@@ -41,7 +41,7 @@ func run()->void:
 	main._start_match();w=main.world;p=w.local_player();w.set_process(false);p.set_physics_process(false)
 	check(w.hearth_level==4 and w.expedition.seed_value==seed_value,"hearth, map seed and biome ordering restored")
 	check(w.is_night and w.wave==10 and is_equal_approx(w.phase_time,87.5) and is_equal_approx(w.clock,1234),"midnight clock restored without an opening-day reset")
-	check(is_equal_approx(w.sun.light_energy,.23) and w.sky_material.sky_top_color.r>=0,"restored night lighting does not overshoot into invalid colors")
+	check(is_equal_approx(w.sun.light_energy,.3) and w.sky_material.sky_top_color.r>=0,"restored night lighting does not overshoot into invalid colors")
 	check(w.director.spent==55 and w.director.elapsed==40 and w.director.rng.state==rng_state and w.director.reports.size()==1,"raid budget, random state and history resume")
 	check(w.castle.rooms["1:0:0"].funded.wood==7 and not w.castle.rooms["1:0:0"].complete,"unfinished castle funding survives")
 	check(w.castle.pack_bonus()==6 and p.carry_limit==52,"castle research and backpack capacity survive")

@@ -37,7 +37,7 @@ static func foundation(root:Node3D,r:Dictionary,castle:FortCastle)->void:
 			ramp(root,6,2,FortCastle.BASE,offset,side*PI/2)
 	else:
 		for x in [-9.4,9.4]:
-			for z in [-9.4,9.4]:model(root,"castle_pier",Vector3(x,-4,z),Vector3(1,2.5,1))
+			for z in [-9.4,9.4]:model(root,"castle_pier",Vector3(x,-FortCastle.HEIGHT,z),Vector3(1,FortCastle.HEIGHT/1.6,1))
 static func make_keep(parent:Node3D)->void:
 	var fort:=Node3D.new();fort.name="Hearthhold";parent.add_child(fort);fort.position.y=FortCastle.BASE
 	for key in ["stockpile","workshop"]:
@@ -58,14 +58,25 @@ static func room(castle:FortCastle,r:Dictionary)->Node3D:
 	var root:=Node3D.new();root.position=FortCastle.position(r)
 	if r.complete:
 		foundation(root,r,castle)
+		FortCastleFeatures.furnish(root,r)
+		# Solid corner posts close the gap where three walled rooms meet.
+		if not r.walls.is_empty():
+			for x in [-9.72,9.72]:
+				for z in [-9.72,9.72]:
+					root.add_child(Visuals.box(Vector3(1.0,FortCastle.HEIGHT,1.0),FortArt.STONE.darkened(.08),Vector3(x,FortCastle.HEIGHT*.5,z)))
+					FortArt.box_collider(root,Vector3(1.1,FortCastle.HEIGHT,1.1),Vector3(x,FortCastle.HEIGHT*.5,z))
+					root.add_child(Visuals.box(Vector3(1.16,.18,1.16),FortArt.TRIM,Vector3(x,FortCastle.HEIGHT-.09,z)))
 		if r.kind=="Stairs":
 			var stair_x:=6.0 if int(r.floor)%2==0 else -6.0
-			ramp(root,3.8,8,4,Vector3(stair_x,0,0))
-			for x in [stair_x-2.1,stair_x+2.1]:FortArt.beam(root,Vector3(x,1,-4),Vector3(x,5,4),.12,FortArt.TRIM)
-		if r.kind=="Merchant":model(root,"castle_merchant",Vector3(0,0,4))
-		if r.kind=="Gatherers":model(root,"castle_lodge",Vector3(0,0,4))
-		if r.kind=="Research":model(root,"castle_research",Vector3(0,0,4))
-		if r.kind in ["Merchant","Gatherers","Research"]:
+			ramp(root,3.8,8,FortCastle.HEIGHT,Vector3(stair_x,0,0))
+			# Landing lip: closes the gap between the top step and the floor above.
+			root.add_child(Visuals.box(Vector3(3.8,.4,.7),FortArt.STONE,Vector3(stair_x,FortCastle.HEIGHT-.2,4.32)))
+			FortArt.box_collider(root,Vector3(3.8,.4,.7),Vector3(stair_x,FortCastle.HEIGHT-.2,4.32))
+			for x in [stair_x-2.1,stair_x+2.1]:FortArt.beam(root,Vector3(x,1,-4),Vector3(x,FortCastle.HEIGHT+1,4),.12,FortArt.TRIM)
+		if r.kind=="Merchant" and FortCastleFeatures.healthy(r):model(root,"castle_merchant",Vector3(0,0,4))
+		if r.kind=="Gatherers" and FortCastleFeatures.healthy(r):model(root,"castle_lodge",Vector3(0,0,4))
+		if r.kind=="Research" and FortCastleFeatures.healthy(r):model(root,"castle_research",Vector3(0,0,4))
+		if r.kind in ["Merchant","Gatherers","Research"] and FortCastleFeatures.healthy(r):
 			var npc:=model(root,"dwarf_engineer" if r.kind=="Merchant" else ("dwarf_ranger" if r.kind=="Gatherers" else "dwarf_warden"),Vector3(1,0,4),Vector3.ONE*.9)
 			var gear:=FortEquipment.prepare(npc);gear.axe.hide()
 			var animation:=FortPlayer.find_animation(npc)
@@ -89,7 +100,9 @@ static func room(castle:FortCastle,r:Dictionary)->Node3D:
 static func update_sign(root:Node3D,r:Dictionary,castle:FortCastle)->void:
 	var sign:=root.get_node("ProjectSign") as Node3D;sign.position=r.sign-root.position
 	var label:=sign.get_node("Caption") as Label3D
-	label.text="CASTLE ARCHITECT / K" if r.kind=="Keep" else str(FortCastle.TYPES[r.kind].name).to_upper()+" / K"
+	label.text="CASTLE PLANS / K" if r.kind=="Keep" else str(FortCastle.TYPES[r.kind].name).to_upper()+" / K"
+	if r.kind!="Keep" and float(r.get("health",FortCastleFeatures.max_health(r)))<FortCastleFeatures.max_health(r):
+		label.text+="\n%s / HOLD R TO REPAIR"%("RUINED" if not FortCastleFeatures.healthy(r) else "%d%% integrity"%roundi(100*float(r.health)/FortCastleFeatures.max_health(r)))
 	var meter:=sign.get_node("WorkMeter") as Node3D;meter.visible=r.task!=""
 	if r.task!="":
 		var needed:=0;var total:=0
@@ -98,4 +111,4 @@ static func update_sign(root:Node3D,r:Dictionary,castle:FortCastle)->void:
 		var fraction:=float(total-needed)/maxi(1,total) if needed>0 else float(r.work)/maxf(1,r.total)
 		var fill:=meter.get_node("Fill") as MeshInstance3D;fill.scale.x=maxf(.001,fraction);fill.position.x=-.9*(1-fraction)
 		label.text+="\n%s / %s"%[str(r.task).to_upper(),"SUPPLIES %d / %d"%[total-needed,total] if needed>0 else "WORK %d%%"%int(100*fraction)]
-		label.text+="\nNEED: "+GameData.supplies_text(castle.remaining(r),true) if needed>0 else "\nHOLD E / WORK · K / DETAILS"
+		label.text+="\nNEEDS  "+GameData.supplies_text(castle.remaining(r),true)+"\nHOLD E TO DELIVER" if needed>0 else "\nHOLD E TO BUILD"

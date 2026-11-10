@@ -4,6 +4,10 @@ A playable Godot co-op survival build for one to eight dwarves. Gather by day, r
 
 ## Play
 
+Fort 27 rebuilds the dwarf walk and sprint, and replaces the three pets and the pony with new locally sculpted, animated models. See [RELEASE_NOTES_27.md](RELEASE_NOTES_27.md).
+
+Fort 26 replaces every dwarf and enemy with new sculpted, animated characters, adds rolling hills, a painted sky and mountain horizon, and shrinks the HUD. **Tab** opens your character sheet (gear, level, seven stats); **M** cycles the map from standard to the whole world to off; every cost is shown with resource symbols. Castle storeys are taller, cleared enemy bases can be built over, and the outer wall can hold farms. See [RELEASE_NOTES_26.md](RELEASE_NOTES_26.md).
+
 Fort 24 adds **up to eight online dwarves** and **hand-built animated gatehouses**. Four ability roles each have two distinct character palettes and independent save slots. Press **B → Page Down → 1** to select Gatehouse; hold **E** to build it, tap **E** to open/close, and use **G** for reinforcement and optional dusk closing. See [RELEASE_NOTES_24.md](RELEASE_NOTES_24.md).
 
 Fort 23 simplifies the minimap: a fixed-scale north-up local view, clear crew and home markers, grouped threats, and only nearby discovered sites. **Press M to toggle resource patches**, off by default. See [RELEASE_NOTES_23.md](RELEASE_NOTES_23.md).
@@ -40,7 +44,7 @@ Fort 9 adds eight hearth tiers, five seeded random biomes, endless nights and mi
 
 Run `build/Fort.exe`. It contains the game data; Godot and Blender are not required to play. Alternatively, open `project.godot` in Godot 4.5.2 and press F5.
 
-Everyone must run **Fort 24**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. One host plus up to seven guests can play. Character slots are unique: if your choice is taken, the host assigns a free one. There are four ability roles, with two character choices per role. Late joining a running expedition is supported.
+Everyone must run **Fort 27**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. One host plus up to seven guests can play. Character slots are unique: if your choice is taken, the host assigns a free one. There are four ability roles, with two character choices per role. Late joining a running expedition is supported.
 
 - Same PC: join `127.0.0.1`.
 - Same LAN: join the host's local IPv4 address.
@@ -72,7 +76,9 @@ Saves live in `%APPDATA%\Godot\app_userdata\Fort\expeditions`, not alongside the
 | B / 1–9 and 0 / Q | Toggle construction / choose one of ten defenses / rotate preview |
 | T | Cycle unlocked walking, horse, and jetpack modes |
 | Enter | Vote to begin the next night early; all present players must be ready |
-| Esc | Close construction or open the camp menu |
+| Tab | Character sheet: gear, level and stat points |
+| M | Cycle map size: standard, wide, region, whole world, off |
+| Esc | Close construction or open the camp menu (all controls are listed under Controls) |
 
 The camp menu changes sensitivity and sound and lets you leave. It does not pause the shared world.
 

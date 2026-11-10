@@ -15,6 +15,7 @@ function Run-GodotCheck([string]$Name, [string[]]$Arguments, [int]$Timeout = 600
         throw "$Name timed out."
     }
     $stderr = Get-Content -LiteralPath $stderrPath -Raw
+    if ($stderr) { $stderr = (($stderr -split "`n") | Where-Object { $_ -notmatch 'Texture with GL ID of [0-9]+: leaked|drivers/gles3/storage/utilities.cpp' }) -join "`n" }
     $stdout = Get-Content -LiteralPath $stdoutPath -Raw
     # Match failure markers, not a passing test named "failed mapping cleanup".
     if (($null -ne $process.ExitCode -and $process.ExitCode -ne 0) -or $stderr -match 'ERROR:|SCRIPT ERROR' -or $stdout -match '(?im)^\s*(?:FAIL(?:ED)?\b|[A-Z0-9_]*RESULT[^\r\n]*\bFAIL(?:ED)?\b)') {
@@ -26,6 +27,8 @@ function Run-GodotCheck([string]$Name, [string[]]$Arguments, [int]$Timeout = 600
 }
 
 Run-GodotCheck 'art_import' @('--headless', '--editor', '--quit')
+Run-GodotCheck 'fort26_test' @('--headless', '--script', 'res://tests/fort26_test.gd', '--', '--fort-test')
+Run-GodotCheck 'improvements25_test' @('--headless', '--script', 'res://tests/improvements25_test.gd', '--', '--fort-test')
 Run-GodotCheck 'gate24_test' @('--headless', '--script', 'res://tests/gate24_test.gd', '--', '--fort-test')
 Run-GodotCheck 'gate24_edge_test' @('--headless', '--script', 'res://tests/gate24_edge_test.gd', '--', '--fort-test')
 Run-GodotCheck 'crew24_test' @('--headless', '--script', 'res://tests/crew24_test.gd', '--', '--fort-test')
@@ -44,6 +47,7 @@ foreach ($test in @('asset_test', 'gameplay_test', 'raid_test', 'world_test', 'p
     Run-GodotCheck $test @('--headless', '--script', "res://tests/$test.gd", '--', '--fort-test')
 }
 if ($Render) {
+	foreach ($review in @('fort26_test','heroes26_review','enemies26_review','vista26_review','pets26_review','improvements25_review')) { Run-GodotCheck ($review + '_render') @('--script', "res://tests/$review.gd", '--', '--fort-test') }
 	Run-GodotCheck 'gate24_render' @('--script', 'res://tests/gate24_test.gd', '--', '--fort-test')
 	Run-GodotCheck 'crew24_render' @('--script', 'res://tests/crew24_test.gd', '--', '--fort-test')
 	Run-GodotCheck 'gate24_review' @('--script', 'res://tests/gate24_review.gd', '--', '--fort-test')

@@ -3,12 +3,13 @@ extends RefCounted
 
 const CELL:=20.0
 const BASE:=.6
-const HEIGHT:=4.0
+const HEIGHT:=5.0
 const TYPES:={
 	"Courtyard":{"name":"Open courtyard","cost":{"wood":30,"stone":55},"work":20,"tier":1,"desc":"Open floor for your own defenses. Expands the castle grid."},
 	"Stairs":{"name":"Grand stairwell","cost":{"wood":35,"stone":75},"work":26,"tier":1,"desc":"Walkable stairs to the next storey. Finish four ground wings to build upward."},
 	"Rampart":{"name":"Defensive terrace","cost":{"wood":65,"stone":90},"work":30,"tier":1,"desc":"A working watchtower plus space for crew-built defenses."},
-	"Merchant":{"name":"Merchant hall","cost":{"wood":65,"stone":65,"crystal":8},"work":28,"tier":2,"desc":"Trade shared wood/stone for iron and crystal. Prices never produce a profit loop."},
+	"Merchant":{"name":"Merchant hall","cost":{"wood":65,"stone":65,"crystal":8},"work":28,"tier":2,"desc":"Visit the tent to sell resources for shared gold and buy supplies. Rotating daily sale."},
+	"Sentry":{"name":"Sentry room","cost":{"wood":75,"stone":100,"iron":25},"work":32,"tier":2,"desc":"Stackable gun room. Build outward-facing cannons at its sign; window walls keep firing ports open."},
 	"Gatherers":{"name":"Gatherers' lodge","cost":{"wood":80,"stone":50,"crystal":10},"work":28,"tier":2,"desc":"Assign a resource. Workers harvest actual nearby nodes by day and deliver shared supplies."},
 	"Research":{"name":"Rune research hall","cost":{"wood":60,"stone":90,"crystal":16,"iron":15},"work":34,"tier":3,"desc":"Fund and hand-build crew research: stronger towers, faster construction, bigger packs."},
 }
@@ -22,6 +23,8 @@ var menu:FortCastleMenu
 var research:PackedStringArray=[]
 var next_tick:=0.0
 var cleared_scenery:Dictionary={}
+var perimeter:Dictionary={}
+var razed:Dictionary={}
 
 func _init(w:FortWorld)->void:
 	world=w;root=Node3D.new();root.name="CastleWings";world.add_child(root)
@@ -29,7 +32,7 @@ func _init(w:FortWorld)->void:
 	menu=FortCastleMenu.new();menu.castle=self;world.add_child(menu)
 static func key(x:int,z:int,floor:int)->String:return "%d:%d:%d"%[x,z,floor]
 static func position(r:Dictionary)->Vector3:return Vector3(int(r.x)*CELL,BASE+int(r.floor)*HEIGHT,int(r.z)*CELL)
-func state()->Dictionary:return {"revision":revision,"rooms":rooms.duplicate(true),"research":research.duplicate(),"cleared_scenery":cleared_scenery.keys()}
+func state()->Dictionary:return {"revision":revision,"rooms":rooms.duplicate(true),"research":research.duplicate(),"cleared_scenery":cleared_scenery.keys(),"perimeter":perimeter.duplicate(true),"razed":razed.keys()}
 func receive(data:Dictionary)->void:
 	if data.is_empty() or int(data.revision)<revision:return
 	if int(data.revision)==revision and not visuals.is_empty():return
@@ -37,8 +40,12 @@ func receive(data:Dictionary)->void:
 	for key in data.get("cleared_scenery",[]):cleared_scenery[key]=true
 	FortCastleClearance.apply_scenery(self)
 	revision=int(data.revision);rooms=data.rooms.duplicate(true);research=PackedStringArray(data.research);rebuild()
+	perimeter=data.get("perimeter",{}).duplicate(true)
+	for key in data.get("razed",[]):razed[key]=true
+	FortRaze.apply(self);FortFarms.rebuild(self)
 	refresh_packs()
 func changed()->void:
+	FortPerimeter.sync(self)
 	revision+=1;rebuild();refresh_packs();world.broadcast("recv_castle",[state()])
 func refresh_packs()->void:
 	for p in world.players.values():p.apply_progression(p.backpack_level,p.relics,p.armor,p.progression_revision)
@@ -67,26 +74,29 @@ static func result_direction(d:Vector2i)->int:return 0 if d.x>0 else (1 if d.x<0
 func plan_reason(from:String,target:Dictionary,kind:String)->String:
 	if not TYPES.has(kind):return "Unknown wing"
 	if rooms.size()>=128:return "Castle capacity reached (128 rooms)"
-	if world.hearth_level<int(TYPES[kind].tier):return "Upgrade hearth to tier %d"%TYPES[kind].tier
+	if world.hearth_level<int(TYPES[kind].tier):return "%s needs Hearth tier %d. Upgrade the hearth with U."%[TYPES[kind].name,TYPES[kind].tier]
 	var valid:=false
 	for c in candidates(from):
 		if c.key==key(int(target.x),int(target.z),int(target.floor)):valid=true
-	if not valid:return "Choose an open connection from a finished room"
-	if int(target.floor)>=mini(8,world.hearth_level+1):return "Upgrade the hearth for another storey"
+	if not valid:return "Must build rooms from adjacent room's signs"
+	if int(target.floor)>=mini(8,world.hearth_level+1):return "The hearth tier is too low for another floor. Upgrade the hearth with U."
 	if int(target.floor)>0:
+		if int(target.x)==0 and int(target.z)==0:return "The hearth needs open sky. Build upper floors around the keep, never above it."
 		if completed_ground()<4:return "Ground wings: %d/4 complete. Finish %d more before building upstairs. The stairwell counts; the starting keep and unfinished blueprints do not. Close K and HOLD E at unfinished signs to build."%[completed_ground(),4-completed_ground()]
 		var below:=key(target.x,target.z,target.floor-1)
 		if not rooms.has(below) or not rooms[below].complete:return "Finish the supporting room below first: storey %d, grid (%d, %d). Build a ground wing there, then each floor beneath this one."%[int(target.floor),int(target.x),int(target.z)]
 	var pos:=position(target)
-	if Vector2(pos.x,pos.z).length()+CELL*.71>world.build_radius():return "Upgrade hearth to expand the castle boundary"
+	if Vector2(pos.x,pos.z).length()+CELL*.71>world.build_radius():return "Too far from the hearth. Upgrade the hearth with U to build further out."
 	if target.floor==0:
 		for obstacle in world.scenery_keepouts:
-			if not obstacle.get("clearable",false) and FortCastleClearance.scenery_overlap(target,obstacle):return "This wing overlaps a protected landmark or encounter. Choose another connection"
+			if not obstacle.get("clearable",false) and FortCastleClearance.scenery_overlap(target,obstacle):
+				var blocked:=FortRaze.reason(world,obstacle)
+				if blocked!="":return blocked
 	var clearance:=FortCastleClearance.inspect(self,target)
 	if not clearance.defenses.is_empty():
-		if world.is_night:return "Expand over defenses during daylight so they can be salvaged safely"
+		if world.is_night:return "Defenses are in the way. Build this room in daylight so they can be salvaged."
 		for id in clearance.defenses:
-			if world._nearest_enemy(world.defenses[id].node.position,12)>=0:return "Clear enemies near the defenses before expanding over them"
+			if world._nearest_enemy(world.defenses[id].node.position,12)>=0:return "Enemies are too close to the defenses in the way. Defeat them first."
 	return ""
 func authorized(id:int,k:String)->bool:
 	return world.players.has(id) and rooms.has(k) and world.players[id].health>0 and world.players[id].mounted_ballista<0 and world.players[id].position.distance_to(rooms[k].sign)<4.0
@@ -96,16 +106,19 @@ func plan(id:int,from:String,target:Dictionary,kind:String,expected:int,clearanc
 	if not reason.is_empty():world.personal(id,reason);return
 	var clearance:=FortCastleClearance.inspect(self,target)
 	if not clearance.defenses.is_empty() and clearance_token!=clearance.token:
-		world.personal(id,"Confirm the expansion's defense removal and refund in K. Costs may have changed.");return
+		world.personal(id,"Defenses are in the way. Open K again and confirm their removal and refund.");return
 	var r:=target.duplicate();var pos:=position(r);var parent_pos:=position(rooms[from]);var upper:bool=r.floor>rooms[from].floor
 	r.merge({"kind":kind,"complete":false,"funded":{},"work":0.0,"total":float(TYPES[kind].work),"sign":rooms[from].sign if upper else pos+(parent_pos-pos).normalized()*8,"walls":[],"task":"build","resource":"wood"},true)
 	# An upstairs project uses the landing at the lower stair's foot until finished.
 	if upper:r.sign=parent_pos+Vector3(4 if int(rooms[from].floor)%2==0 else -4,0,-5)
 	rooms[key(r.x,r.z,r.floor)]=r
-	FortCastleClearance.apply(self,clearance);changed()
+	FortCastleClearance.apply(self,clearance);FortRaze.raze_under(self,r);changed()
 	world.broadcast("recv_full",[world.full_state()])
 	if not clearance.defenses.is_empty():world.broadcast("recv_notice",["CASTLE CLEARANCE / %d defenses salvaged · %s returned to shared stock"%[clearance.defenses.size(),GameData.supplies_text(clearance.refund,true)]])
 func cost(r:Dictionary)->Dictionary:
+	if r.task=="upgrade_room":return FortCastleFeatures.upgrade_cost(r)
+	if r.task=="sentry_cannons":return {"wood":40,"iron":32,"stone":20}
+	if str(r.task).begins_with("edge:"):return {"wood":15,"stone":25,"iron":4}
 	if r.task=="dismantle":return {}
 	if r.task=="remodel":return TYPES[r.remodel_kind].cost
 	if str(r.task).begins_with("tech:"):return TECH[str(r.task).trim_prefix("tech:")].cost
@@ -129,9 +142,9 @@ func fund(id:int,k:String,shared_stock:bool,expected:int,use_both:=false)->void:
 		for kind in remaining(r):
 			var amount:=mini(int(remaining(r)[kind]),int(bag.get(kind,0)))
 			bag[kind]=int(bag.get(kind,0))-amount;r.funded[kind]=int(r.funded.get(kind,0))+amount;moved+=amount
-	if moved>0:changed();world.personal(id,"Added %d supplies to the castle worksite"%moved)
-	elif use_both:world.personal(id,"Still needed: "+GameData.supplies_text(remaining(r),true)+" / gather into your pack or deposit in shared stock")
-	else:world.personal(id,"Bring the listed materials, or fund from the shared stockpile in the castle menu")
+	if moved>0:changed();world.personal(id,"Delivered %d supplies to this project"%moved)
+	elif use_both:world.personal(id,"This project still needs "+GameData.supplies_text(remaining(r),true)+". Gather more, then hold E here again.")
+	else:world.personal(id,"Nothing to deliver. Gather the listed materials or deposit them at the stockpile first.")
 func work(id:int,k:String)->void:
 	if not authorized(id,k) or rooms[k].task=="" or not world._allow(id,"castle_work",.65):return
 	var r:Dictionary=rooms[k]
@@ -140,10 +153,14 @@ func work(id:int,k:String)->void:
 		if reason!="":world.personal(id,reason);return
 	if needs_supplies(r):fund(id,k,true,revision,true);return
 	r.work=minf(r.total,r.work+(2 if world.players[id].role_id==2 else 1)*FortBalance.work_multiplier(world.players.size())*work_multiplier())
+	FortStats.award(world,id,3)
 	world.broadcast("recv_action",[id,"construct",r.sign]);world.broadcast("recv_fx",[r.sign+Vector3.UP,Color("#d9bd81"),"","construction"])
 	if r.work>=r.total:
+		var blocked:=FortCastleFeatures.completion_reason(self,r)
+		if blocked!="":world.personal(id,blocked);return
 		if r.task in ["remodel","dismantle"]:FortCastleRemodel.finish(self,k);changed();return
-		if r.task=="walls":finish_walls(r)
+		if FortCastleFeatures.finish(self,r):pass
+		elif r.task=="walls":finish_walls(r)
 		elif str(r.task).begins_with("tech:"):
 			var tech:=str(r.task).trim_prefix("tech:")
 			if tech not in research:research.append(tech)
@@ -157,11 +174,12 @@ func work(id:int,k:String)->void:
 		world.broadcast("recv_notice",["CASTLE / "+("Keep" if r.kind=="Keep" else TYPES[r.kind].name)+" project completed"])
 	changed()
 func begin_task(id:int,k:String,task:String,expected:int)->void:
+	if FortCastleFeatures.begin(self,id,k,task,expected):return
 	if expected!=revision or not authorized(id,k) or not rooms[k].complete or rooms[k].task!="":return
 	var r:Dictionary=rooms[k]
 	if task=="walls":
 		for defense_id in r.walls:
-			if world.defenses.has(defense_id):world.personal(id,"This room already has curtain walls");return
+			if world.defenses.has(defense_id):world.personal(id,"This room already has walls. Change a side with the Open / Gate / Solid buttons.");return
 	elif task.begins_with("tech:"):
 		var tech:=task.trim_prefix("tech:")
 		if r.kind!="Research" or not TECH.has(tech) or tech in research:return
@@ -177,31 +195,30 @@ func cancel(id:int,k:String,expected:int)->void:
 	else:r.task="";r.funded={};r.work=0;r.total=0;r.erase("remodel_kind")
 	changed()
 func finish_walls(r:Dictionary)->void:
+	for id in r.walls:world.broadcast("recv_remove_defense",[id,true])
 	r.walls=[]
 	for side in 4:
-		for offset in [-7.0,-4.2,4.2,7.0]:
-			var pos:=position(r)+Vector3(offset,0,9.5).rotated(Vector3.UP,side*PI/2)
-			world._spawn_defense("MetalWall",pos,side*PI/2,false)
-			var id:=world.next_defense_id-1;r.walls.append(id)
-			world.defenses[id].paid={"wood":2,"stone":6}
+		FortCastleFeatures.make_edge(self,r,side)
 func trade(id:int,k:String,resource:String,expected:int)->void:
-	if expected!=revision or not authorized(id,k) or rooms[k].kind!="Merchant" or not rooms[k].complete:return
-	var offer:Dictionary={"wood":{"stone":8},"stone":{"wood":8},"iron":{"wood":20,"stone":10},"crystal":{"wood":15,"stone":15}}
-	if not offer.has(resource) or (resource=="iron" and world.hearth_level<2):return
-	for kind in offer[resource]:
-		if int(world.shared.get(kind,0))<int(offer[resource][kind]):world.personal(id,"Not enough shared supplies for that trade");return
-	for kind in offer[resource]:world.shared[kind]-=int(offer[resource][kind])
-	world.shared[resource]+=5 if resource in ["wood","stone"] else 2;changed()
+	FortMerchant.trade(world,id,k,resource,false,expected,world.wave)
 func assign(id:int,k:String,resource:String,expected:int)->void:
 	if expected!=revision or not authorized(id,k) or rooms[k].kind!="Gatherers" or not rooms[k].complete or resource not in GameData.RESOURCES:return
 	if resource=="iron" and world.hearth_level<2:return
 	if resource=="aether" and world.hearth_level<3:return
 	rooms[k].resource=resource;changed()
 func tick()->void:
+	if perimeter.get("pending",false):
+		FortPerimeter.sync(self)
+		if not perimeter.get("pending",false):changed()
 	if world.is_night or world.clock<next_tick:return
 	next_tick=world.clock+12
+	FortFarms.tick(self)
 	var count:=0
 	for r in rooms.values():
+		if not FortCastleFeatures.healthy(r):continue
+		if r.complete and r.kind=="Courtyard" and FortCastleFeatures.level(r)>1:
+			for defense in world.defenses.values():
+				if FortCastleFeatures.inside(r,defense.node.position):defense.hp=minf(defense.max_hp,defense.hp+4*(FortCastleFeatures.level(r)-1))
 		if not r.complete or r.kind!="Gatherers":continue
 		count+=1
 		if count>4:continue # Four staffed lodges; additional halls still extend the castle.
@@ -210,13 +227,24 @@ func tick()->void:
 			var resource:Dictionary=world.resource_nodes[id];var d:float=resource.node.position.distance_to(position(r))
 			if resource.kind==r.resource and resource.amount>0 and d<distance and FortForestry.pet_can_harvest(resource,world.hearth_level,world.frontier_radius()):best=id;distance=d
 		if best<0:continue
-		var resource:Dictionary=world.resource_nodes[best];var amount:=mini(2,resource.amount);resource.respawn=65
+		var quota:=2.0*(1.0+.2*(FortCastleFeatures.level(r)-1))+float(r.get("gather_fraction",0))
+		var whole:=floori(quota+.00001)
+		var resource:Dictionary=world.resource_nodes[best];var amount:=mini(whole,resource.amount);resource.respawn=65
+		r.gather_fraction=maxf(0,quota-whole)
 		world.shared[r.resource]+=amount;world.broadcast("recv_resource",[best,int(resource.amount)-amount,true])
 		world.broadcast("recv_fx",[r.sign+Vector3.UP,GameData.resource_color(r.resource),"","deposit"])
 		world.broadcast("recv_gain",[-1,r.sign+Vector3.UP,r.resource,amount,"SHARED STOCK"])
-func work_multiplier()->float:return 1.15 if "Masonry" in research else 1.0
+func work_multiplier()->float:
+	var bonus:=0.0
+	for r in rooms.values():
+		if r.complete and FortCastleFeatures.healthy(r) and r.kind=="Research":bonus=maxf(bonus,.05*(FortCastleFeatures.level(r)-1))
+	return (1.15 if "Masonry" in research else 1.0)+bonus
 func tower_multiplier()->float:return 1.15 if "Ballistics" in research else 1.0
-func pack_bonus()->int:return 6 if "Logistics" in research else 0
+func pack_bonus()->int:
+	var bonus:=0
+	for r in rooms.values():
+		if r.complete and FortCastleFeatures.healthy(r) and r.kind=="Research":bonus=maxi(bonus,2*(FortCastleFeatures.level(r)-1))
+	return (6 if "Logistics" in research else 0)+bonus
 func floor_at(pos:Vector3)->float:
 	var height:=0.0
 	for r in rooms.values():
@@ -234,7 +262,7 @@ func placement_reason(pos:Vector3,clearance:=0.0,kind:="",yaw:=0.0)->String:
 		if r.task in ["remodel","dismantle"] and FortCastleRemodel.inside(r,pos,clearance):return "Finish or cancel this remodeling project before placing defenses"
 		if pos.distance_to(r.sign)<1.5:return "Keep the castle signpost clear"
 		var stair_x:=6.0 if int(r.floor)%2==0 else -6.0
-		if r.kind=="Stairs" and r.complete and absf(pos.y-p.y)<4.2 and absf(pos.x-p.x-stair_x)<2.5+clearance and absf(pos.z-p.z)<6+clearance:return "Keep the stairwell and landings clear"
+		if r.kind=="Stairs" and r.complete and absf(pos.y-p.y)<HEIGHT+.2 and absf(pos.x-p.x-stair_x)<2.5+clearance and absf(pos.z-p.z)<6+clearance:return "Keep the stairwell and landings clear"
 		if r.complete and absf(pos.y-p.y)<2.8:
 			for direction in [Vector3.RIGHT,Vector3.LEFT,Vector3.FORWARD,Vector3.BACK]:
 				var entry:Vector3=p+direction*10
@@ -300,18 +328,21 @@ func rebuild()->void:
 	for k in visuals.keys():
 		if not rooms.has(k):visuals[k].queue_free();visuals.erase(k)
 	for k in rooms:
-		var r:Dictionary=rooms[k];var stamp:=str([r.complete,r.kind,r.task,int(r.work/8),r.walls,rooms.get(key(r.x,r.z,r.floor-1),{}).get("kind","")])
+		var r:Dictionary=rooms[k];var stamp:=str([r.complete,r.kind,r.task,int(r.work/8),r.walls,r.get("level",1),FortCastleFeatures.healthy(r),rooms.get(key(r.x,r.z,r.floor-1),{}).get("kind","")])
 		for id in r.walls:
-			if world.defenses.has(id) and not world.defenses[id].node.has_meta("castle_skin"):
+			if world.defenses.has(id) and world.defenses[id].kind=="MetalWall" and not world.defenses[id].node.has_meta("castle_skin"):
 				FortArt.replace_meshes(world.defenses[id].node,"castle_wall");world.defenses[id].node.set_meta("castle_skin",true)
+				# Legacy curtains: extend both art and collision to the upper floor.
+				world.defenses[id].node.scale=Vector3(1.44,HEIGHT/2.1,1.0)
 		if visuals.has(k) and visuals[k].get_meta("stamp","")==stamp:
 			FortCastleArt.update_sign(visuals[k],r,self);continue
 		if visuals.has(k):root.remove_child(visuals[k]);visuals[k].queue_free()
 		var node:=FortCastleArt.room(self,r);node.set_meta("stamp",stamp);root.add_child(node);visuals[k]=node
 		FortCastleArt.update_sign(node,r,self)
+	FortFarms.rebuild(self)
 func prompt(p:FortPlayer)->String:
 	var k:=nearest(p.position)
 	if k.is_empty():return ""
 	var r:Dictionary=rooms[k]
-	if r.task!="":return "HOLD E / Supply from shared stock + pack" if needs_supplies(r) else "HOLD E / Build castle %d%%   K / Project"%int(100*r.work/maxf(1,r.total))
-	return "K / Castle architect — choose wings, walls, upstairs and services"
+	if r.task!="":return "HOLD E   Deliver supplies (shared stockpile first, then your pack)" if needs_supplies(r) else "HOLD E   Build this project  %d%%      K   Details"%int(100*r.work/maxf(1,r.total))
+	return "K   Castle plans: add rooms, walls and upgrades from this sign"

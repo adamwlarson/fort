@@ -33,7 +33,7 @@ func _process(_delta:float)->void:
 	var cost:=FortExpedition.hearth_cost(level)
 	var region:String=["RUSTSCAR & ELDERWOOD","STORMGLASS & FROSTVEIN"][level-1] if level<3 else "UNEXPLORED RANDOM BIOME"
 	var reach:float=[65,115][level-1] if level<3 else world.build_radius()+45
-	detail.text="TIER %d → %d / %s\n+500 hearth health / Build radius %dm → %dm\n72 new resources; higher weapon and tower reinforcement.\nDanger: +10%% base raid allowance / +5%% base enemy health.\nShared cost: %s"%[level,level+1,region,world.build_radius(),reach,GameData.supplies_text(cost,true)]
+	detail.text="TIER %d → %d / %s\n+500 hearth health / Build radius %dm → %dm\n72 new resources; higher weapon and tower reinforcement.\nDanger: +10%% base raid allowance / +5%% base enemy health.\nCost  %s"%[level,level+1,region,world.build_radius(),reach,GameData.supplies_text(cost,true)]
 	upgrade.disabled=false
 	detail.text+="\n+30 seconds daylight per upgrade; longer nights allow travel."
 	for kind in cost:

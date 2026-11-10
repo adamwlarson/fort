@@ -24,7 +24,7 @@ func run()->void:
 		host.position=Vector3(0,0,4)
 		verify(await until(func():return w.players.size()==4 and main.ready_peers.size()==3),"four peers receive expanded seeded frontier")
 		for id in w.players:
-			if id!=1:w.broadcast("recv_teleport",[int(id),Vector3(-4.6,0,2)])
+			if id!=1:w.broadcast("recv_teleport",[int(id),(FortHearthGrowth.workshop(w)+Vector3(2,0,0))])
 		verify(await until(func():return w.pets.pets.size()==3),"remote crew recruits exactly three shared pets")
 		verify(await until(func():
 			for pet in w.pets.pets.values():
@@ -46,7 +46,7 @@ func run()->void:
 		verify(w.expedition.order==expected.order and w.resource_nodes[1400].kind==expected.biome(4).resources[0],"late join biome order and resource types match server seed")
 		verify(w.defenses[1].paid.wood==18,"late join receives paid construction ledger")
 		var build_revision:int=w.defenses[1].work_revision
-		await until(func():return p.position.distance_to(Vector3(-4.6,0,2))<2)
+		await until(func():return p.position.distance_to((FortHearthGrowth.workshop(w)+Vector3(2,0,0)))<2)
 		# Assigning a pet also advances the shared revision. Wait for the
 		# preceding client's assignment, not just its recruitment snapshot,
 		# before submitting the next deliberately duplicated transaction.

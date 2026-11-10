@@ -56,7 +56,7 @@ func _process(_delta:float)->void:
 		upgrade.text="WORK IN PROGRESS";upgrade.disabled=true;return
 	cancel.text="CONFIRM SALVAGE / REMOVE BUILDING" if confirming else "SALVAGE / "+GameData.supplies_text(world.construction.salvage_refund(d),true)
 	cancel.tooltip_text="Daylight only, no nearby enemies or mounted dwarf. Returns 50% of paid materials, scaled by remaining health."
-	detail.text="%s / LEVEL %d\n%d / %d health\nUpgrade: +65%% base health, +40%% base effectiveness.\nRequires Hearth tier %d.\nShared cost: %s"%[d.kind,level,d.hp,d.max_hp,level+1,GameData.supplies_text(cost,true)]
+	detail.text="%s / LEVEL %d\n%d / %d health\nUpgrade: +65%% base health, +40%% base effectiveness.\nRequires Hearth tier %d.\nCost  %s"%[d.kind,level,d.hp,d.max_hp,level+1,GameData.supplies_text(cost,true)]
 	if FortPlacement.is_wall(d.kind):detail.text=detail.text.replace(", +40% base effectiveness","")
 	else:detail.text+="\nCoverage: %dm > %dm"%[GameData.defense_radius(d.kind,level),GameData.defense_radius(d.kind,mini(GameData.MAX_GEAR_LEVEL,level+1))]
 	if level>=GameData.MAX_GEAR_LEVEL:detail.text="%s / LEVEL %d\n%d / %d health\nFully reinforced. Hold R nearby to repair damage."%[d.kind,level,d.hp,d.max_hp]

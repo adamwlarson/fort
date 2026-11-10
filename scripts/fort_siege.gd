@@ -75,4 +75,5 @@ static func strike(world:FortWorld,e:Dictionary,id:int)->void:
 	if float(e.get("strike_at",0))>0 and world.clock>=float(e.strike_at):
 		e.strike_at=0
 		world._damage_defense(id,42 if e.kind=="Brute" else (28 if e.kind=="Sapper" else 10))
+		if e.kind=="EmberRunner":FortFire.ignite(world,id)
 		world.broadcast("recv_fx",[d.node.position+Vector3.UP*.6,Color("#be9b75"),"","hammer"])

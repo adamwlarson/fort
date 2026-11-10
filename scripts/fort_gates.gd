@@ -6,9 +6,9 @@ extends RefCounted
 var world:FortWorld
 func _init(w:FortWorld)->void:world=w
 static func state(d:Dictionary)->Dictionary:
-	if d.kind!="Gatehouse":return {}
+	if d.kind not in ["Gatehouse","CastleGate"]:return {}
 	var result:Dictionary={}
-	for key in ["gate_open","gate_target","gate_auto","gate_revision","gate_sequence","gate_blocked","gate_wave"]:
+	for key in ["gate_open","gate_target","gate_auto","gate_revision","gate_sequence","gate_blocked","gate_wave","gate_manual_until"]:
 		result[key]=d.get(key,1.0 if key in ["gate_open","gate_target"] else (false if key in ["gate_auto","gate_blocked"] else 0))
 	return result
 static func body(root:Node3D,name:String,size:Vector3,pos:Vector3)->StaticBody3D:
@@ -34,9 +34,12 @@ static func make(collision:bool)->Node3D:
 	pose({"kind":"Gatehouse","node":root,"gate_open":1.0,"level":1})
 	return root
 static func pose(d:Dictionary)->void:
-	if d.kind!="Gatehouse":return
+	if d.kind not in ["Gatehouse","CastleGate"]:return
 	var parts:Dictionary=d.node.get_meta("gate_parts",{})
 	var amount:=clampf(float(d.get("gate_open",1)),0,1)
+	if d.kind=="CastleGate":
+		var leaf:Node3D=d.node.get_node_or_null("DoorLeaf")
+		if leaf:leaf.scale.x=maxf(.015,1.0-amount)
 	if is_instance_valid(parts.get("Portcullis")):parts.Portcullis.position.y=amount*3.15
 	if is_instance_valid(parts.get("Winch")):parts.Winch.rotation.x=amount*2.8
 	for name in ["WeightL","WeightR"]:
@@ -48,7 +51,7 @@ static func pose(d:Dictionary)->void:
 		var solid:=not FortConstruction.foundation(d) and amount<=.001 and float(d.get("gate_target",1))<=0
 		door.collision_layer=1 if solid else 0;door.collision_mask=door.collision_layer
 static func passable(d:Dictionary)->bool:
-	return d.kind=="Gatehouse" and (FortConstruction.foundation(d) or float(d.get("gate_open",1))>.001 or float(d.get("gate_target",1))>0)
+	return d.kind in ["Gatehouse","CastleGate"] and (FortConstruction.foundation(d) or float(d.get("gate_open",1))>.001 or float(d.get("gate_target",1))>0)
 static func title(d:Dictionary)->String:
 	if d.get("gate_blocked",false):return "PASSAGE OCCUPIED / reopened safely"
 	var a:=float(d.get("gate_open",1));var t:=float(d.get("gate_target",1))
@@ -72,7 +75,7 @@ func occupied(d:Dictionary,frame:=false)->bool:
 func request(player_id:int,id:int,revision:int,auto_value:Variant=null)->void:
 	if not world.multiplayer.is_server() or not world.players.has(player_id) or not world.defenses.has(id):return
 	var d:Dictionary=world.defenses[id];var p:FortPlayer=world.players[player_id]
-	if d.kind!="Gatehouse" or FortConstruction.pending(d) or d.hp<=0 or p.health<=0 or p.mounted_ballista>=0 or p.position.distance_to(d.node.position)>4:return
+	if d.kind not in ["Gatehouse","CastleGate"] or FortConstruction.pending(d) or d.hp<=0 or p.health<=0 or p.mounted_ballista>=0 or p.position.distance_to(d.node.position)>4:return
 	if revision!=int(d.get("gate_revision",0)) or not world._allow(player_id,"gate",.4):return
 	if auto_value!=null:
 		if not auto_value is bool:return
@@ -83,18 +86,27 @@ func request(player_id:int,id:int,revision:int,auto_value:Variant=null)->void:
 		var close:=float(d.get("gate_target",1))>0
 		if close and occupied(d):
 			d.gate_blocked=true;d.gate_sequence=int(d.get("gate_sequence",0))+1;world.personal(player_id,"Passage occupied. Move clear before closing the gate.");return
-		d.gate_target=0.0 if close else 1.0;d.gate_blocked=false;d.gate_revision=int(d.get("gate_revision",0))+1
+		d.gate_manual_until=world.clock+5;d.gate_target=0.0 if close else 1.0;d.gate_blocked=false;d.gate_revision=int(d.get("gate_revision",0))+1
 		world.navigation_revision+=1
 	d.gate_sequence=int(d.get("gate_sequence",0))+1
 	world.broadcast("recv_full",[world.full_state()])
 func tick(delta:float)->void:
 	for d in world.defenses.values():
-		if d.kind!="Gatehouse":continue
+		if d.kind not in ["Gatehouse","CastleGate"]:continue
 		var old_amount:=float(d.get("gate_open",1))
 		var before:=state(d)
 		if world.multiplayer.is_server() and not world.ended and not FortConstruction.foundation(d):
 			if d.get("gate_auto",false) and world.is_night and int(d.get("gate_wave",0))<world.wave:
 				d.gate_wave=world.wave;d.gate_target=0.0;d.gate_blocked=false;d.gate_revision=int(d.get("gate_revision",0))+1
+			if world.clock>=float(d.get("gate_manual_until",0)):
+				var nearby:=false
+				for p in world.players.values():
+					if p.health>0 and p.position.distance_to(d.node.position)<4.5:nearby=true
+				for pet in world.pets.pets.values():
+					if pet.node.position.distance_to(d.node.position)<4.5:nearby=true
+				var desired:=1.0 if nearby or occupied(d) else 0.0
+				if float(d.get("gate_target",1))!=desired:
+					d.gate_target=desired;d.gate_revision=int(d.get("gate_revision",0))+1;d.gate_blocked=false
 			var was:=passable(d)
 			if float(d.get("gate_target",1))<=0 and float(d.get("gate_open",1))>0 and occupied(d):
 				d.gate_target=1.0;d.gate_blocked=true;d.gate_revision=int(d.get("gate_revision",0))+1

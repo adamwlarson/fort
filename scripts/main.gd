@@ -2,7 +2,7 @@ extends Node
 
 const WorldScript = preload("res://scripts/world.gd")
 const InternetScript = preload("res://scripts/fort_internet.gd")
-const BUILD_VERSION := "24"
+const BUILD_VERSION := "27"
 
 var menu:Control
 var status_label:Label
@@ -255,7 +255,7 @@ func _replace_preview_dwarf()->void:
 	if is_instance_valid(preview_dwarf):
 		preview_holder.remove_child(preview_dwarf)
 		preview_dwarf.queue_free()
-	preview_dwarf=FortArt.asset(GameData.dwarf_asset(selected_class))
+	preview_dwarf=FortArt.dwarf(selected_class)
 	preview_holder.add_child(preview_dwarf)
 	FortArt.tint_dwarf(preview_dwarf,selected_class)
 	var anim:=FortPlayer.find_animation(preview_dwarf)

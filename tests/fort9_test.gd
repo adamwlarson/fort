@@ -64,7 +64,7 @@ func run()->void:
 	for eid in w.enemies.keys():w.recv_enemy_dead(eid)
 	for did in w.defenses.keys():w.recv_remove_defense(did)
 	# Weapons craft, equip, and reinforce through the same authority path.
-	p.position=Vector3(-4.6,0,2)
+	p.position=(FortHearthGrowth.workshop(w)+Vector3(2,0,0))
 	for kind in GameData.WEAPON_ORDER:
 		w.clock+=1;w._craft_weapon(1,kind)
 		check(kind in p.owned_weapons,"workshop crafts "+kind)
@@ -105,7 +105,7 @@ func run()->void:
 	w.expedition.event_name="";for eid in w.enemies.keys():w.recv_enemy_dead(eid)
 	for did in w.defenses.keys():w.recv_remove_defense(did)
 	# Recruit and assignment security; actual pathing and a delivery tested separately.
-	p.position=Vector3(-4.6,0,2)
+	p.position=(FortHearthGrowth.workshop(w)+Vector3(2,0,0))
 	for kind in 3:w.pets.recruit(1,kind,w.pets.revision)
 	wood=w.shared.wood;w.pets.recruit(1,0,w.pets.revision)
 	check(w.pets.pets.size()==3 and w.shared.wood==wood,"shared three-pet limit rejects an extra purchase without charge")

@@ -57,11 +57,11 @@ func run()->void:
 		p.position=w.castle.rooms["0:0:0"].sign;w.castle.plan(1,"0:0:0",option,"Stairs" if option.x==1 else "Courtyard",w.castle.revision);complete(option.key)
 	p.position=w.castle.rooms["1:0:0"].sign;w.castle.plan(1,"1:0:0",{"x":1,"z":0,"floor":1},"Courtyard",w.castle.revision);complete("1:0:1")
 	w.recv_enemy(21003,"Raider",Vector3(26,.7,-6),100);e=w.enemies[21003];body=e.node;await physics_frame;await physics_frame
-	await walk(body,e,Vector3(24,4.65,8),600);print("STAIR_ASCENT_END ",body.position)
+	await walk(body,e,Vector3(24,5.65,8),600);print("STAIR_ASCENT_END ",body.position)
 	check(body.position.y>4.4 and body.position.z>7,"enemy-sized body routes through actual stair lane to an upper target")
 	await walk(body,e,Vector3(24,.65,-8),600);print("STAIR_DESCENT_END ",body.position)
 	check(body.position.y<.9 and body.position.z< -7,"enemy-sized body descends through the staircase without cutting through its floor")
-	p.position=Vector3(24,4.65,8);body.position=Vector3(24,.65,8);body.velocity=Vector3.ZERO;e.nav_points=[];e.nav_until=0.0;e.route_until=0.0
+	p.position=Vector3(24,5.65,8);body.position=Vector3(24,.65,8);body.velocity=Vector3.ZERO;e.nav_points=[];e.nav_until=0.0;e.route_until=0.0
 	for i in 1200:
 		await physics_frame;w.clock+=1.0/60;w._simulate_enemies(1.0/60)
 		if body.position.y>4.4:break

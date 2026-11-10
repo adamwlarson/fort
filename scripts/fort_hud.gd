@@ -38,6 +38,13 @@ var siege_indicators:FortSiegeIndicators
 var fps_toggle:CheckButton
 var fps_counter:Label
 var fps_refresh:=0.0
+var controls:FortControls
+var merchant:FortMerchant
+var sheet:FortSheet
+var down_banner:Label
+var hp_text:Label
+var xp_bar:ProgressBar
+var stock_labels:Dictionary={}
 static var test_settings_file:=""
 
 static func fps_settings_path()->String:
@@ -52,37 +59,41 @@ func set_fps_display(enabled:bool)->void:
 
 func _ready() -> void:
 	world=get_parent()
-	var top:=panel(Vector2(20,18),Vector2(345,156))
-	phase=label(top,Vector2(18,10),24,Color("#f1ce8f"))
-	hearth=bar(top,Vector2(18,50),Vector2(288,10),Color("#d9a865"))
-	economy=label(top,Vector2(18,74),15,Color("#d5ddd6"))
-	stock_icons=HFlowContainer.new();stock_icons.position=Vector2(18,96);stock_icons.size=Vector2(305,60);stock_icons.add_theme_constant_override("h_separation",5);stock_icons.add_theme_constant_override("v_separation",1);top.get_node("Content").add_child(stock_icons)
-	for kind in GameData.RESOURCES:
-		var chip:=FortReadability.chip(kind,"0");chip.name=kind;chip.custom_minimum_size.x=89;chip.tooltip_text=kind.capitalize()+" / shared stockpile";stock_icons.add_child(chip)
-		chip.get_child(0).get_child(0).custom_minimum_size=Vector2(19,19)
-	var middle:=panel(Vector2(370,18),Vector2(530,62))
-	objective=label(middle,Vector2(14,10),16,Color("#efe8d7"))
-	objective.size=Vector2(502,48);objective.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	# Fort 26 compact HUD: slim corner strips, text without boxes, nothing over the middle of the view.
+	var top:=panel(Vector2(10,8),Vector2(352,58))
+	phase=label(top,Vector2(10,4),15,Color("#f1ce8f"))
+	hearth=bar(top,Vector2(152,9),Vector2(188,7),Color("#d9a865"))
+	economy=label(top,Vector2(152,17),10,Color("#d5ddd6"))
+	stock_icons=HFlowContainer.new();stock_icons.position=Vector2(9,33);stock_icons.size=Vector2(338,22);stock_icons.add_theme_constant_override("h_separation",9);top.get_node("Content").add_child(stock_icons)
+	for kind in GameData.RESOURCES+["gold"]:
+		var chip:=Label.new();chip.name=kind;chip.add_theme_font_size_override("font_size",13);chip.add_theme_color_override("font_color",FortInterface.PAPER)
+		chip.tooltip_text=kind.capitalize()+" in the shared stockpile";chip.mouse_filter=Control.MOUSE_FILTER_PASS;stock_icons.add_child(chip);stock_labels[kind]=chip
+	objective=label(null,Vector2(330,8),13,Color("#efe8d7"))
+	objective.size=Vector2(620,20);objective.clip_text=true
 	objective.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var roster:=panel(Vector2(980,18),Vector2(280,144))
-	crew=label(roster,Vector2(14,12),15,Color("#c3d7cd"))
-	crew_right=label(roster,Vector2(146,12),12,Color("#c3d7cd"));crew_right.hide()
-	var lower:=panel(Vector2(20,593),Vector2(335,105))
-	pack=label(lower,Vector2(16,12),16,Color("#edce91"))
-	vitals=bar(lower,Vector2(16,67),Vector2(302,12),Color("#c76856"))
-	ability=label(null,Vector2(440,664),18,Color("#bce0d7"))
-	ability.size=Vector2(410,36);ability.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	prompt=label(null,Vector2(355,552),19,Color("#fff1d1"))
-	prompt.size=Vector2(570,42);prompt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	notice=label(null,Vector2(378,97),20,Color("#f1ce8f"))
-	notice.size=Vector2(530,80);notice.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER;notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	build=label(null,Vector2(370,473),16,Color("#efd39f"))
+	down_banner=label(null,Vector2(330,29),15,Color("#ff9c87"))
+	down_banner.size=Vector2(620,22);down_banner.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	crew=label(null,Vector2(-400,-400),12,Color("#c3d7cd"));crew.hide()
+	crew_right=label(null,Vector2(-400,-400),12,Color("#c3d7cd"));crew_right.hide()
+	var lower:=panel(Vector2(10,662),Vector2(262,50))
+	hp_text=label(lower,Vector2(184,1),13,Color("#f3d7cf"))
+	vitals=bar(lower,Vector2(10,8),Vector2(168,9),Color("#c76856"))
+	pack=label(lower,Vector2(10,21),12,Color("#edce91"))
+	xp_bar=bar(lower,Vector2(10,42),Vector2(242,3),Color("#7fe0c0"))
+	ability=label(null,Vector2(340,698),12,Color("#bce0d7"))
+	ability.size=Vector2(600,18);ability.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	prompt=label(null,Vector2(340,612),16,Color("#fff1d1"))
+	prompt.size=Vector2(600,26);prompt.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	notice=label(null,Vector2(340,56),15,Color("#f1ce8f"))
+	notice.size=Vector2(600,60);notice.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER;notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	build=label(null,Vector2(370,473),13,Color("#efd39f"))
 	build.size=Vector2(530,75);build.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	compass=label(null,Vector2(985,175),15,Color("#d1dfcd"))
+	compass=label(null,Vector2(1000,150),11,Color("#d1dfcd"))
+	compass.size=Vector2(270,40);compass.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 	hints=label(null,Vector2(920,618),13,Color("#c8d0c6"))
-	hints.text="WASD move   Shift sprint   Space jump\nHold E gather   R repair   F ability\nB build   1–9 / 0 choose   Q rotate\nU hearth   G upgrade / salvage   T gear\nEnter ready for night   Esc menu"
+	hints.hide()
 	damage=ColorRect.new();damage.color=Color(0.7,0.05,0.01,0);damage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);damage.mouse_filter=Control.MOUSE_FILTER_IGNORE;add_child(damage)
-	map=FortMinimap.new();map.world=world;map.position=Vector2(1120,352);add_child(map)
+	map=FortMinimap.new();map.world=world;add_child(map)
 	menu_scrim=ColorRect.new()
 	menu_scrim.color=Color(0.015,0.035,0.04,0.6)
 	menu_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -93,9 +104,14 @@ func _ready() -> void:
 	menu_style.set_content_margin_all(24)
 	menu.add_theme_stylebox_override("panel",menu_style)
 	menu.theme=FortInterface.theme()
-	var stack:=VBoxContainer.new();stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);stack.offset_left=30;stack.offset_right=-30;stack.offset_top=25;stack.add_theme_constant_override("separation",10);menu.add_child(stack)
+	var camp_scroll:=ScrollContainer.new();camp_scroll.custom_minimum_size=Vector2(360,520);menu.add_child(camp_scroll)
+	var stack:=VBoxContainer.new();stack.size_flags_horizontal=Control.SIZE_EXPAND_FILL;stack.add_theme_constant_override("separation",10);camp_scroll.add_child(stack)
 	var title:=Label.new();title.text="CAMP MENU";title.add_theme_font_size_override("font_size",28);stack.add_child(title)
 	var resume:=Button.new();resume.text="Return to the crew";resume.custom_minimum_size.y=46;resume.pressed.connect(world.toggle_pause);stack.add_child(resume)
+	controls=FortControls.new();controls.hud=self;add_child(controls)
+	merchant=FortMerchant.new();merchant.world=world;add_child(merchant)
+	sheet=FortSheet.new();sheet.world=world;add_child(sheet)
+	var controls_button:=Button.new();controls_button.name="ControlsButton";controls_button.text="Controls";controls_button.pressed.connect(controls.open_panel);stack.add_child(controls_button)
 	var unstuck:=Button.new();unstuck.name="UnstuckButton";unstuck.text="I'm stuck / move to safe ground";unstuck.custom_minimum_size.y=40
 	unstuck.tooltip_text="Find clear ground nearby, or near the hearth if necessary. Keeps your pack and health. 15-second cooldown."
 	unstuck.pressed.connect(func():world.request_action("unstuck");world.toggle_pause());stack.add_child(unstuck)
@@ -122,12 +138,14 @@ func _ready() -> void:
 	upgrade_menu=FortUpgradeMenu.new();upgrade_menu.world=world;add_child(upgrade_menu)
 	combat_overlay=FortCombatOverlay.new();combat_overlay.world=world;add_child(combat_overlay)
 	siege_indicators=FortSiegeIndicators.new();siege_indicators.world=world;add_child(siege_indicators)
-	weapon_label=label(null,Vector2(390,691),13,FortInterface.GOLD)
-	weapon_label.size=Vector2(500,22);weapon_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	fps_counter=label(null,Vector2(904,22),13,FortInterface.PAPER);fps_counter.size=Vector2(70,22);fps_counter.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	weapon_label=label(null,Vector2(-400,-400),12,FortInterface.GOLD);weapon_label.hide()
+	fps_counter=label(null,Vector2(368,44),11,FortInterface.PAPER);fps_counter.size=Vector2(70,22);fps_counter.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var config:=ConfigFile.new();config.load(fps_settings_path());var preference:Variant=config.get_value("display","show_fps",false)
 	fps_toggle.button_pressed=preference is bool and preference;fps_counter.visible=fps_toggle.button_pressed
 	fps_toggle.toggled.connect(set_fps_display)
+	stock_panel.scale=Vector2.ONE*.72;stock_panel.position=Vector2(460,500)
+	for card in build_cards:
+		card.scale=Vector2.ONE*.72;card.position=Vector2(1280-(1280-card.position.x)*.72,60+(card.position.y-174)*.72)
 
 func icon(parent: Control, kind: String, pos: Vector2, extent := 48.0) -> void:
 	var glyph := FortIcon.new()
@@ -187,49 +205,47 @@ func _process(delta:float)->void:
 	menu_scrim.visible=world.menu_open
 	menu_scrim.color.a=.08 if world.castle and world.castle.menu.panel.visible else .6
 	var p:FortPlayer=world.local_player()
-	phase.text="%s %d  /  %02d:%02d"%["NIGHT" if world.is_night else "DAY",world.wave if world.is_night else world.wave+1,maxi(0,int(world.phase_time))/60,maxi(0,int(world.phase_time))%60]
+	phase.text="%s %d  ·  %02d:%02d"%["NIGHT" if world.is_night else "DAY",world.wave if world.is_night else world.wave+1,maxi(0,int(world.phase_time))/60,maxi(0,int(world.phase_time))%60]
 	hearth.value=world.fort_health/world.fort_max_health*100
-	economy.text="HEARTH T%d   %d / %d · SHARED"%[world.hearth_level,world.fort_health,world.fort_max_health]
-	for kind in GameData.RESOURCES:stock_icons.get_node(kind+"/HBoxContainer/Text").text=str(world.shared.get(kind,0))
+	economy.text="HEARTH TIER %d   %d / %d"%[world.hearth_level,world.fort_health,world.fort_max_health]
+	for kind in stock_labels:
+		stock_labels[kind].text="%d%s"%[int(world.shared.get(kind,0)),FortGlyphs.g(kind)]
+		stock_labels[kind].visible=kind in ["wood","stone","crystal"] or int(world.shared.get(kind,0))>0
+	var downed:PackedStringArray=[]
 	if p:
-		weapon_label.text="[C] %s   /   %s"%[GameData.weapon_title(p),"RMB aim / LMB fire" if GameData.ranged(p.weapon) else "Hold click to attack"]
-		weapon_label.visible=not world.menu_open
+		weapon_label.text="[C] %s"%GameData.weapon_title(p)
 		vitals.value=p.health/p.max_health*100
-		pack.text="PACK %d / %d  |  %d HP%s\n%s"%[p.total_carried(),p.carry_limit,p.health," / IRONHEART" if p.armor else "",GameData.supplies_text(p.carrying,true)]
-		pack.size=Vector2(306,54);pack.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-		ability.text="[F] %s  %s"%[GameData.class_data(p.class_id).ability,("%.1fs"%p.ability_cooldown) if p.ability_cooldown>0 else "READY"]
-		if p.travel_mode==2:ability.text+="   Fuel %.1fs"%p.fuel
+		hp_text.text="%d%s"%[int(p.health),FortGlyphs.g("hp")]
+		xp_bar.value=100.0*p.xp/FortStats.need(p.level)
+		pack.text="PACK %d/%d   %s"%[p.total_carried(),p.carry_limit,FortGlyphs.cost(p.carrying) if p.total_carried()>0 else "empty"]
+		pack.size=Vector2(244,18);pack.clip_text=true
+		ability.text="[F] %s %s   ·   [C] %s   ·   [TAB] LV %d%s"%[GameData.class_data(p.class_id).ability,("%.0fs"%ceilf(p.ability_cooldown)) if p.ability_cooldown>0 else "READY",GameData.weapon_title(p),p.level,"  +%d"%p.stat_points if p.stat_points>0 else ""]
+		if p.travel_mode==2:ability.text+="   ·   Fuel %.1fs"%p.fuel
+		ability.visible=not world.menu_open
 		prompt.text=world.context_prompt(p)
 		var direction:Vector3=-p.position
-		compass.text="%s\nHEARTH %dm · %s"%[world.expedition.region_name(p.position),int(direction.length()),world.direction_to_home(p)]
+		compass.text="%s  ·  hearth %dm %s"%[world.expedition.region_name(p.position),int(direction.length()),world.direction_to_home(p)]
 		var trail:String=world.encounters.guidance(p.position)
 		if not trail.is_empty():compass.text+="\n"+trail
-		if p.health<=0:prompt.text="DOWNED · Ally hold E to revive · Rescue in %ds"%ceili(p.down_time)
+		compass.position=Vector2(1000,map.footprint_bottom()+4);compass.visible=map.mode<3 and not world.menu_open and not world.local_build_mode
+		if p.health<=0:prompt.text="YOU ARE DOWN  ·  An ally can hold E to revive you  ·  Rescue in %ds"%ceili(p.down_time)
+		for dwarf in world.players.values():
+			if dwarf!=p and dwarf.health<=0:downed.append("Player \"%s\" down %dm"%[dwarf.display_name,int(p.position.distance_to(dwarf.position))])
 		_update_work_panels(p)
+	down_banner.text="     ".join(downed)
+	down_banner.visible=not downed.is_empty() and not world.menu_open
 	objective.text=world.objective_text()
-	var entries:PackedStringArray=[]
-	for dwarf in world.players.values():
-		entries.append("%s %d  %s"%["●" if dwarf.health>0 else "✚",dwarf.class_id+1,dwarf.display_name+"  "+str(int(dwarf.health))+" HP"])
-	crew_right.visible=entries.size()>4
-	crew.add_theme_font_size_override("font_size",12 if crew_right.visible else 15)
-	crew.text="THE CREW  /  %d of %d\n%s"%[entries.size(),GameData.MAX_PLAYERS,"\n".join(entries)]
-	if crew_right.visible:
-		var ordered:Array=world.players.values();ordered.sort_custom(func(a,b):return a.class_id<b.class_id)
-		var columns:Array[PackedStringArray]=[PackedStringArray(),PackedStringArray()]
-		for i in ordered.size():
-			var dwarf:FortPlayer=ordered[i]
-			columns[i/4].append("%d %s %s"%[dwarf.class_id+1,dwarf.display_name.left(8),str(int(dwarf.health)) if dwarf.health>0 else "+"])
-		crew.text="CREW %d/%d / HP\n%s"%[entries.size(),GameData.MAX_PLAYERS,"\n".join(columns[0])];crew_right.text="\n"+"\n".join(columns[1])
+	objective.visible=not world.menu_open
 	notice.text=world.toast_text if world.toast_time>0 else ""
-	build.position=Vector2(370,636);build.size=Vector2(880,25)
+	build.position=Vector2(200,640);build.size=Vector2(880,20)
 	build.text=""
 	if world.local_build_mode:
 		var reason:String=world.build_block_reason(GameData.BUILD_ORDER[world.selected_build],world.build_position,world.build_rotation)
-		build.text="PGUP/DN page %d/2 / WHEEL select / CLICK place / Q rotate | "%[1+world.selected_build/10]+("Clear placement" if reason.is_empty() else reason)
+		build.text="Page %d/2 (PgUp/PgDn)  ·  Wheel or 1-0 choose  ·  Q rotate  ·  Click place     "%[1+world.selected_build/10]+("OK to build here" if reason.is_empty() else "CANNOT BUILD: "+reason)
 
 func _update_work_panels(p: FortPlayer) -> void:
 	var working:bool=world.local_build_mode and not world.menu_open and p.health>0
-	hints.visible=not working
+	hints.hide()
 	for i in build_cards.size():
 		var card:=build_cards[i]
 		card.visible=working and i/10==world.selected_build/10
@@ -243,20 +259,19 @@ func _update_work_panels(p: FortPlayer) -> void:
 		var missing:PackedStringArray=[]
 		for resource in GameData.RESOURCES:
 			var cost:=ceili(int(recipe.get(resource,0))*(0.75 if p.role_id==2 else 1.0))
-			if cost>0:costs.append("%d %s"%[cost,resource])
-			if int(world.shared.get(resource,0))<cost:missing.append("%d%s"%[cost-int(world.shared.get(resource,0)),resource.left(1)])
-		card_costs[i].text=" / ".join(costs)
-		card_status[i].text=("ENGINEER PRICE" if p.role_id==2 else "SUPPLIES READY") if missing.is_empty() else "Need "+", ".join(missing)
-		if world.hearth_level<int(recipe.get("tier",1)):card_status[i].text="REQUIRES HEARTH TIER %d"%recipe.tier
+			if cost>0:costs.append("%d%s"%[cost,FortGlyphs.g(resource)])
+			if int(world.shared.get(resource,0))<cost:missing.append("%d%s"%[cost-int(world.shared.get(resource,0)),FortGlyphs.g(resource)])
+		card_costs[i].text="  ".join(costs)
+		card_status[i].text=("ENGINEER PRICE" if p.role_id==2 else "READY TO BUILD") if missing.is_empty() else "Short by "+" ".join(missing)
+		if world.hearth_level<int(recipe.get("tier",1)):card_status[i].text="NEEDS HEARTH TIER %d"%recipe.tier
 		card_status[i].add_theme_color_override("font_color",FortInterface.GOLD if missing.is_empty() else Color("#f0a58b"))
 	var nearby:bool=p.position.distance_to(Vector3(4.6,0,0))<3.2
 	stock_panel.visible=nearby and not working and not world.menu_open and p.health>0
 	prompt.visible=not stock_panel.visible and not world.menu_open
-	prompt.position.y=405 if working else 552
+	prompt.position.y=405 if working else 612
 	if stock_panel.visible:
 		stock_action.text="[ E ]  HOLD TO DEPOSIT ALL" if p.total_carried()>0 else "YOUR PACK IS EMPTY"
-		stock_contents.text="YOUR PACK     %d wood   /   %d stone   /   %d crystal\nSHARED           %d wood   /   %d stone   /   %d crystal\nDeposited supplies pay for everyone's builds and repairs."%[p.carrying.wood,p.carrying.stone,p.carrying.crystal,world.shared.wood,world.shared.stone,world.shared.crystal]
-		if world.hearth_level>1:stock_contents.text="YOUR PACK: "+GameData.supplies_text(p.carrying,true)+"\nSHARED: "+GameData.supplies_text(world.shared,true)
+		stock_contents.text="YOUR PACK     "+GameData.supplies_text(p.carrying,true)+"\nSHARED           "+GameData.supplies_text(world.shared,true)+"\nDeposited supplies pay for everyone's builds and repairs."
 		stock_contents.size=Vector2(460,85);stock_contents.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		var target:=8 if world.lifetime_crystal<8 else 20
 		stock_progress.text="%s   /   %d of %d crystals deposited"%["HORSES" if target==8 else "JETPACKS",mini(world.lifetime_crystal,target),target]

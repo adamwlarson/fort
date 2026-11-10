@@ -12,7 +12,7 @@ var revision:=0
 var next_id:=1
 func _init(w:FortWorld)->void:world=w
 func at_workshop(id:int)->bool:
-	return world.players.has(id) and world.players[id].health>0 and world.players[id].mounted_ballista<0 and world.players[id].position.distance_to(Vector3(-4.6,0,0))<3.2
+	return world.players.has(id) and world.players[id].health>0 and world.players[id].mounted_ballista<0 and world.players[id].position.distance_to(FortHearthGrowth.workshop(world))<3.2
 func recruit(id:int,kind:int,expected:int)->void:
 	if not at_workshop(id) or expected!=revision or pets.size()>=3 or kind<0 or kind>=SPECS.size():return
 	var spec:Dictionary=SPECS[kind]
@@ -31,7 +31,14 @@ func assign(id:int,pet_id:int,resource:String,expected:int)->void:
 func release(id:int,pet_id:int,expected:int)->void:
 	if not at_workshop(id) or not pets.has(pet_id):return
 	var p:Dictionary=pets[pet_id]
-	if int(p.revision)!=expected or p.resource!="rest" or p.cargo>0 or p.node.position.distance_to(HOME)>6:return
+	if int(p.revision)!=expected:return
+	# Release is an explicit workshop action. Return cargo atomically, even if
+	# the animal is stuck outside; a second request cannot duplicate its pack.
+	if p.cargo>0:
+		world.shared[p.cargo_kind]+=int(p.cargo)
+		if p.cargo_kind=="crystal":
+			world.lifetime_crystal+=int(p.cargo);world.workshop_level=3 if world.lifetime_crystal>=20 else (2 if world.lifetime_crystal>=8 else 1)
+	world.personal(id,"Released "+SPECS[p.kind].name+". Its cargo was returned to shared stock; the pet slot is free.")
 	p.node.queue_free();pets.erase(pet_id);revision+=1;world.broadcast("recv_full",[world.full_state()])
 func _create(id:int,kind:int,pos:Vector3)->void:
 	var body:=CharacterBody3D.new();body.name="GatherPet%d"%id;body.position=pos;body.collision_layer=0;body.collision_mask=1;body.floor_snap_length=.5
@@ -128,6 +135,6 @@ func tick(delta:float)->void:
 					world.broadcast("recv_fx",[body.position,Color("#b8e8d1"),"RECALL","ability"])
 					var safe:=FortNavigation.safe_home(world,body)
 					if safe.is_finite():body.position=safe;body.velocity=Vector3.ZERO;p.mode="RETURN";p.target=-1;p.stuck=0;p.nav_until=0.0;p.nav_points=[]
-		p.label.text="%s / %s\n%d %s / %s"%[spec.name,str(p.resource).to_upper(),p.cargo,p.cargo_kind,p.mode]
+		p.label.text="%s  %s\n%d%s  %s"%[spec.name,FortGlyphs.g(str(p.resource)),p.cargo,FortGlyphs.g(str(p.cargo_kind)),str(p.mode).to_lower()]
 		p.model.position.y=absf(sin(world.clock*9+int(p.kind)))*(.10 if p.mode in ["RETURN","GATHER"] else .025)
 		FortArt.animate_enemy(p.model,world.clock,false,p.mode in ["RETURN","GATHER"])

@@ -16,7 +16,7 @@ func run()->void:
 	var models:Array=[];var skeletons:Array=[];var animators:Array=[];var meshes:Array=[]
 	for role in 4:
 		var model:=FortArt.asset(["dwarf_vanguard","dwarf_warden","dwarf_engineer","dwarf_ranger"][role]);gallery.add_child(model);model.position.x=(role-1.5)*1.8;models.append(model)
-		var equipment:=FortEquipment.prepare(model);FortArt.tint_dwarf(model,role);skeletons.append(equipment.skeleton);meshes.append(equipment.axe.mesh.get_instance_id())
+		var equipment:=FortEquipment.prepare(model);FortArt.tint_dwarf(model,role);skeletons.append(equipment.skeleton);meshes.append((model.find_children("*","MeshInstance3D",true,false)[0] as MeshInstance3D).mesh.get_instance_id())
 		var anim:=FortPlayer.find_animation(model);animators.append(anim)
 		for clip in ["Idle","Walk","Axe_Swing"]:check(anim.has_animation(clip),"hero %d preserves %s"%[role,clip])
 		check(equipment.skeleton.find_bone("hand.R")>=0,"hero %d keeps weapon hand binding"%role)

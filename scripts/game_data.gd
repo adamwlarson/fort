@@ -24,6 +24,10 @@ static func role(index:int)->int:return posmod(index,4)
 static func dwarf_asset(index:int)->String:return ["dwarf_vanguard","dwarf_warden","dwarf_engineer","dwarf_ranger"][role(index)]
 static func spawn_position(index:int)->Vector3:return Vector3((role(index)-1.5)*1.05,FortCastle.BASE+.15,4.8+(1.2 if index>=4 else 0.0))
 const RECIPES := {
+	"CastleWall":{"wood":2,"stone":6,"hp":900.0},
+	"CastleWindow":{"wood":2,"stone":6,"hp":900.0},
+	"CastleGate":{"wood":15,"stone":10,"hp":750.0},
+	"SentryCannon":{"wood":10,"iron":8,"hp":450.0},
 	"Watchtower":{"wood":18,"stone":8,"crystal":0,"hp":240.0},
 	"Barricade":{"wood":12,"stone":3,"crystal":0,"hp":320.0},
 	"Ballista":{"wood":24,"stone":14,"crystal":2,"hp":260.0},
@@ -41,11 +45,9 @@ const BUILD_DESCS := ["Automatic ranged defense\n17m range / upgrades extend rea
 const BACKPACKS := [{"name":"Trail Pack","wood":16,"stone":0,"crystal":2,"iron":0,"bonus":12},{"name":"Expedition Frame","wood":24,"stone":0,"crystal":4,"iron":12,"bonus":28}]
 
 static func supplies_text(stock:Dictionary,compact:=false)->String:
-	var parts:=PackedStringArray()
-	for kind in RESOURCES:
-		if compact and int(stock.get(kind,0))==0:continue
-		parts.append("%d %s"%[int(stock.get(kind,0)),kind])
-	return " / ".join(parts) if not parts.is_empty() else "Empty"
+	# Fort 26: costs are numbers followed by the resource symbol, never the word.
+	var text:=FortGlyphs.cost(stock,not compact)
+	return "Empty" if text=="Free" else text
 
 static func weapon_title(p:Node)->String:
 	var title:String=WEAPONS[p.weapon].name

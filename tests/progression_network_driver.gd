@@ -25,7 +25,7 @@ func run()->void:
 		verify(await until(func():return w.players.size()==4 and main.ready_peers.size()==3),"three late joins load expanded world and relics")
 		await wait(.5)
 		for id in w.players:
-			if id!=1:w.broadcast("recv_teleport",[int(id),Vector3(-4.6,0,2)])
+			if id!=1:w.broadcast("recv_teleport",[int(id),(FortHearthGrowth.workshop(w)+Vector3(2,0,0))])
 		verify(await until(func():return w.players.values().all(func(p):return p.peer_id==1 or p.backpack_level==2)),"all clients craft both backpack tiers")
 		verify(w.shared.wood==380 and w.shared.crystal==482 and w.shared.iron==464,"duplicate remote backpack requests charge once per tier")
 		for id in w.players:
@@ -57,7 +57,7 @@ func run()->void:
 		var w:FortWorld=main.world;var p:FortPlayer=w.local_player()
 		verify(await until(func():return w.hearth_level==3 and p.armor and "Embermaul" in p.relics),"late join receives hearth tiers, rare weapon, armor")
 		verify(w.resource_nodes.keys().filter(func(id):return int(id)<10000).size()==234 and w.progression.sites[1].opened and w.progression.sites[2].opened,"late join sees new resource zones and claimed camps")
-		await until(func():return p.position.distance_to(Vector3(-4.6,0,0))<3.2)
+		await until(func():return p.position.distance_to(FortHearthGrowth.workshop(w))<3.2)
 		for tier in 2:
 			w.request_action("craft_pack",{"level":tier});w.request_action("craft_pack",{"level":tier})
 			verify(await until(func():return p.backpack_level==tier+1),"remote pack tier %d replicates"%(tier+1))

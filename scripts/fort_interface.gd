@@ -19,7 +19,7 @@ static func frame(active := false) -> StyleBoxFlat:
 
 static func theme() -> Theme:
 	var result := Theme.new()
-	result.default_font_size = 16
+	result.default_font_size = 14
 	for kind in ["Label","Button","OptionButton","LineEdit","CheckButton"]:
 		result.set_color("font_color",kind,PAPER)
 		result.set_color("font_hover_color",kind,Color.WHITE)
@@ -27,7 +27,7 @@ static func theme() -> Theme:
 	for kind in ["Button","OptionButton","LineEdit"]:
 		for state in ["normal","hover","pressed","focus"]:
 			var style := frame(state != "normal")
-			style.set_content_margin_all(10)
+			style.set_content_margin_all(7)
 			result.set_stylebox(state,kind,style)
 	result.set_color("font_placeholder_color","LineEdit",MUTED)
 	result.set_color("caret_color","LineEdit",GOLD)

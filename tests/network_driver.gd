@@ -1,4 +1,4 @@
-extends SceneTree
+﻿extends SceneTree
 
 var main:Node
 var errors:Array[String]=[]
@@ -86,7 +86,7 @@ func run()->void:
 		while p.position.distance_to(w.resource_nodes[rid].node.position)>3 and Time.get_ticks_msec()<deadline:await wait(0.05)
 		action("interact")
 		await wait(0.20)
-		verify(p.animation_player.current_animation=="Axe_Swing","remote action acknowledgment plays local swing")
+		verify(p.animation_player.current_animation=="Gather","remote action acknowledgment plays local gather swing")
 		Input.action_release("interact")
 		var observed:=false
 		for i in 16:

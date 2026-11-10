@@ -78,7 +78,7 @@ func run()->void:
 	w._spawn_defense("MetalWall",Vector3(30,0,38.5),0,false);var blocking_wall:int=w.next_defense_id-1
 	for frame in 80:
 		w.clock+=1.0/30;w._simulate_enemies(1.0/30);w.raiders.tick();await physics_frame
-	check(w.defenses[blocking_wall].hp<850,"sapper breaches the intervening wall instead of getting stuck pursuing its work-site target")
+	check(not w.defenses.has(blocking_wall) or w.defenses[blocking_wall].hp<850,"sapper breaches the intervening wall instead of getting stuck pursuing its work-site target")
 	# Physical quarry ramp and elevated mining resources.
 	check(w.frontier.has_node("RustscarQuarry"),"hearth two loads authored quarry")
 	var elevated:=0

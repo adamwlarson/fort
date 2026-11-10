@@ -57,9 +57,14 @@ var weapon_asset_key:=""
 var work_hammer:Node3D
 var weapon_levels:Dictionary={}
 var weapon_revision:=0
+var xp:=0
+var level:=1
+var stat_points:=0
+var stats:Dictionary={}
+var stats_revision:=0
 
 func weapon_power(kind:String)->float:
-	return 1.0+(int(weapon_levels.get(kind,1))-1)*.25
+	return (1.0+(int(weapon_levels.get(kind,1))-1)*.25)*FortStats.damage_multiplier(self)
 
 func apply_weapon_levels(levels:Dictionary,revision:int)->void:
 	if revision<weapon_revision:return
@@ -105,8 +110,7 @@ func _ready() -> void:
 	add_child(col)
 	visual_root = Node3D.new()
 	add_child(visual_root)
-	var dwarf:Node3D=FortArt.asset(GameData.dwarf_asset(class_id))
-	if not dwarf:dwarf=preload("res://assets/models/dwarf.glb").instantiate()
+	var dwarf:Node3D=FortArt.dwarf(class_id)
 	# The authored rig faces +Z, matching visual_root's movement heading.
 	dwarf.rotation.y = 0
 	visual_root.add_child(dwarf)
@@ -114,10 +118,6 @@ func _ready() -> void:
 	FortArt.tint_dwarf(dwarf, class_id)
 	animation_player = find_animation(dwarf)
 	if animation_player:
-		for clip in ["Idle", "Walk"]:
-			animation_player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
-		animation_player.get_animation("Axe_Swing").loop_mode = Animation.LOOP_NONE
-		_add_travel_poses()
 		FortEquipment.pose_clips(animation_player)
 		animation_player.play("Idle")
 	gear_root = Node3D.new()
@@ -163,6 +163,8 @@ func shot_direction()->Vector3:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_local_player() or world.ended: return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_TAB:
+		world.hud.sheet.toggle();get_viewport().set_input_as_handled();return
 	if event.is_action_pressed("cancel"):
 		if world.local_build_mode: world.toggle_build_mode()
 		else: world.toggle_pause()
@@ -173,9 +175,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		look_yaw -= event.relative.x * world.mouse_sensitivity
 		look_pitch = clampf(look_pitch - event.relative.y * world.mouse_sensitivity, -1.05, 0.75)
 	if health <= 0: return
-	if world.local_build_mode and event is InputEventMouseButton and event.pressed:
-		if event.button_index==MOUSE_BUTTON_WHEEL_UP:world.cycle_build(-1)
-		if event.button_index==MOUSE_BUTTON_WHEEL_DOWN:world.cycle_build(1)
+	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+		var step:=-1 if event.button_index==MOUSE_BUTTON_WHEEL_UP else 1
+		if world.local_build_mode:world.cycle_build(step)
+		elif mounted_ballista<0:world.cycle_weapon(self,step)
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("jump"): jump_buffer = 0.15
 	if event.is_action_pressed("ability"): world.player_ability(self)
 	if event.is_action_pressed("travel"): world.cycle_travel(self)
@@ -217,7 +222,7 @@ func _physics_process(delta: float) -> void:
 		repair_timer -= delta
 		if Input.is_action_pressed("interact") and interact_timer <= 0 and mounted_ballista < 0:
 			world.player_interact(self,true)
-			interact_timer = 0.78
+			interact_timer = 0.78*FortStats.gather_multiplier(self)
 		if Input.is_action_pressed("repair") and repair_timer <= 0:
 			world.player_repair(self)
 			repair_timer = 0.65
@@ -226,7 +231,8 @@ func _physics_process(delta: float) -> void:
 	var forward := aim_direction()
 	var right := Vector3(cos(look_yaw), 0, -sin(look_yaw))
 	var direction := (right * input.x - forward * input.y).normalized()
-	var speed: float = GameData.class_data(class_id).speed
+	var speed: float = GameData.class_data(class_id).speed*FortStats.speed_multiplier(self)
+	speed*=FortCastleFeatures.room_multiplier(world.castle,position,["Stairs"],.1)
 	if can_act and Input.is_action_pressed("sprint"): speed *= 1.35
 	if aiming():speed*=0.65
 	if rally_time > 0: speed *= 1.25
@@ -264,7 +270,7 @@ func _physics_process(delta: float) -> void:
 	if distance_from_hearth>world.frontier_radius():
 		var edge:Vector2=Vector2(position.x,position.z).normalized()*(world.frontier_radius()-0.1)
 		position.x=edge.x;position.z=edge.y;velocity.x=0;velocity.z=0
-		if world.toast_time<=0:world.show_toast("The hearth ward ends here. Upgrade at the hearth (U) to explore further.")
+		if world.toast_time<=0:world.show_toast("Edge of the explored land. Upgrade the hearth (U) to travel further.")
 	if position.y < -5:
 		velocity = Vector3.ZERO
 		fall_retry-=delta
@@ -291,25 +297,33 @@ func _animate(delta: float) -> void:
 	if GameData.ranged(weapon) and is_instance_valid(weapon_visual):
 		var ammo:=weapon_visual.find_child("LoadedAmmo*",true,false)
 		if ammo:ammo.visible=not (action_kind=="attack" and action_time>0.22 and action_time<0.93)
-	visual_root.rotation.z = lerp_angle(visual_root.rotation.z, PI * 0.45 if health <= 0 else 0.0, delta * 8)
 	if not animation_player: return
 	if health <= 0:
-		animation_player.pause()
+		if not animation_player.current_animation in ["Fall","Downed"]:
+			animation_player.speed_scale=1.0
+			animation_player.play("Fall",0.08);animation_player.queue("Downed")
 		return
 	if action_time <= 0:
-		var moving := Vector2(velocity.x, velocity.z).length() > 0.3 if is_local_player() else remote_moving
-		var clip := "Walk" if moving and travel_mode != 1 else "Idle"
-		if GameData.ranged(weapon) or weapon=="Pike":clip="crossbow/March" if moving else "crossbow/Aim"
-		if travel_mode == 1:clip="poses/Ride"
-		elif absf(velocity.y)>0.7:clip="poses/Air"
-		if animation_player.current_animation != clip or not animation_player.is_playing(): animation_player.play(clip, 0.14)
-		animation_player.speed_scale = clampf(Vector2(velocity.x, velocity.z).length() / 3.8, 0.85, 1.8) if clip == "Walk" else 1.0
+		var ground_speed := Vector2(velocity.x, velocity.z).length()
+		var moving := ground_speed > 0.3 if is_local_player() else remote_moving
+		var base_speed:float=GameData.class_data(class_id).speed
+		var clip := "Idle"
+		if moving:clip="Run" if ground_speed>base_speed*1.18 else "Walk"
+		if GameData.ranged(weapon) or weapon=="Pike":clip="March" if moving else "Aim"
+		if travel_mode == 1:clip="Ride"
+		elif absf(velocity.y)>1.6 and not is_on_floor():clip="Air"
+		if animation_player.current_animation != clip or not animation_player.is_playing(): animation_player.play(clip, 0.16)
+		# Cadence follows ground speed so slowed dwarves (aiming, working) take slower steps.
+		if clip=="Walk":animation_player.speed_scale=clampf(ground_speed/6.0,0.55,1.45)
+		elif clip=="March":animation_player.speed_scale=clampf(ground_speed/4.0,0.6,1.4)
+		elif clip=="Run":animation_player.speed_scale=clampf(ground_speed/8.2,0.8,1.4)
+		else:animation_player.speed_scale=1.0
 	if is_instance_valid(mount_visual):
 		FortArt.animate_mount(mount_visual, Time.get_ticks_msec() * 0.001, Vector2(velocity.x, velocity.z).length(), fuel > 0 and velocity.y > 0)
 
 func _try_attack() -> void:
 	if attack_cooldown > 0 or health <= 0: return
-	attack_cooldown = GameData.WEAPONS[weapon].cooldown
+	attack_cooldown = GameData.WEAPONS[weapon].cooldown*FortStats.cooldown_multiplier(self)
 	if world.local_build_mode:
 		world.place_build()
 	elif mounted_ballista >= 0:
@@ -325,19 +339,20 @@ func play_action(kind: String) -> void:
 	if kind=="construct" and not is_instance_valid(work_hammer):
 		work_hammer=FortArt.asset("weapon_hammer");equipment.socket.add_child(work_hammer)
 	if animation_player:
+		var clip:="Axe_Swing"
+		animation_player.speed_scale=1.65
 		if kind=="attack" and weapon=="Pike":
-			action_time=.85;animation_player.speed_scale=1.0;animation_player.play("pike/Thrust",.04);animation_player.seek(0,true);return
-		if kind=="attack" and GameData.ranged(weapon):
+			action_time=.85;clip="Thrust";animation_player.speed_scale=1.0
+		elif kind=="attack" and GameData.ranged(weapon):
 			action_time=GameData.WEAPONS[weapon].cooldown
-			animation_player.speed_scale=1.05/action_time
-			animation_player.play("crossbow/Shoot",0.04)
-			animation_player.seek(0,true)
-			return
-		animation_player.speed_scale = 1.65 if kind != "ability" else 1.35
-		if kind=="attack" and weapon in ["Hammer","Greatmaul","Warpick"]:
+			clip="Shoot";animation_player.speed_scale=1.05/action_time
+		elif kind=="attack" and weapon in ["Hammer","Greatmaul","Warpick"]:
 			action_time=float(GameData.WEAPONS[weapon].cooldown)-.07
-			animation_player.speed_scale=.65/maxf(.1,float(GameData.WEAPONS[weapon].windup))
-		animation_player.play("Axe_Swing", 0.06)
+			clip="Heavy_Swing";animation_player.speed_scale=.667/maxf(.1,float(GameData.WEAPONS[weapon].windup))
+		elif kind=="gather":clip="Gather";animation_player.speed_scale=1.0
+		elif kind in ["repair","construct"]:clip="Build";animation_player.speed_scale=1.0
+		elif kind=="ability":clip="Cast";animation_player.speed_scale=1.25;action_time=.8
+		animation_player.play(clip, 0.06)
 		animation_player.seek(0, true)
 
 func equip_weapon(kind:String)->void:
@@ -355,19 +370,18 @@ func equip_weapon(kind:String)->void:
 	if kind!="Axe":
 		weapon_visual=FortArt.asset(asset_key)
 		equipment.socket.add_child(weapon_visual)
-		# hand.R's rest basis is X right, Y down, Z backward.
-		weapon_visual.rotation.x=PI if GameData.ranged(kind) else 0.0
 	_update_equipment_visibility()
 	weapon_trim()
 	if animation_player:
 		animation_player.stop()
 		if GameData.ranged(kind) or kind=="Pike":
-			animation_player.play("crossbow/Aim")
+			animation_player.play("Aim")
 			animation_player.seek(0,true)
 			animation_player.advance(0)
 			var skeleton:Skeleton3D=equipment.skeleton
-			# Calibrate the grip to the actual posed hand, not an assumed bone roll.
-			weapon_visual.basis=skeleton.get_bone_global_pose(skeleton.find_bone("hand.R")).basis.inverse()
+			# Calibrate to the posed aiming hand so ranged weapons point along the dwarf's facing.
+			var held:Basis=skeleton.get_bone_global_pose(skeleton.find_bone("hand.R")).basis.orthonormalized()*FortEquipment.grip_basis()
+			weapon_visual.basis=held.inverse()
 			if kind=="Pike":weapon_visual.basis=weapon_visual.basis*Basis(Vector3.RIGHT,PI/2)
 
 func _update_equipment_visibility()->void:
@@ -376,28 +390,6 @@ func _update_equipment_visibility()->void:
 	var axe_trim:Node3D=equipment.socket.get_node_or_null("ForgeTrim")
 	if axe_trim:axe_trim.visible=weapon=="Axe" or showing_tool
 	if is_instance_valid(weapon_visual):weapon_visual.visible=not showing_tool
-
-func _add_travel_poses()->void:
-	var library:=AnimationLibrary.new()
-	var source:=animation_player.get_animation("Idle")
-	for pose_name in ["Air","Ride"]:
-		var pose:=Animation.new()
-		pose.length=0.8
-		pose.loop_mode=Animation.LOOP_LINEAR
-		for track in source.get_track_count():
-			var index:=pose.add_track(source.track_get_type(track))
-			pose.track_set_path(index,source.track_get_path(track))
-			var value:Variant=source.track_get_key_value(track,0)
-			if source.track_get_type(track)==Animation.TYPE_ROTATION_3D:
-				var bone:=str(source.track_get_path(track)).get_slice(":",1)
-				var angle:=0.0
-				if bone.begins_with("thigh"):angle=-0.65 if pose_name=="Air" else -1.0
-				if bone.begins_with("shin"):angle=0.85
-				if bone.begins_with("upper_arm"):angle=-0.32
-				value=value*Quaternion(Vector3.RIGHT,angle)
-			pose.track_insert_key(index,0,value)
-		library.add_animation(pose_name,pose)
-	animation_player.add_animation_library("poses",library)
 
 func set_travel_mode(mode: int) -> void:
 	if travel_mode == mode: return
@@ -426,7 +418,8 @@ func apply_progression(pack_level:int,items:PackedStringArray,ironheart:bool,rev
 	backpack_level=clampi(pack_level,0,2)
 	carry_limit=(26 if role_id==3 else 18)+(GameData.BACKPACKS[backpack_level-1].bonus if backpack_level>0 else 0)
 	if world.castle:carry_limit+=world.castle.pack_bonus()
-	max_health=GameData.class_data(class_id).hp+(40 if ironheart else 0)
+	carry_limit+=FortStats.storage_bonus(self)
+	max_health=GameData.class_data(class_id).hp+(40 if ironheart else 0)+FortStats.health_bonus(self)
 	armor=ironheart
 	if backpack_level>0 and (not is_instance_valid(backpack_visual) or backpack_visual.get_meta("tier",0)!=backpack_level):
 		if is_instance_valid(backpack_visual):backpack_visual.queue_free()

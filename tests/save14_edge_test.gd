@@ -23,22 +23,22 @@ func run()->void:
 	p.position=w.castle.rooms["1:0:1"].sign;w.castle.begin_task(1,"1:0:1","tech:Ballistics",w.castle.revision);complete("1:0:1")
 	p.position=w.castle.rooms["0:0:0"].sign;w.castle.begin_task(1,"0:0:0","walls",w.castle.revision);complete("0:0:0")
 	var wall_id:int=w.castle.rooms["0:0:0"].walls[0];w.defenses[wall_id].hp=321
-	w.recv_defense(800,"Watchtower",Vector3(20,4.6,0),.3,300,false);w.defenses[800].paid={"wood":25,"stone":15};w.defenses[800].hp=250
+	w.recv_defense(800,"Watchtower",Vector3(20,5.6,0),.3,300,false);w.defenses[800].paid={"wood":25,"stone":15};w.defenses[800].hp=250
 	w.add_network_player(30,{"name":"Builder","class":2});w.construction.begin(800,30,{"wood":20,"stone":15},"upgrade");w.defenses[800].work=3.0;w.recv_remove_player(30)
 	w.pets._create(1,0,FortPets.HOME+Vector3(-1,0,2));w.pets.pets[1].resource="rest";w.pets.pets[1].cargo=5;w.pets.pets[1].cargo_kind="wood";w.pets.next_id=2
-	p.position=Vector3(18,4.6,0)
+	p.position=Vector3(18,5.6,0)
 	check(FortSave.write_slot("slot2",w)=="","multi-storey castle checkpoint writes")
 	var snapshot:=FortSave.read_slot("slot2");var stock:Dictionary=w.shared.duplicate()
 	# A stray interrupted temporary file must never displace the committed primary.
 	var stray:=FileAccess.open(FortSave.path("slot2")+".tmp",FileAccess.WRITE);stray.store_string("unfinished");stray.close()
 	check(FortSave.read_slot("slot2").error=="","interrupted temporary write leaves primary readable")
 	main._leave_game("reload castle");await create_timer(.1).timeout;main.port_edit.value=24707;main.pending_save=snapshot.data;main._host();main._start_match();w=main.world;p=w.local_player();w.set_process(false);p.set_physics_process(false)
-	check(w.castle.rooms.size()==6 and w.castle.rooms["1:0:1"].complete and is_equal_approx(w.castle.floor_at(Vector3(18,4.6,0)),4.6),"completed upper floor and supporting wings restore")
+	check(w.castle.rooms.size()==6 and w.castle.rooms["1:0:1"].complete and is_equal_approx(w.castle.floor_at(Vector3(18,5.6,0)),5.6),"completed upper floor and supporting wings restore")
 	check(w.defenses[wall_id].hp==321 and w.defenses[wall_id].node.has_meta("castle_skin") and w.castle.rooms["0:0:0"].walls.size()==16,"curtain walls retain damage and castle artwork")
 	check(is_equal_approx(w.castle.tower_multiplier(),1.15),"completed research remains active")
 	check(w.defenses[800].work==3 and w.defenses[800].work_kind=="upgrade" and w.defenses[800].paid.wood==25,"partial tower upgrade and paid ledger survive")
 	w.add_network_player(60,{"name":"Returning builder","class":2});check(w.defenses[800].work_owner==60,"disconnected construction ownership maps to returning class")
-	var refund:=w.construction.refund(w.defenses[800]);w.players[60].position=Vector3(20,4.6,1);w.construction.cancel(60,800,w.defenses[800].work_revision)
+	var refund:=w.construction.refund(w.defenses[800]);w.players[60].position=Vector3(20,5.6,1);w.construction.cancel(60,800,w.defenses[800].work_revision)
 	check(w.shared.wood==stock.wood+refund.wood and w.defenses[800].work_total==0,"returning owner can cancel for the unused-material refund")
 	var before:int=w.shared.wood;w.pets.tick(.01);w.pets.tick(.01)
 	check(w.shared.wood==before+5 and w.pets.pets[1].cargo==0,"saved pet cargo deposits exactly once")

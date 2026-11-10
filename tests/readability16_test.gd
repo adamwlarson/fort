@@ -10,9 +10,9 @@ func shot(name:String)->void:
 func run()->void:
 	var main:Node=load("res://scenes/main.tscn").instantiate();root.add_child(main);main.port_edit.value=24737;main._host();main._start_match()
 	var w:FortWorld=main.world;var p:=w.local_player();w.set_process(false);p.set_physics_process(false)
-	check(w.hud.stock_icons.get_child_count()==5,"shared stock has five distinct resource icon counters")
+	check(w.hud.stock_icons.get_child_count()==6,"shared stock has a symbol counter for each resource and gold")
 	await create_timer(.1).timeout
-	check(w.hud.stock_icons.global_position.y>110,"resource counters stay below the phase and hearth display")
+	check(w.hud.stock_icons.global_position.y>w.hud.phase.global_position.y+18,"resource counters stay below the phase and hearth display")
 	p.position=w.castle.rooms["0:0:0"].sign;w.castle.menu.open_nearest();await create_timer(.1).timeout
 	check(w.castle.menu.guidance.text.contains("LOCKED") or w.castle.menu.guidance.text.contains("STEP 1"),"architect gives a persistent ready or blocked explanation")
 	for id in w.resource_nodes:w.recv_resource(id,0,false)

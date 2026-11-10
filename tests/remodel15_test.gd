@@ -39,7 +39,7 @@ func run()->void:
 	w.clock+=1;w.castle.work(1,"1:0:0");var progress:float=w.castle.rooms["1:0:0"].work
 	check(FortSave.write_slot("slot1",w)=="","partial remodel can be saved")
 	var checkpoint:=FortSave.read_slot("slot1")
-	check(checkpoint.data.schema==2,"new projects use save format 2")
+	check(checkpoint.data.schema==FortSave.FORMAT,"new projects use the current save format")
 	var legacy:Dictionary=checkpoint.data.duplicate(true);legacy.schema=1;legacy.world.castle.rooms["1:0:0"].task="";legacy.world.castle.rooms["1:0:0"].erase("paid")
 	check(FortSave.validate(legacy)=="","Fort 14 schema and rooms without paid ledgers remain supported")
 	main._leave_game("resume remodel");await create_timer(.1).timeout;main.port_edit.value=24717;main.load_expedition("slot1");main._start_match();w=main.world;p=w.local_player();w.set_process(false);p.set_physics_process(false)

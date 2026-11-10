@@ -18,7 +18,7 @@ func _ready()->void:
 		var option:=OptionButton.new();option.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		for resource in ["wood","stone","crystal","iron","aether","rest"]:option.add_item(resource.to_upper())
 		line.add_child(option);assignments.append(option)
-		var release:=Button.new();release.text="RELEASE";release.tooltip_text="Set REST and wait for the pet to return home empty. Frees the slot; no refund.";line.add_child(release);releases.append(release)
+		var release:=Button.new();release.text="RELEASE";release.tooltip_text="Release this pet and return its cargo to shared stock. Frees the slot; recruitment cost is not refunded.";line.add_child(release);releases.append(release)
 		release.pressed.connect(func():
 			var ids:=world.pets.pets.keys()
 			if i<ids.size():world.request_action("release_pet",{"id":ids[i],"revision":world.pets.pets[ids[i]].revision}))
@@ -39,7 +39,7 @@ func _process(_delta:float)->void:
 		releases[i].visible=i<ids.size()
 		if i>=ids.size():labels[i].text="EMPTY PET SLOT";continue
 		var p:Dictionary=world.pets.pets[ids[i]]
-		releases[i].disabled=p.resource!="rest" or p.cargo>0 or p.node.position.distance_to(FortPets.HOME)>6
-		labels[i].text="%s / %s / %d %s in pack"%[FortPets.SPECS[p.kind].name,p.mode,p.cargo,p.cargo_kind]
+		releases[i].disabled=false
+		labels[i].text="%s  ·  %s  ·  carrying %d%s"%[FortPets.SPECS[p.kind].name,str(p.mode).to_lower(),p.cargo,FortGlyphs.g(str(p.cargo_kind))]
 		assignments[i].select(["wood","stone","crystal","iron","aether","rest"].find(p.resource))
 		assignments[i].set_item_disabled(3,world.hearth_level<2);assignments[i].set_item_disabled(4,world.hearth_level<3)

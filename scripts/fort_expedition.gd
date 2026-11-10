@@ -28,6 +28,8 @@ func configure(value:int)->void:
 	seed_value=value;rng.seed=value;order=[0,1,2,3,4]
 	for i in range(4,0,-1):
 		var j:=rng.randi_range(0,i);var old:=order[i];order[i]=order[j];order[j]=old
+	# Hills depend on the seed; rebuild them at once rather than on the next frame.
+	if world and world.castle and world.hud:FortVista.ensure(world)
 func state()->Dictionary:
 	return {"seed":seed_value,"terrain_enabled":terrain_enabled,"event":event_name,"revision":event_revision,"time":event_time,"claimed":event_claimed,"boss_night":boss_night,"bosses_defeated":bosses_defeated}
 func receive(data:Dictionary)->void:

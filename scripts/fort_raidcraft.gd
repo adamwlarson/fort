@@ -26,14 +26,15 @@ func target(e:Dictionary)->Vector3:
 func arm(e:Dictionary)->void:
 	if float(e.get("fuse_at",0))>0:return
 	e.fuse_at=world.clock+1.6;e.moving=false;e.node.velocity=Vector3.ZERO
-	projectiles.append({"at":e.fuse_at,"pos":e.node.position,"radius":4.0,"damage":120.0,"owner":int(e.node.get_meta("enemy_id"))})
+	projectiles.append({"at":e.fuse_at,"pos":e.node.position,"radius":4.0,"damage":120.0,"owner":int(e.node.get_meta("enemy_id")),"demolish":true})
 	world.broadcast("recv_fx",[e.node.position,Color("#ff693f"),"","fuse",Vector3(int(e.node.get_meta("enemy_id")),0,0)])
 
 func simulate(_id:int,e:Dictionary,delta:float)->bool:
 	if e.kind=="Sapper":return float(e.get("fuse_at",0))>0
-	if e.kind not in ["Cinderlobber","Bombwing"]:return false
+	if e.kind not in ["Cinderlobber","Bombwing","FireArcher"]:return false
 	var body:CharacterBody3D=e.node
 	var goal:=target(e)
+	if e.kind=="Bombwing" and not FortHearthGrowth.sky_open(world,goal):goal=Vector3(0,FortCastle.BASE,0)
 	var offset:Vector3=goal-body.position;offset.y=0
 	var flying:bool=e.kind=="Bombwing"
 	var reach:=6.0 if flying else 17.0
@@ -42,7 +43,7 @@ func simulate(_id:int,e:Dictionary,delta:float)->bool:
 		if e.attack<=0:
 			e.attack=6.5 if flying else 4.8
 			var duration:=1.2 if flying else .95
-			projectiles.append({"at":world.clock+duration,"pos":goal,"radius":3.5 if flying else 2.8,"damage":50.0 if flying else 36.0,"owner":-1})
+			projectiles.append({"at":world.clock+duration,"pos":goal,"radius":3.5 if flying else 2.8,"damage":50.0 if flying else 36.0,"owner":-1,"demolish":flying,"fire":not flying})
 			world.broadcast("recv_fx",[body.position+Vector3.UP*(.2 if flying else 1.5),Color("#f29557"),"","bomb_drop" if flying else "enemy_shell",goal])
 	else:
 		var direction:Vector3=offset.normalized() if flying else FortSiege.route(world,e,goal)
@@ -52,11 +53,14 @@ func simulate(_id:int,e:Dictionary,delta:float)->bool:
 			if e.attack<=0:
 				e.attack=4.8
 				var point:Vector3=world.defenses[breach].node.position
-				projectiles.append({"at":world.clock+.95,"pos":point,"radius":2.8,"damage":36.0,"owner":-1})
+				projectiles.append({"at":world.clock+.95,"pos":point,"radius":2.8,"damage":36.0,"owner":-1,"fire":true})
 				world.broadcast("recv_fx",[body.position+Vector3.UP*1.5,Color("#f29557"),"","enemy_shell",point])
 			body.velocity=Vector3.ZERO
-		else:body.velocity=direction*(3.3 if flying else 2.25)*(0.45 if e.slow>0 else 1.0);e.moving=true
-	if flying:body.velocity.y=(5.8+sin(world.clock*2)*.2-body.position.y)*3
+		else:body.velocity=direction*(8.1 if flying else 2.25)*(0.45 if e.slow>0 else 1.0);e.moving=true
+	if flying:
+		var altitude:=FortHearthGrowth.flight_height(world,body.position,goal)+sin(world.clock*2)*.2
+		if body.position.y<altitude-.6:body.velocity=Vector3.ZERO
+		body.velocity.y=clampf((altitude-body.position.y)*3,-8,8)
 	else:body.velocity.y-=22*delta
 	body.move_and_slide()
 	if offset.length()>.1:body.rotation.y=lerp_angle(body.rotation.y,atan2(offset.x,offset.z),delta*6)
@@ -71,13 +75,18 @@ func tick()->void:
 			if not world.enemies.has(int(shot.owner)):continue
 			shot.pos=world.enemies[int(shot.owner)].node.position
 			world.broadcast("recv_enemy_dead",[int(shot.owner)])
-		blast(shot.pos,shot.radius,shot.damage)
+		blast(shot.pos,shot.radius,shot.damage,bool(shot.get("demolish",false)),bool(shot.get("fire",false)))
 
-func blast(pos:Vector3,radius:float,damage:float)->void:
+func blast(pos:Vector3,radius:float,damage:float,demolish:=false,fire:=false)->void:
 	blast_count+=1
 	for id in world.defenses.keys():
 		var d:Dictionary=world.defenses[id]
-		if d.node.position.distance_to(pos)<radius:world._damage_defense(id,damage)
+		var distance:float=d.node.position.distance_to(pos)
+		if FortPlacement.is_wall(d.kind):distance=maxf(0,distance-FortPlacement.wall_width(d.kind)*.5)
+		if distance<radius:
+			if fire:FortFire.ignite(world,id)
+			world._damage_defense(id,d.max_hp if demolish and FortPlacement.is_wall(d.kind) else damage)
+	FortCastleFeatures.damage_rooms(world.castle,pos,radius,damage)
 	for p in world.players.values():
 		if p.health>0 and p.position.distance_to(pos)<radius:world._set_health(p.peer_id,p.health-damage*.33)
 	if pos.length()<radius:

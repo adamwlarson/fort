@@ -19,16 +19,16 @@ func run()->void:
 		main._start_match()
 		var w:FortWorld=main.world
 		w.shared={"wood":100,"stone":100,"crystal":30}
-		w.local_player().position=Vector3(-4.6,0.1,2)
+		w.local_player().position=(FortHearthGrowth.workshop(w)+Vector3(2,0,0))
 		w.server_action(1,"craft_weapon",{"weapon":"Hammer"})
 		for i in 3:
 			w.recv_enemy(901+i,"Brute",Vector3(-1.5+i*1.5,0,20),300)
 			w.enemies[901+i].stun=500
 		while w.players.size()<4 and Time.get_ticks_msec()<deadline:await wait(0.1)
 		verify(w.players.size()==4,"weapon host receives three clients")
-		await wait(1)
+		await wait(3.5)
 		for id in w.players:
-			if id!=1:w.broadcast("recv_teleport",[int(id),Vector3(-4.6,0.1,2)])
+			if id!=1:w.broadcast("recv_teleport",[int(id),(FortHearthGrowth.workshop(w)+Vector3(2,0,0))])
 		var crafted:=false
 		while not crafted and Time.get_ticks_msec()<deadline:
 			crafted=true
@@ -70,7 +70,7 @@ func run()->void:
 		var p:FortPlayer=w.local_player()
 		await wait(0.4)
 		verify(w.players[1].weapon=="Hammer" and is_instance_valid(w.players[1].weapon_visual),"late join sees host's crafted weapon and model")
-		while p.position.distance_to(Vector3(-4.6,0,0))>3.2 and Time.get_ticks_msec()<deadline:await wait(0.05)
+		while p.position.distance_to(FortHearthGrowth.workshop(w))>3.2 and Time.get_ticks_msec()<deadline:await wait(0.05)
 		action("interact");await wait(0.15)
 		verify(w.forge_open,"remote E opens workshop UI")
 		w.hud.forge.buttons[2].pressed.emit()
@@ -89,7 +89,7 @@ func run()->void:
 		await wait(.4)
 		verify(FortAim.solution(w,p,p.shot_direction()).enemy==target,"camera cursor points at intended target")
 		action("attack");await wait(0.25)
-		verify(p.animation_player.current_animation=="crossbow/Shoot","remote acknowledgment starts crossbow animation")
+		verify(p.animation_player.current_animation=="Shoot","remote acknowledgment starts crossbow animation")
 		while w.enemies[target].hp==300 and Time.get_ticks_msec()<deadline:await wait(0.05)
 		verify(w.enemies[target].hp==245,"client receives authoritative crossbow damage")
 		await wait(1.0);action("cycle_weapon")

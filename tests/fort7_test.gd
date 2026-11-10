@@ -71,7 +71,7 @@ func run()->void:
 	w._damage_enemy(704,100);w.clock+=2;w.raiders.tick();check(wall.hp==hp,"killing a lit Sapper disarms the explosion")
 	for id in w.enemies.keys():w.recv_enemy_dead(id)
 	# Forge progression is host-authoritative and stale purchases cannot double-charge.
-	p.position=Vector3(-4.6,0,2);w.clock+=2;w.server_action(1,"craft_weapon",{"weapon":"Pike"});w.clock+=1;w.server_action(1,"craft_weapon",{"weapon":"Repeater"})
+	p.position=(FortHearthGrowth.workshop(w)+Vector3(2,0,0));w.clock+=2;w.server_action(1,"craft_weapon",{"weapon":"Pike"});w.clock+=1;w.server_action(1,"craft_weapon",{"weapon":"Repeater"})
 	check("Pike" in p.owned_weapons and "Repeater" in p.owned_weapons,"new iron and aether weapons can be crafted")
 	w.server_action(1,"upgrade_weapon",{"weapon":"Repeater","level":1});var stock:=w.shared.duplicate()
 	w.clock+=1;w.server_action(1,"upgrade_weapon",{"weapon":"Repeater","level":1});check(w.shared==stock and p.weapon_power("Repeater")==1.25,"weapon upgrade adds damage and rejects duplicate purchase")
@@ -83,8 +83,8 @@ func run()->void:
 	p.position=Vector3(0,0,100);w.recv_enemy(705,"Brute",Vector3(0,0,94),500);await physics_frame
 	var hp_before:float=w.enemies[705].hp;w._fire_crossbow(p,Vector3.FORWARD,"Repeater")
 	check(is_equal_approx(hp_before-w.enemies[705].hp,51),"masterwork Repeater applies real upgraded projectile damage")
-	w.clock+=2;w._equip_weapon(1,"Pike");p.play_action("attack");check(p.animation_player.current_animation=="pike/Thrust","Pike uses its thrust animation")
-	p.animation_player.play("crossbow/Aim");p.animation_player.advance(0)
+	w.clock+=2;w._equip_weapon(1,"Pike");p.play_action("attack");check(p.animation_player.current_animation=="Thrust","Pike uses its thrust animation")
+	p.animation_player.play("Aim");p.animation_player.advance(0)
 	await process_frame
 	check(p.weapon_visual.global_basis.y.normalized().dot(p.visual_root.global_basis.z.normalized())>.95,"Pike tip points in the dwarf's forward attack direction")
 	for id in w.enemies.keys():w.recv_enemy_dead(id)

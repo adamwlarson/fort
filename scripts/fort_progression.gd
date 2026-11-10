@@ -51,6 +51,15 @@ func tick()->void:
 				enemy.slow=3.5;world._damage_enemy(enemy_id,shell.damage,Vector3.ZERO,"tower_damage")
 	for id in sites:
 		var site:Dictionary=sites[id]
+		if site.get("razed",false):continue
+		if site.opened or (site.active and not guarded(id)):
+			if int(site.get("return_wave",-1))<0:site.return_wave=world.wave+2
+			var distant:=true
+			for p in world.players.values():
+				if p.health>0 and p.position.distance_to(SITES[id].pos)<60:distant=false
+			if not world.is_night and world.wave>=int(site.return_wave) and distant:
+				site.active=false;site.opened=false;site.return_wave=-1
+				world.broadcast("recv_full",[world.full_state()])
 		var near:=false
 		for p in world.players.values():
 			if p.health>0 and p.position.distance_to(SITES[id].pos)<24:near=true;break
@@ -89,7 +98,7 @@ func interact(player_id:int)->bool:
 	if guarded(id):world.personal(player_id,"Defeat the camp guards before opening this chest.");return true
 	if int(world.shared.get("crystal",0))<2:world.personal(player_id,"The lock needs 2 crystals from the shared stockpile.");return true
 	world.shared.crystal-=2
-	site.opened=true
+	site.opened=true;site.return_wave=world.wave+2
 	var reward:String=SITES[id].reward
 	var received:Dictionary={};var new_items:Array=[]
 	if reward=="Supplies":
@@ -101,6 +110,8 @@ func interact(player_id:int)->bool:
 		if SITES[id].tier>=3:received.aether=6
 	else:
 		if reward not in unlocked:unlocked.append(reward);new_items.append(reward)
+		else:
+			world.shared.wood+=12;world.shared.stone+=12;received={"wood":12,"stone":12}
 		for dwarf in world.players.values():grant_loot(dwarf)
 	world.broadcast("recv_full",[world.full_state()])
 	world.broadcast("recv_notice",["%s unlocked %s for the WHOLE CREW!"%[p.display_name,reward]])
@@ -122,12 +133,21 @@ func grant_loot(p:FortPlayer)->void:
 
 func state()->Dictionary:
 	var opened:Array=[];var active:Array=[]
+	var returns:Dictionary={}
 	for id in sites:
 		if sites[id].opened:opened.append(id)
 		if sites[id].active:active.append(id)
-	return {"opened":opened,"active":active,"unlocked":unlocked}
+		returns[id]=sites[id].get("return_wave",-1)
+	return {"opened":opened,"active":active,"unlocked":unlocked,"returns":returns}
 
 func receive(state:Dictionary)->void:
+	if state.is_empty():return
+	for id in sites:
+		sites[id].active=id in state.get("active",[]);sites[id].opened=id in state.get("opened",[])
+		sites[id].return_wave=state.get("returns",{}).get(id,-1)
+		var lid:Node3D=sites[id].chest.find_child("Lid*",true,false)
+		if lid:lid.rotation.x=-1.2 if sites[id].opened else 0.0
+		sites[id].label.text=("CLAIMED / " if sites[id].opened else "")+SITES[id].name
 	for item in state.get("unlocked",[]):
 		if item not in unlocked:unlocked.append(item)
 	for id in state.get("active",[]):
@@ -141,7 +161,7 @@ func receive(state:Dictionary)->void:
 
 func craft_pack(id:int,expected:int)->void:
 	var p:FortPlayer=world.players[id]
-	if p.backpack_level!=expected or expected>=2 or expected<0 or p.position.distance_to(Vector3(-4.6,0,0))>3.2:return
+	if p.backpack_level!=expected or expected>=2 or expected<0 or p.position.distance_to(FortHearthGrowth.workshop(world))>3.2:return
 	if expected==1 and world.hearth_level<2:world.personal(id,"Upgrade the hearth to reach iron first.");return
 	var cost:Dictionary=GameData.BACKPACKS[expected]
 	for kind in GameData.RESOURCES:

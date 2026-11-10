@@ -1,7 +1,7 @@
 class_name FortSave
 extends RefCounted
 
-const FORMAT:=2
+const FORMAT:=4
 const LIMIT:=32*1024*1024
 const SLOTS:=["slot1","slot2","slot3","autosave","exit"]
 const LABELS:=["Manual slot 1","Manual slot 2","Manual slot 3","Dawn autosave","Save & exit"]
@@ -25,10 +25,10 @@ static func clean(value:Variant)->Variant:
 	return value
 static func player_state(p:FortPlayer)->Dictionary:
 	var data:Dictionary={"class":p.class_id,"name":p.display_name,"position":p.position,"yaw":p.visual_root.rotation.y}
-	for k in ["health","carrying","travel_mode","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel","weapon","owned_weapons","loadout_revision","backpack_level","relics","armor","progression_revision","weapon_levels","weapon_revision"]:data[k]=clean(p.get(k))
+	for k in ["health","carrying","travel_mode","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel","weapon","owned_weapons","loadout_revision","backpack_level","relics","armor","progression_revision","weapon_levels","weapon_revision","xp","level","stat_points","stats","stats_revision"]:data[k]=clean(p.get(k))
 	return data
 static func capture(w:FortWorld)->Dictionary:
-	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"24","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
+	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"27","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
 	data.world.players={};data.world.enemies={};data.world.defenses={}
 	for p in w.players.values():data.characters[p.class_id]=player_state(p)
 	for id in w.enemies:
@@ -47,7 +47,7 @@ static func capture(w:FortWorld)->Dictionary:
 	data["next_enemy"]=w.next_enemy_id;data["next_defense"]=w.next_defense_id;data["next_pet"]=w.pets.next_id
 	return data
 static func validate(data:Variant)->String:
-	if not data is Dictionary or data.get("schema",-1) not in [1,FORMAT]:return "Unsupported save format"
+	if not data is Dictionary or data.get("schema",-1) not in [1,2,3,FORMAT]:return "Unsupported save format"
 	if not data.has_all(["saved_at","clock","castle_tick","encounter_tick","next_enemy","next_defense","next_pet","expedition_rng"]):return "Incomplete checkpoint"
 	if not data.saved_at is String:return "Invalid save date"
 	for k in ["clock","castle_tick","encounter_tick","next_enemy","next_defense","next_pet","expedition_rng"]:
@@ -86,7 +86,7 @@ static func validate(data:Variant)->String:
 		if not id is int or not data.enemies[id] is Dictionary:return "Invalid enemy record"
 		var e:Dictionary=data.enemies[id]
 		if not e.has_all(["kind","position","hp","max_hp","camp"]):return "Invalid saved enemy"
-		if e.kind not in ["Raider","Brute","Sapper","Ashwing","EmberRunner","Chieftain","Cinderlobber","Bombwing","Shieldguard","Hexer","Colossus","Prowler","Razorback","Direwolf","Stonebear","Emberdrake","Frostwyrm"]:return "Unknown enemy type"
+		if e.kind not in ["Raider","Brute","Sapper","Ashwing","EmberRunner","Chieftain","Cinderlobber","Bombwing","Shieldguard","Hexer","Colossus","Prowler","FireArcher","Razorback","Direwolf","Stonebear","Emberdrake","Frostwyrm"]:return "Unknown enemy type"
 		if not e.position is Vector3 or not e.position.is_finite():return "Invalid enemy position"
 	for id in data.resources:
 		var r:Variant=data.resources[id]
@@ -99,6 +99,19 @@ static func validate(data:Variant)->String:
 		if key!=FortCastle.key(r.x,r.z,r.floor) or (r.kind!="Keep" and not FortCastle.TYPES.has(r.kind)):return "Invalid castle room type"
 		if not r.funded is Dictionary or not r.walls is Array or not r.sign is Vector3:return "Invalid castle project ledger"
 		if r.task=="remodel" and not FortCastle.TYPES.has(r.get("remodel_kind","")):return "Invalid room remodeling project"
+		if not number(r.get("level",1)) or int(r.get("level",1)) not in range(1,5):return "Invalid room upgrade level"
+		if not number(r.get("health",1200.0)) or float(r.get("health",1200.0))<0:return "Invalid room integrity"
+		if not r.get("portals",{}) is Dictionary or not r.get("edge_defenses",{}) is Dictionary:return "Invalid castle entrances"
+		for side in r.get("portals",{}):
+			if side not in range(4) or r.portals[side] not in ["open","gate","solid"]:return "Invalid doorway configuration"
+	var perimeter:Variant=s.castle.get("perimeter",{})
+	if not perimeter is Dictionary:return "Invalid perimeter"
+	if perimeter.get("enabled",false):
+		if not perimeter.get("bounds") is Vector4i or not perimeter.get("segments") is Dictionary or perimeter.segments.size()>4096:return "Invalid perimeter layout"
+		for record in perimeter.segments.values():
+			if not record is Dictionary or not record.has_all(["id","pos","kind","yaw"]):return "Invalid perimeter segment"
+			if not number(record.id) or not record.pos is Vector3 or not record.pos.is_finite() or not number(record.yaw) or record.kind not in ["CastleWall","CastleGate"]:return "Invalid perimeter segment"
+	if not number(s.shared.get("gold",0)) or int(s.shared.get("gold",0))<0:return "Invalid shared gold"
 	if not strings(s.castle.research):return "Invalid research"
 	if not strings(s.castle.get("cleared_scenery",[])) or s.castle.get("cleared_scenery",[]).size()>4096:return "Invalid cleared scenery"
 	if not s.pets.get("list") is Array or s.pets.list.size()>3 or not number(s.pets.get("revision")):return "Invalid pets"
@@ -165,6 +178,7 @@ static func write_slot(slot:String,w:FortWorld)->String:
 	return ""
 static func restore(w:FortWorld,data:Dictionary)->void:
 	var s:Dictionary=data.world
+	if int(data.get("schema",FORMAT))<4:taller_storeys(data)
 	w.clock=float(data.clock);w.saved_characters=data.characters.duplicate(true)
 	w.expedition.receive(s.expedition)
 	# Never bury buildings from a pre-terrain checkpoint. This compatibility flag
@@ -208,6 +222,7 @@ static func restore(w:FortWorld,data:Dictionary)->void:
 static func restore_player(w:FortWorld,p:FortPlayer)->void:
 	if not w.saved_characters.has(p.class_id):return
 	var saved:Dictionary=w.saved_characters[p.class_id]
+	FortStats.apply(p,{"xp":saved.get("xp",0),"level":saved.get("level",1),"points":saved.get("stat_points",0),"stats":saved.get("stats",{}),"stats_revision":maxi(1,int(saved.get("stats_revision",1)))})
 	p.apply_progression(saved.backpack_level,PackedStringArray(saved.relics),saved.armor,saved.progression_revision)
 	w.recv_loadout(p.peer_id,PackedStringArray(saved.owned_weapons),saved.weapon,saved.loadout_revision)
 	p.apply_weapon_levels(saved.weapon_levels,saved.weapon_revision)
@@ -219,3 +234,15 @@ static func restore_player(w:FortWorld,p:FortPlayer)->void:
 	p.visual_root.rotation.y=saved.yaw;p.target_yaw=saved.yaw;p.invulnerable=3.0
 	for d in w.defenses.values():
 		if d.get("owner_class",-1)==p.class_id:d.work_owner=p.peer_id
+
+# Fort 26 raised each castle storey from 4m to 5m. Lift everything saved on upper floors.
+static func lift(y:float)->float:
+	return y if y<3.5 else y+roundf((y-FortCastle.BASE)/4.0)
+static func taller_storeys(data:Dictionary)->void:
+	for d in data.get("defenses",{}).values():
+		if d is Dictionary and d.get("position") is Vector3:d.position.y=lift(d.position.y)
+	for c in data.get("characters",{}).values():
+		if c is Dictionary and c.get("position") is Vector3:c.position.y=lift(c.position.y)
+	var castle:Dictionary=data.get("world",{}).get("castle",{})
+	for r in castle.get("rooms",{}).values():
+		if r is Dictionary and r.get("sign") is Vector3:r.sign.y=lift(r.sign.y)

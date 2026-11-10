@@ -15,7 +15,7 @@ func run()->void:
 		check(d.hp==98 and w.shared.wood==999,"Jade Engineer repair grants 48 HP for one shared wood")
 		w.construction.begin(1,1,{"wood":1},"upgrade");w.clock+=1;w.construction.work(1,1)
 		check(d.work==2.5,"Jade Engineer receives engineer and solo construction bonuses")
-	p.class_id=4;w.clock+=13
+	p.class_id=4;w.clock+=31
 	w.recv_enemy(24700,"Raider",p.position+Vector3.BACK*3,200)
 	w._ability(1)
 	check(w.enemies[24700].hp==135 and w.enemies[24700].stun==2,"Copper Vanguard slam damages and stuns enemies")

@@ -90,7 +90,8 @@ func tick(delta:float)->void:
 		if int(FortBalance.COST[pending_kind])>due-pulse_spent:break
 		var kind:=pending_kind
 		var lane:int=lanes()[sequence%lane_count()];sequence+=1
-		var angle:=lane*PI/2+rng.randf_range(-.17,.17)
+		# Fort 26: raiders arrive from every direction; lanes only pace the pulses.
+		var angle:=lane*PI/2+rng.randf_range(-PI/4,PI/4) if lane_count()>=4 else rng.randf()*TAU
 		if not world._spawn_enemy(kind,angle):break
 		pending_kind=""
 		pulse_spent+=int(FortBalance.COST[kind]);spent+=int(FortBalance.COST[kind])

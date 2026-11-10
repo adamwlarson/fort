@@ -39,6 +39,17 @@ void fragment(){
     vec2 pebble_cell=floor(p*4.5), pebble_uv=fract(p*4.5)-.5;
     float pebble=(1.0-smoothstep(.10,.19,length(pebble_uv)))*step(.84,hash(pebble_cell));
     soil=mix(soil,vec3(.44,.43,.36),pebble*.5);
-    ALBEDO=mix(meadow,soil,path)*(0.9+detail*0.14+grain*0.045);
+    // Fort 26: sun-bleached and lush patches, wildflower drifts and slow cloud shadows.
+    float lush=smoothstep(.42,.7,noise(p*.021+7.3));
+    meadow=mix(meadow,meadow*vec3(.82,1.12,.78)+vec3(.0,.03,.0),lush*.55);
+    float dry=smoothstep(.55,.8,noise(p*.033-11.0));
+    meadow=mix(meadow,meadow*vec3(1.25,1.12,.8),dry*.4);
+    vec2 fc=floor(p*3.1), fu=fract(p*3.1)-.5;
+    float bloom=(1.0-smoothstep(.05,.16,length(fu+vec2(hash(fc)-.5,hash(fc+3.1)-.5)*.5)))*step(.78,hash(fc+9.7))*smoothstep(.5,.75,noise(p*.09+2.0))*(1.0-path)*(1.0-smoothstep(66.0,74.0,length(p)));
+    vec3 petal=mix(vec3(.93,.86,.45),vec3(.78,.62,.9),step(.5,hash(fc+1.3)));
+    meadow=mix(meadow,petal,bloom*.8);
+    float cloud=noise(p*.011+vec2(TIME*.012,TIME*.004))*.65+noise(p*.03-vec2(TIME*.01,0.0))*.35;
+    float shade=mix(1.0,.74,smoothstep(.48,.66,cloud));
+    ALBEDO=mix(meadow,soil,path)*(0.9+detail*0.14+grain*0.045)*shade;
     ROUGHNESS=1.0;
 }

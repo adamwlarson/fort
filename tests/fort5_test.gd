@@ -21,12 +21,13 @@ func run()->void:
 	check(FortWorld.FINAL_WAVE==10 and w.build_radius()==36,"ten-night campaign and castle-compatible starting construction radius")
 	check(w.build_block_reason("Watchtower",Vector3(40,0,0),0).contains("36m"),"tier one rejects distant builds")
 	check(w.build_block_reason("MetalWall",Vector3(15,0,0),0).contains("tier 2"),"iron construction requires tier two")
-	p.position=Vector3(-4.6,0,2)
+	p.position=(FortHearthGrowth.workshop(w)+Vector3(2,0,0))
 	w.server_action(1,"craft_pack",{"level":0});var stock:=w.shared.duplicate()
 	w.server_action(1,"craft_pack",{"level":0})
 	check(p.carry_limit==30 and p.backpack_level==1 and w.shared==stock,"trail pack adds 12 slots and duplicate request is free")
 	w.server_action(1,"craft_pack",{"level":1});check(p.backpack_level==1,"iron pack gated until hearth two")
 	w.set_hearth_level(2)
+	p.position=FortHearthGrowth.workshop(w)+Vector3(2,0,0)
 	check(w.build_radius()==65 and w.frontier_radius()==153,"tier two expands building and exploration")
 	w.server_action(1,"craft_pack",{"level":1})
 	check(p.carry_limit==46 and p.backpack_level==2 and is_instance_valid(p.backpack_visual),"expedition frame equips with 28 extra carry slots")
@@ -141,7 +142,7 @@ func run()->void:
 	await capture("fort5_ballista_aim")
 	if DisplayServer.get_name()!="headless":check(w.hud.combat_overlay.reticle_visible,"mounted ballista has an aim cursor without RMB")
 	w._mount(1,-1);w.recv_enemy_dead(985)
-	p.position=Vector3(-4.6,0,2);w.player_interact(p);w.hud.forge.tabs.current_tab=1
+	p.position=(FortHearthGrowth.workshop(w)+Vector3(2,0,0));w.player_interact(p);w.hud.forge.tabs.current_tab=1
 	await capture("fort5_backpacks");check(w.hud.forge.visible,"workshop backpack and relic tab opens")
 	check(w.hud.forge.position.y+w.hud.forge.size.y<=720,"workshop tabs and close button fit viewport");w.toggle_pause()
 	w.local_build_mode=true;await capture("fort5_build_cards");w.local_build_mode=false

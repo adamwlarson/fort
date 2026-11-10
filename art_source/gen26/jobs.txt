@@ -1,0 +1,27 @@
+# Higgsfield tripo_h3_1 3D job ids -> output key (download result_url to <key>_raw.glb)
+raider 84763dd2-b28a-4e51-b37e-a8847ca7bf50
+emberrunner 1a5131cb-ab68-492f-861e-ec7710c6e520
+brute 72fb1cfa-3ffe-4a8d-8a68-02146ccb1540
+sapper7 d7633ff7-9c46-4afd-8198-e72d8c303ba6
+cinderlobber bb260635-c5c5-4eb9-8dd3-daf581bdbb3f
+firearcher 0a142293-12ca-42fd-ae8b-c6b2997c3d5e
+shieldguard cf5649b0-c68e-416d-893c-baa4372f7971
+prowler cf669579-e831-4bcb-8ef2-c54872b65cac
+hexer afe62e7a-c21f-4613-87d8-a4535ce55d77
+chieftain 7904981a-57c6-4325-8b24-fde6e641c9e5
+colossus cb576a3d-dfa2-4031-843b-d1c3a2dabbf2
+ashwing cb1b3a8e-15f3-42c0-bf57-dc666e581fd7
+bombwing e63e87a8-e611-4a74-91fe-019fda5669a1
+razorback 15df1b74-461d-47a0-9c5d-17f28ada0a87
+direwolf ed385cae-7996-4ea7-b0f8-7f5c7403e765
+stonebear d507fb6f-3958-4f16-b174-add2a10d8f20
+emberdrake 4c66027c-4f34-4227-aa86-873ab54b10fd
+frostwyrm 23f76ee2-2278-4adf-91da-e72073dd5d7d
+# dwarf reference image jobs (gpt_image_2_6): vanguard 89ce8734-2977-41c1-86b3-49b85ae1019e warden 1dd642c8-8c87-41dd-bdf8-be5c08a01ef6 engineer f3db4552-79c6-4f81-8ec8-15cc7cc63c32 ranger 2f520889-3c7c-43e8-9490-a889f0f88786
+variant image jobs: copper_vanguard 1fb2751e-444b-4720-8512-cdf4006ec816 amethyst_warden 1ca30fee-b215-40b4-91bb-f620a488d80c jade_engineer c42393d3-3507-476b-81a8-83afae3cc118 dusk_scout 060fdeae-71f4-4c3c-bbe2-951a1090ed01
+dwarf_vanguard_b 0f61cdcb-949c-4b9b-badc-6b9b5c3f2fde
+dwarf_warden_b 9a24ade1-b1c9-48a9-bc3e-9081fb398dc9
+dwarf_engineer_b d5d03606-af3f-4893-a30a-3022d6c30431
+dwarf_ranger_b 4aeb4dbe-6838-4faf-ace7-5ab3fd06232c
+brute(retry) c6d42590-e9ee-474c-8e14-66a1e5074110
+razorback(retry) f63f3473-496c-4cac-9570-bc99b79e5bc2

@@ -119,12 +119,19 @@ func _ready() -> void:
 	add_child(focus_label)
 	focus_ring.hide()
 	focus_label.hide()
+	FortGlyphs.install()
 	sound = SoundScript.new()
 	add_child(sound)
 	hud = HUDScript.new()
 	add_child(hud)
 	readability=FortReadability.new();readability.world=self;add_child(readability)
+	FortVista.build_horizon(self)
+	FortVista.ensure(self)
 	show_toast("Welcome to Hearthhold. Hold E to gather; return your pack to the stockpile.",6)
+
+func _exit_tree() -> void:
+	# Release sky resources held in statics so nothing outlives the renderer.
+	FortVista.release(self)
 
 func _root(title: String) -> Node3D:
 	var node:=Node3D.new()
@@ -159,6 +166,7 @@ func _build_environment() -> void:
 	sun.directional_shadow_max_distance=90
 	sun.light_angular_distance=0.8
 	add_child(sun)
+	FortVista.build_sky(self)
 
 func _build_resources() -> void:
 	var rng:=RandomNumberGenerator.new()
@@ -300,6 +308,7 @@ func snapshot() -> Dictionary:
 		roster[id].merge({"weapon":p.weapon,"owned":p.owned_weapons,"loadout_revision":p.loadout_revision})
 		roster[id].merge({"weapon_levels":p.weapon_levels,"weapon_revision":p.weapon_revision})
 		roster[id].merge({"pack_level":p.backpack_level,"relics":p.relics,"armor":p.armor,"progression_revision":p.progression_revision})
+		roster[id].merge(FortStats.state(p))
 	var swarm:Dictionary={}
 	for id in enemies:
 		var e:Dictionary=enemies[id]
@@ -310,6 +319,8 @@ func snapshot() -> Dictionary:
 		buildings[id]={"hp":defenses[id].hp,"max_hp":defenses[id].max_hp,"level":defenses[id].get("level",1)}
 		buildings[id].merge(FortConstruction.state(defenses[id]))
 		buildings[id].merge(FortGates.state(defenses[id]))
+		buildings[id].merge({"position":defenses[id].node.position,"rotation":defenses[id].node.rotation.y})
+		buildings[id].merge({"burning":defenses[id].get("burning",0.0),"charred":defenses[id].get("charred",false)})
 		buildings[id]["aim"]=defenses[id].get("aim",Vector3.FORWARD.rotated(Vector3.UP,defenses[id].node.rotation.y))
 	return {"players":roster,"enemies":swarm,"defenses":buildings,"shared":shared.duplicate(),"level":workshop_level,"crystals":lifetime_crystal,"fort":fort_health,"night":is_night,"wave":wave,"time":phase_time,"votes":ready_votes.size(),"hearth_level":hearth_level,"raid_spawned":raid_spawned,"progression":progression.state(),"raid":director.state(),"solo_rescue_wave":solo_rescue_wave,"expedition":expedition.state(),"pets":pets.state(),"encounters":encounters.state()}
 
@@ -365,6 +376,7 @@ func recv_snapshot(state:Dictionary) -> void:
 			p.target_position=data.pos;p.target_yaw=data.yaw;p.velocity=data.velocity
 			p.remote_moving=Vector2(p.velocity.x,p.velocity.z).length()>0.2
 		p.health=data.health;p.carrying=data.carry.duplicate();p.set_travel_mode(data.travel)
+		if data.has("stats_revision") and not multiplayer.is_server():FortStats.apply(p,data)
 		p.ability_cooldown=data.ability;p.down_time=data.down;p.mounted_ballista=data.mount;p.rally_time=data.rally
 		recv_loadout(id,data.get("owned",PackedStringArray(["Axe"])),data.get("weapon","Axe"),data.get("loadout_revision",0))
 		p.apply_weapon_levels(data.get("weapon_levels",{}),int(data.get("weapon_revision",0)))
@@ -384,6 +396,7 @@ func recv_snapshot(state:Dictionary) -> void:
 			if int(data.get("gate_revision",0))<int(defenses[id].get("gate_revision",0)) or int(data.get("gate_sequence",0))<int(defenses[id].get("gate_sequence",0)):
 				data=data.duplicate();data.merge(FortGates.state(defenses[id]),true)
 			defenses[id].merge(data,true)
+			if data.has("position"):defenses[id].node.position=data.position;defenses[id].node.rotation.y=data.rotation
 			construction.visual(defenses[id])
 			progression.defense_visual(defenses[id])
 			if not local_player() or local_player().mounted_ballista!=id:FortBattlements.pose(defenses[id])
@@ -401,6 +414,8 @@ func _process(delta:float) -> void:
 	clock+=delta
 	toast_time=maxf(0,toast_time-delta)
 	_update_lighting(delta)
+	FortVista.ensure(self)
+	FortVista.follow(self)
 	_update_preview()
 	battlements.tick(delta)
 	gates.tick(delta)
@@ -416,6 +431,7 @@ func _process(delta:float) -> void:
 	progression.tick()
 	encounters.tick()
 	raiders.tick()
+	FortFire.tick(self,delta)
 	for id in players:
 		var p:FortPlayer=players[id]
 		if p.health<=0 and p.down_time<=0:_respawn(int(id))
@@ -444,6 +460,8 @@ func _process(delta:float) -> void:
 			if r.respawn<=0 and resource_respawn_clear(r):
 				broadcast("recv_resource",[id,FortForestry.capacity(r),false])
 			elif r.respawn<=0:r.respawn=5.0
+	if clock>=float(get_meta("vista_check",0.0)):
+		set_meta("vista_check",clock+1.0);FortVista.cull_buried(self);FortVista.settle(self)
 	snapshot_timer-=delta
 	if snapshot_timer<=0:
 		snapshot_timer=0.08
@@ -451,15 +469,7 @@ func _process(delta:float) -> void:
 
 func _update_lighting(delta:float)->void:
 	var t:=1.0-clampf(phase_time/(night_length(wave) if is_night else day_length()),0,1)
-	var energy:=0.23 if is_night else lerpf(0.65,0.44,t)
-	sun.light_energy=lerpf(sun.light_energy,energy,clampf(delta*1.2,0,1))
-	var blend:=clampf(delta,0,1)
-	sun.light_color=sun.light_color.lerp(Color("#9aaee0") if is_night else Color("#ffdea5"),blend)
-	sun.rotation_degrees=Vector3(-48+sin(t*PI)*12,-32,0)
-	environment.ambient_light_energy=lerpf(environment.ambient_light_energy,0.23 if is_night else 0.32,blend)
-	environment.fog_light_color=environment.fog_light_color.lerp(Color("#263b51") if is_night else Color("#9bb0bd"),blend)
-	sky_material.sky_top_color=sky_material.sky_top_color.lerp(Color("#162638") if is_night else Color("#638cab"),blend)
-	sky_material.sky_horizon_color=sky_material.sky_horizon_color.lerp(Color("#40505d") if is_night else Color("#c6c9bc"),blend)
+	FortVista.update_light(self,delta,t)
 
 func _advance_phase()->void:
 	ready_votes.clear()
@@ -522,15 +532,18 @@ func server_action(id:int,kind:String,data:Dictionary) -> void:
 			if target.has_all(["x","z","floor"]):castle.plan(id,str(data.get("from","")),{"x":int(target.x),"z":int(target.z),"floor":int(target.floor)},str(data.get("kind","")),int(data.get("revision",-1)),str(data.get("clearance_token","")))
 		"castle_fund":castle.fund(id,str(data.get("key","")),bool(data.get("shared",false)),int(data.get("revision",-1)))
 		"castle_task":castle.begin_task(id,str(data.get("key","")),str(data.get("task","")),int(data.get("revision",-1)))
+		"castle_perimeter":FortPerimeter.activate(castle,id,str(data.get("key","")),int(data.get("revision",-1)))
+		"castle_farm":FortFarms.build(castle,id,str(data.get("key","")),str(data.get("kind","")),int(data.get("revision",-1)))
+		"stat_point":FortStats.spend(self,id,str(data.get("stat","")))
 		"castle_cancel":castle.cancel(id,str(data.get("key","")),int(data.get("revision",-1)))
-		"castle_trade":castle.trade(id,str(data.get("key","")),str(data.get("resource","")),int(data.get("revision",-1)))
+		"merchant_trade":FortMerchant.trade(self,id,str(data.get("key","")),str(data.get("resource","")),bool(data.get("sell",false)),int(data.get("revision",-1)),int(data.get("day",-1)))
 		"castle_assign":castle.assign(id,str(data.get("key","")),str(data.get("resource","")),int(data.get("revision",-1)))
 		"castle_remodel":FortCastleRemodel.begin(castle,id,str(data.get("key","")),str(data.get("kind","")),int(data.get("revision",-1)))
 		"attack":
 			var dir:Vector3=data.get("direction",Vector3.FORWARD)
 			if not dir.is_finite() or Vector2(dir.x,dir.z).length()<0.01:return
 			var weapon_data:Dictionary=GameData.WEAPONS[p.weapon]
-			if p.mounted_ballista>=0 or not _allow(id,"attack",weapon_data.cooldown):return
+			if p.mounted_ballista>=0 or not _allow(id,"attack",float(weapon_data.cooldown)*FortStats.cooldown_multiplier(p)*.97):return
 			dir=dir.normalized() if GameData.ranged(p.weapon) else Vector3(dir.x,0,dir.z).normalized()
 			broadcast("recv_action",[id,"attack",p.position+dir])
 			delayed_hits.append({"id":id,"direction":dir,"when":clock+weapon_data.windup,"weapon":p.weapon})
@@ -571,7 +584,10 @@ func player_attack(_player:FortPlayer,direction:Vector3)->void:
 	request_action("attack",{"direction":direction})
 
 func player_interact(_player:FortPlayer,held:=false)->void:
-	if _player.is_local_player() and _player.mounted_ballista<0 and not local_build_mode and _player.position.distance_to(Vector3(-4.6,0,0))<3.2:
+	var merchant_key:=FortMerchant.nearest(self,_player.position)
+	if not held and merchant_key!="" and not menu_open:
+		hud.merchant.open_panel(merchant_key);return
+	if _player.is_local_player() and _player.mounted_ballista<0 and not local_build_mode and _player.position.distance_to(FortHearthGrowth.workshop(self))<3.2:
 		var rescue:=false
 		for ally in players.values():
 			if ally.health<=0 and _player.position.distance_to(ally.position)<2.7:rescue=true
@@ -581,17 +597,19 @@ func player_interact(_player:FortPlayer,held:=false)->void:
 	var gate_id:=gates.nearest(_player.position)
 	request_action("interact",{"held":held,"gate":gate_id,"gate_revision":int(defenses[gate_id].get("gate_revision",0)) if gate_id>=0 else -1})
 
-func cycle_weapon(p:FortPlayer)->void:
+func cycle_weapon(p:FortPlayer,step:=1)->void:
 	if p.owned_weapons.size()<2:
 		show_toast("Visit the WORKSHOP and press E to craft a weapon.")
 		return
-	var next:int=(p.owned_weapons.find(p.weapon)+1)%p.owned_weapons.size()
+	var selected:String=p.get_meta("wheel_weapon",p.weapon) if clock<float(p.get_meta("wheel_until",0)) else p.weapon
+	var next:int=posmod(p.owned_weapons.find(selected)+step,p.owned_weapons.size())
+	p.set_meta("wheel_weapon",p.owned_weapons[next]);p.set_meta("wheel_until",clock+.35)
 	request_action("equip_weapon",{"weapon":p.owned_weapons[next]})
 
 func _craft_weapon(id:int,kind:String)->void:
 	var p:FortPlayer=players[id]
 	if not GameData.WEAPONS.has(kind):return
-	if p.position.distance_to(Vector3(-4.6,0,0))>=3.2 or p.mounted_ballista>=0:
+	if p.position.distance_to(FortHearthGrowth.workshop(self))>=3.2 or p.mounted_ballista>=0:
 		personal(id,"Stand beside the workshop to craft.");return
 	if clock<float(cooldowns.get("%d/attack"%id,0)):
 		personal(id,"Finish your attack before changing weapons.");return
@@ -614,13 +632,13 @@ func _equip_weapon(id:int,kind:String)->void:
 	if not kind in p.owned_weapons or p.mounted_ballista>=0:return
 	if clock<float(cooldowns.get("%d/attack"%id,0)):
 		personal(id,"Finish your attack before changing weapons.");return
-	if kind==p.weapon or not _allow(id,"equip",0.25):return
+	if kind==p.weapon or not _allow(id,"equip",0.04):return
 	broadcast("recv_loadout",[id,p.owned_weapons,kind,p.loadout_revision+1])
 
 func _upgrade_weapon(id:int,kind:String,expected:int)->void:
 	var p:FortPlayer=players[id]
 	if kind not in p.owned_weapons or expected!=int(p.weapon_levels.get(kind,1)) or expected<1 or expected>=GameData.MAX_GEAR_LEVEL:return
-	if p.position.distance_to(Vector3(-4.6,0,0))>=3.2 or p.mounted_ballista>=0 or hearth_level<expected+1:return
+	if p.position.distance_to(FortHearthGrowth.workshop(self))>=3.2 or p.mounted_ballista>=0 or hearth_level<expected+1:return
 	if not _allow(id,"forge_upgrade",.4):return
 	var cost:=GameData.weapon_upgrade_cost(expected)
 	for resource in cost:
@@ -648,7 +666,7 @@ func cycle_travel(p:FortPlayer)->void:
 	request_action("travel",{"mode":(p.travel_mode+1)%workshop_level})
 
 func _interact(id:int,held:=false,gate_id:=-1,gate_revision:=-1)->void:
-	if not _allow(id,"interact",0.65):return
+	if not players.has(id) or not _allow(id,"interact",0.65*FortStats.gather_multiplier(players[id])):return
 	var p:FortPlayer=players[id]
 	if p.mounted_ballista>=0:
 		_mount(id,-1)
@@ -727,7 +745,9 @@ func _gather(id:int,resource_id:int)->void:
 		personal(id,"Pack full. Bring it home to the shared stockpile.")
 		return
 	var amount:=mini(mini((3 if p.role_id==3 else 2)*expedition.gather_multiplier(),r.amount),p.carry_limit-p.total_carried())
+	if amount>0 and r.amount>amount and p.total_carried()+amount<p.carry_limit and randf()<FortStats.bonus_chance(p):amount+=1
 	p.carrying[r.kind]=int(p.carrying.get(r.kind,0))+amount
+	FortStats.award(self,id,2)
 	r.respawn=65.0
 	broadcast("recv_action",[id,"gather",r.node.position])
 	broadcast("recv_resource",[resource_id,r.amount-amount,true])
@@ -829,8 +849,9 @@ func _fire_crossbow(p:FortPlayer,direction:Vector3,kind:="Crossbow")->void:
 
 func _ability(id:int)->void:
 	var p:FortPlayer=players[id]
-	if not _allow(id,"ability",12):return
-	p.ability_cooldown=12
+	var interval:=(30.0 if p.role_id==2 else 12.0)*FortStats.cooldown_multiplier(p)
+	if not _allow(id,"ability",interval):return
+	p.ability_cooldown=interval
 	broadcast("recv_action",[id,"ability"])
 	match p.role_id:
 		0:
@@ -848,7 +869,11 @@ func _ability(id:int)->void:
 			broadcast("recv_fx",[p.position,Color("#8fe0c5"),"RALLY · HEAL + HASTE","ability"])
 		2:
 			var pos:=p.position+Vector3(2.4,0,0)
-			pos.y=castle.floor_at(pos)
+			var floor_point:=FortNavigation.floor_point(self,pos+Vector3.UP*.5,p)
+			if not floor_point.is_finite():
+				p.ability_cooldown=0;cooldowns.erase("%d/ability"%id);personal(id,"Aim your field turret at solid ground.");return
+			pos=floor_point
+			if castle and absf(pos.y-castle.floor_at(pos))<.2:pos.y=castle.floor_at(pos)
 			if not build_block_reason("Watchtower",pos,0,true).is_empty():
 				p.ability_cooldown=0;cooldowns.erase("%d/ability"%id)
 				personal(id,"Move to open ground to deploy your field turret.")
@@ -914,6 +939,11 @@ func can_afford(p:FortPlayer,kind:String)->bool:
 
 func build_block_reason(kind:String,pos:Vector3,rotation_y:float,_temporary:=false)->String:
 	if not pos.is_finite() or not is_finite(rotation_y):return "Invalid location"
+	if _temporary:
+		var shape:=BoxShape3D.new();shape.size=Vector3(1.8,2.5,1.8)
+		var query:=PhysicsShapeQueryParameters3D.new();query.shape=shape;query.transform=Transform3D(Basis.IDENTITY,pos+Vector3.UP*1.4);query.collision_mask=1
+		if not get_world_3d().direct_space_state.intersect_shape(query,1).is_empty():return "Field turret needs clear space"
+		return ""
 	if castle and absf(pos.y-castle.floor_at(pos))>.15:return "Build on a completed floor"
 	var castle_clearance:=FortPlacement.wall_width(kind)*.5 if FortPlacement.is_wall(kind) else 1.2
 	if castle and castle.placement_reason(pos,castle_clearance,kind,rotation_y)!="":return castle.placement_reason(pos,castle_clearance,kind,rotation_y)
@@ -923,7 +953,7 @@ func build_block_reason(kind:String,pos:Vector3,rotation_y:float,_temporary:=fal
 	if hearth_level<int(GameData.RECIPES[kind].get("tier",1)):return "Requires Hearth tier %d"%GameData.RECIPES[kind].tier
 	if Vector2(pos.x,pos.z).length()>build_radius():return "Build within %dm of the hearth (upgrade to expand)"%build_radius()
 	if Vector2(pos.x,pos.z).length()<3.1:return "Keep the hearth clear"
-	if pos.distance_to(Vector3(4.6,0,0))<3 or pos.distance_to(Vector3(-4.6,0,0))<3:return "Keep the stockpile and workshop clear"
+	if pos.distance_to(Vector3(4.6,0,0))<3 or pos.distance_to(FortHearthGrowth.workshop(self))<3:return "Keep the stockpile and workshop clear"
 	var footprint:=3.2 if kind=="Gatehouse" else (2.7 if kind=="Watchtower" else 2.0)
 	for obstacle in scenery_keepouts:
 		if pos.distance_to(obstacle.pos)<footprint+obstacle.radius:return "Keep scenery and camp supplies clear"
@@ -942,7 +972,7 @@ func build_block_reason(kind:String,pos:Vector3,rotation_y:float,_temporary:=fal
 func place_build()->void:
 	if not preview_valid:
 		var reason:=build_block_reason(GameData.BUILD_ORDER[selected_build],build_position,build_rotation)
-		show_toast(reason if not reason.is_empty() else "Not enough resources in the shared stockpile.")
+		show_toast(reason if not reason.is_empty() else "Not enough in the shared stockpile. Deposit more at the stockpile (hold E).")
 		return
 	request_action("build",{"kind":GameData.BUILD_ORDER[selected_build],"pos":build_position,"rotation":build_rotation})
 
@@ -956,7 +986,7 @@ func _build(id:int,data:Dictionary)->void:
 	if p.position.distance_to(pos)>6:return
 	var reason:=build_block_reason(kind,pos,yaw)
 	if not reason.is_empty():personal(id,reason);return
-	if not can_afford(p,kind):personal(id,"Not enough resources in the shared stockpile.");return
+	if not can_afford(p,kind):personal(id,"Not enough in the shared stockpile. Deposit more at the stockpile (hold E).");return
 	var reserved:Dictionary={}
 	for resource in GameData.RESOURCES:
 		reserved[resource]=ceili(int(GameData.RECIPES[kind].get(resource,0))*(0.75 if p.role_id==2 else 1.0));shared[resource]=int(shared.get(resource,0))-reserved[resource]
@@ -1008,13 +1038,16 @@ func _nearest_defense(pos:Vector3,kind:String,max_dist:float)->int:
 
 func _repair(id:int)->void:
 	var p:FortPlayer=players[id]
+	if FortCastleFeatures.repair(castle,id):return
+	if FortPerimeter.repair_breach(castle,p):return
 	var work_id:=construction.nearest(p)
 	if work_id>=0:construction.work(id,work_id);return
-	if shared.wood<=0:personal(id,"Repairs need wood in the shared stockpile.");return
+	if shared.wood<=0:personal(id,FortGlyphs.t("Repairs use 1{wood} each. The shared stockpile has none."));return
 	var defense_id:=_nearest_defense(p.position,"",3.5)
 	var amount:=48.0 if p.role_id==2 else 24.0
 	var target:=p.position
 	if defense_id>=0 and defenses[defense_id].hp<defenses[defense_id].max_hp:
+		defenses[defense_id].burning=0.0
 		defenses[defense_id].hp=minf(defenses[defense_id].max_hp,defenses[defense_id].hp+amount)
 		target=defenses[defense_id].node.position
 	elif p.position.length()<9.5 and fort_health<fort_max_health:
@@ -1061,7 +1094,9 @@ func _tick_defenses()->void:
 		if not defenses.has(id):continue
 		var d:Dictionary=defenses[id]
 		if FortConstruction.foundation(d):continue
+		if d.kind=="SentryCannon":FortCastleDefenses.tick_cannon(self,d);continue
 		var power:float=1.0+(int(d.get("level",1))-1)*0.4
+		power*=FortCastleFeatures.room_multiplier(castle,d.node.position,["Rampart","Sentry"],.2)
 		if d.kind in ["Embercoil","GravityWell","Sunlance"]:
 			FortAdvancedArsenal.tick_tower(self,d);continue
 		if d.kind in ["StormSpire","FrostMortar"]:
@@ -1102,6 +1137,7 @@ func _spawn_enemy(requested_kind:="",requested_angle:=INF)->bool:
 		for attempt in 32:
 			if not FortTerrain.reserved(pos,expedition.seed_value,4):break
 			pos=pos.rotated(Vector3.UP,.07)
+	pos.y+=FortVista.height(pos)
 	var hp:float=(135+wave*10 if kind=="Brute" else (40+wave*5 if kind=="Ashwing" else 55+wave*6))*(1.0+(hearth_level-1)*0.05)
 	if kind=="Shieldguard":hp*=2.0
 	if kind=="Hexer":hp*=1.3
@@ -1128,6 +1164,7 @@ func set_hearth_level(level:int)->void:
 	if is_instance_valid(frontier):frontier.expand(level)
 	if progression:progression.unlock_zones(level)
 	if encounters:encounters.unlock(level)
+	FortHearthGrowth.apply(self)
 
 func _upgrade_hearth(id:int,expected_level:int)->void:
 	if expected_level!=hearth_level or hearth_level>=GameData.MAX_HEARTH or is_night:return
@@ -1178,6 +1215,7 @@ func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1)->void:
 	body.add_child(bar)
 	enemies[id]={"node":body,"visual":visual,"label":bar,"kind":kind,"hp":hp,"max_hp":hp,"target":pos,"yaw":0.0,"attack":0.0,"stun":0.0,"taunt":-1,"speed":1.8 if kind=="Brute" else 2.7,"moving":false}
 	if kind=="EmberRunner":enemies[id].speed=3.7
+	if kind=="Sapper":enemies[id].speed=8.1
 	if kind=="Prowler":enemies[id].speed=4.7
 	if kind=="Shieldguard":enemies[id].speed=2.1
 	enemies[id].merge({"camp":camp,"home":pos,"slow":0.0})
@@ -1292,14 +1330,15 @@ func _simulate_ashwing(e:Dictionary,delta:float)->void:
 	var nearest:=9.0
 	for p in players.values():
 		var d:=Vector2(p.position.x-body.position.x,p.position.z-body.position.z).length()
-		if p.health>0 and d<nearest:nearest=d;ally=p;target=p.position
+		if p.health>0 and d<nearest and FortHearthGrowth.sky_open(self,p.position):nearest=d;ally=p;target=p.position
 	var offset:=Vector3(target.x-body.position.x,0,target.z-body.position.z)
 	var reach:=1.5 if ally else 2.6
 	if offset.length()<6 and e.attack<=1.0 and float(e.get("dive_at",0))==0:
 		e.dive_at=clock+.65;broadcast("recv_fx",[target+Vector3.UP*.1,Color("#edbe7b"),"DIVE INCOMING","siege_warning"])
 	var diving:bool=offset.length()<4.5 and e.attack<=1.0 and clock>=float(e.get("dive_at",INF))
-	var height:float=target.y+0.55 if diving else maxf(3.8,target.y+3.0)+sin(clock*3.0+body.get_instance_id())*0.15
+	var height:float=target.y+0.55 if diving else FortHearthGrowth.flight_height(self,body.position,target)+sin(clock*3.0+body.get_instance_id())*0.15
 	body.velocity=offset.normalized()*3.5 if offset.length()>reach else Vector3.ZERO
+	if not diving and body.position.y<height-.6:body.velocity=Vector3.ZERO
 	body.velocity.y=clampf((height-body.position.y)*4,-5,5)
 	body.move_and_slide()
 	if offset.length()>0.1:body.rotation.y=lerp_angle(body.rotation.y,atan2(offset.x,offset.z),delta*8)
@@ -1379,8 +1418,10 @@ func _animate_enemies(delta:float)->void:
 			body.position=body.position.lerp(e.target,1-exp(-14*delta))
 			body.rotation.y=lerp_angle(body.rotation.y,e.yaw,1-exp(-14*delta))
 		FortArt.animate_enemy(e.visual,clock+int(id)*0.3,e.attack>0.85,e.moving)
+		FortFire.restore(e,clock)
 		e.label.text=e.kind if FortEncounters.is_wild(int(e.get("camp",-1))) else ""
 	for d in defenses.values():
+		FortFire.visual(d)
 		var label:Label3D=d.node.get_node("Status")
 		label.text="%s · %d%%"%[d.kind,int(d.hp/d.max_hp*100)]
 		var p:=local_player()
@@ -1398,6 +1439,7 @@ func _damage_enemy(id:int,damage:float,knockback:=Vector3.ZERO,source:="player_d
 	broadcast("recv_enemy_hit",[id,e.hp,damage])
 	if e.hp<=0:
 		var boss:bool=e.kind=="Colossus"
+		if source!="buried":FortStats.award_kill(self,e)
 		if int(e.get("camp",-1))<0 and not FortEncounters.is_wild(int(e.get("camp",-1))):director.record("killed",1)
 		broadcast("recv_enemy_dead",[id])
 		if boss:expedition.boss_killed()
@@ -1405,12 +1447,16 @@ func _damage_enemy(id:int,damage:float,knockback:=Vector3.ZERO,source:="player_d
 func recv_enemy_hit(id:int,hp:float,amount:float)->void:
 	if not enemies.has(id):return
 	enemies[id].hp=hp
+	FortFire.hit(enemies[id],clock)
 	recv_fx(enemies[id].node.position+Vector3.UP*1.5,Color("#f5d3a0"),str(int(amount)),"hit")
 	var visual:Node3D=enemies[id].visual
 	var anim:=FortPlayer.find_animation(visual)
 	if anim and anim.has_animation("Hit"):anim.play("Hit",0.06)
 	var tween:=create_tween()
-	var original:Vector3=visual.scale
+	var previous:Tween=visual.get_meta("hit_tween") if visual.has_meta("hit_tween") else null
+	if previous and previous.is_valid():previous.kill()
+	var original:Vector3=visual.get_meta("hit_scale",visual.scale)
+	visual.set_meta("hit_scale",original);visual.set_meta("hit_tween",tween)
 	tween.tween_property(visual,"scale",original*Vector3(1.12,0.88,1.12),0.07)
 	tween.tween_property(visual,"scale",original,0.10)
 
@@ -1547,6 +1593,9 @@ func show_toast(message:String,duration:=3.0)->void:
 	toast_text=message;toast_time=duration
 
 func toggle_pause()->void:
+	if hud.sheet.visible:hud.sheet.close_panel();return
+	if hud.merchant.visible:hud.merchant.close_panel();return
+	if hud.controls.visible:hud.controls.close_panel();return
 	if get_parent().save_menu.panel.visible:get_parent().save_menu.close_panel();return
 	if castle.menu.panel.visible:castle.menu.close_panel();return
 	if hud.upgrade_menu.visible: hud.upgrade_menu.close_panel();return
@@ -1584,12 +1633,15 @@ func objective_text()->String:
 	return "Workshop complete. Build, repair, and prepare for night. Enter when ready."
 
 func context_prompt(p:FortPlayer)->String:
+	for record in castle.perimeter.get("segments",{}).values():
+		if not defenses.has(int(record.id)) and p.position.distance_to(record.pos)<4:return FortGlyphs.t("HOLD R   Rebuild wall breach   6{stone}  2{wood}")
+	if FortMerchant.nearest(self,p.position)!="":return "E / Trade at merchant tent for shared gold"
 	if expedition.event_name=="Supply Caravan" and not expedition.event_claimed and p.position.distance_to(FortExpedition.CACHE_POS)<3:return "E / Claim caravan supplies for the crew"
 	if p.mounted_ballista>=0:return "HOLD CLICK fire ballista   /   E dismount"
 	for ally in players.values():
 		if ally.health<=0 and p.position.distance_to(ally.position)<2.7:return "HOLD E   Revive "+ally.display_name
 	if p.position.distance_to(Vector3(4.6,0,0))<3.2 and p.total_carried()>0:return "E   Deposit pack into SHARED stockpile"
-	if p.position.distance_to(Vector3(-4.6,0,0))<3.2:return "E   Open WORKSHOP   /   Craft & equip weapons"
+	if p.position.distance_to(FortHearthGrowth.workshop(self))<3.2:return "E   Open WORKSHOP   /   Craft & equip weapons"
 	if castle.prompt(p)!="":return castle.prompt(p)
 	var work_id:=construction.nearest(p)
 	if work_id>=0:return "HOLD E   %s %d%%   /   Crew can help   /   G project"%[defenses[work_id].kind,int(FortConstruction.fraction(defenses[work_id])*100)]
@@ -1610,8 +1662,8 @@ func context_prompt(p:FortPlayer)->String:
 		var requirement:=FortForestry.requirement(r,p)
 		return requirement if not requirement.is_empty() else "HOLD E   %s / %s   ·   %d remaining"%[FortForestry.title(r),r.kind,r.amount]
 	if _nearest_defense(p.position,"Ballista",3.0)>=0:return "E   Mount ballista   /   Hold R repair"
-	if p.position.length()<9.5:return "HOLD R   Repair hearth   ·   1 shared wood"
-	if _nearest_defense(p.position,"",3.5)>=0:return "HOLD R   Repair defense   ·   1 shared wood"
+	if p.position.length()<9.5:return FortGlyphs.t("HOLD R   Repair hearth   1{wood}")
+	if _nearest_defense(p.position,"",3.5)>=0:return FortGlyphs.t("HOLD R   Repair defense   1{wood}")
 	return ""
 
 func direction_to_home(p:FortPlayer)->String:

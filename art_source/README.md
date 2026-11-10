@@ -2,6 +2,21 @@
 
 The game loads the GLB files under `assets/models/fort`. Blender is an authoring dependency only.
 
+## Fort 26 character pipeline (`rig26/`)
+
+All eight dwarves and all eighteen enemies come from this pipeline. Run each script with Blender in background mode, e.g. `blender -b -P art_source/rig26/build_dwarves.py -- dwarf_vanguard`.
+
+- `gen26/*_raw.glb`: textured source meshes converted from the reference images in `concepts/fort26/`. `gen26/jobs.txt` records which generation produced each one.
+- `rig26/rigkit.py`: import and normalise (face -Y, feet on z=0, scale to height, 1024px texture), build an armature, capsule-distance skinning with seam-aware smoothing and rigid prop regions, a world-axis `Animator`, GLB export and preview renders.
+- `rig26/biped.py`: the dwarf skeleton (same bone names as the original rig; `hand.R` is the weapon hand) and the 17-clip hero set.
+- `rig26/creatures.py`: enemy clip sets (swing, slam, shoot, cast, lob, claw), winged-imp, quadruped and dragon skeletons.
+- `rig26/build_dwarves.py`, `build_enemies.py`, `build_axe.py`: per-character joint measurements and the build entry points. `--preview <dir>` renders pose sheets.
+- `rig26/sculpt.py`, `build_pets.py`: fully local creatures (three pets and the pony). Rounded parts are fused by a voxel remesh, vertex-painted, then given crisp eyes, claws and tack. No source mesh is needed; edit the part lists and rebuild. The game converts their vertex colours to sRGB for the Compatibility renderer (`FortArt.asset`).
+- `rig26/render_strip.py`, `inspect_glb.py`: render evenly spaced frames of one clip from a saved rig scene; print the contents of a GLB.
+- `rig26/preview_raw.py`, `preview_many.py`: level orthographic renders of a raw mesh for measuring joints.
+
+Joint positions were read off gridded front or side renders. To re-measure after replacing a raw mesh, render it with `preview_many.py`, update the numbers in the build script and rebuild. Game contract: dwarves need `Idle`, `Walk`, `Run`, `Axe_Swing`, `Heavy_Swing`, `Gather`, `Build`, `Cast`, `Aim`, `March`, `Shoot`, `Thrust`, `Air`, `Ride`, `Hit`, `Fall`, `Downed`; enemies need `Idle`, `Walk`, `Attack`, `Hit`, `Death`.
+
 ## Direct Blender art pass
 
 - `model_foliage12.py`: animated elder oak, amberwood and giant mushrooms, plus woodland brush, bluebells, forest-floor litter, dry sedge and frost shrubs. Exposes `build()` for Blender MCP and preserves the open scene.

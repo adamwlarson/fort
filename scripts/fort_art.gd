@@ -19,8 +19,16 @@ static func asset(key: String) -> Node3D:
 	if not scene_cache.has(path):scene_cache[path]=load(path)
 	var model:Node3D=(scene_cache[path] as PackedScene).instantiate()
 	FortSolids.attach(model,key)
-	if key in ["raider","brute","sapper","ashwing","emberrunner","chieftain","sapper7","cinderlobber","bombwing","shieldguard","prowler","hexer","colossus","razorback","direwolf","stonebear","emberdrake","frostwyrm"] and ProjectSettings.get_setting("rendering/renderer/rendering_method")=="gl_compatibility":
+	# Locally sculpted creatures are vertex-painted; the Compatibility renderer needs sRGB colours.
+	if key in ["pet_badger","pet_mole","pet_sprite","horse"] and ProjectSettings.get_setting("rendering/renderer/rendering_method")=="gl_compatibility":
 		_compatibility_palette(model)
+	return model
+
+static func dwarf(class_id:int)->Node3D:
+	# Slots 4-7 are distinct alternate characters; fall back to the base role model.
+	var model:Node3D=null
+	if class_id>=4:model=asset(GameData.dwarf_asset(class_id)+"_b")
+	if not model:model=asset(GameData.dwarf_asset(class_id))
 	return model
 
 static func _compatibility_palette(node:Node)->void:
@@ -88,31 +96,9 @@ static func replace_meshes(node: Node3D, key: String) -> void:
 		pivot.transform = pose
 		pivot.name = "Turret"
 
-static func tint_dwarf(node: Node, role: int) -> void:
-	if node is MeshInstance3D:
-		for i in node.mesh.get_surface_count():
-			var original: Material = node.mesh.surface_get_material(i)
-			if not original is StandardMaterial3D: continue
-			var cache_key := "%d/%s" % [role, original.resource_name]
-			if dwarf_palette.has(cache_key):
-				node.set_surface_override_material(i,dwarf_palette[cache_key])
-				continue
-			var mat: StandardMaterial3D = original.duplicate()
-			var key := original.resource_name.get_slice(".",0)
-			if key == "MAT_Tunic": mat.albedo_color = GameData.class_data(role).color.darkened(0.16)
-			elif key == "MAT_Dark_Steel": mat.albedo_color = GameData.class_data(role).color.darkened(0.55)
-			elif key == "MAT_Beard": mat.albedo_color = [Color("#894f2c"), Color("#b0aaa0"), Color("#50372e"), Color("#cda558"),Color("#252e36"),Color("#853d30"),Color("#c1cbd0"),Color("#413129")][role]
-			elif key == "MAT_Beard_Highlight": mat.albedo_color = [Color("#b67941"), Color("#ddd0ae"), Color("#80583b"), Color("#ead096"),Color("#53606b"),Color("#bd7150"),Color("#ecede5"),Color("#756354")][role]
-			elif key == "MAT_Steel": mat.albedo_color = Color("#8a9ea9")
-			if role>=4:
-				if key in ["FortArt2_red13","FortArt2_teal13","FortArt2_ochre13","FortArt2_green13"]:mat.albedo_color=GameData.class_data(role).color.darkened(.12)
-				elif key in ["FortArt2_beard13","FortArt2_white13","FortArt2_brown13","FortArt2_hair13"]:mat.albedo_color=[Color("#323f48"),Color("#98543b"),Color("#d4dad8"),Color("#574435")][role-4]
-				elif key=="FortArt2_iron" and role==4:mat.albedo_color=Color("#90694e")
-			mat.metallic = 0.15
-			mat.roughness = 0.86
-			dwarf_palette[cache_key] = mat
-			node.set_surface_override_material(i, mat)
-	for child in node.get_children(): tint_dwarf(child, role)
+static func tint_dwarf(_node: Node, _role: int) -> void:
+	# Fort 26 dwarves carry painted textures; palettes are separate models (see dwarf()).
+	pass
 
 static func cone(radius: float, height: float, color: Color, pos: Vector3) -> MeshInstance3D:
 	var mesh := CylinderMesh.new()
@@ -244,6 +230,7 @@ static func make_fort(parent: Node3D) -> void:
 		fort.add_child(FortCampfire.new())
 
 static func make_defense(kind: String, collision := true) -> Node3D:
+	if kind in ["CastleWall","CastleWindow","CastleGate","SentryCannon"]:return FortCastleDefenses.make(kind,collision)
 	if kind=="Gatehouse":return FortGates.make(collision)
 	var root:=Node3D.new()
 	if kind in ["MetalWall","StormSpire","FrostMortar","Embercoil","GravityWell","Sunlance"]:
@@ -429,9 +416,13 @@ static func make_mount(mode: int) -> Node3D:
 static func animate_mount(root: Node3D, time: float, speed: float, thrust: bool) -> void:
 	var anim := FortPlayer.find_animation(root)
 	if anim and anim.has_animation("Gallop"):
-		anim.get_animation("Gallop").loop_mode = Animation.LOOP_LINEAR
-		if anim.current_animation != "Gallop": anim.play("Gallop")
-		anim.speed_scale = clampf(speed / 8.0, 0, 2)
+		# Stand and breathe when halted, walk at low speed, canter when travelling.
+		var clip := "Gallop"
+		if speed < 0.4 and anim.has_animation("Idle"): clip = "Idle"
+		elif speed < 4.0 and anim.has_animation("Walk"): clip = "Walk"
+		anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+		if anim.current_animation != clip: anim.play(clip, 0.2)
+		anim.speed_scale = 1.0 if clip == "Idle" else (clampf(speed / 2.6, 0.6, 1.8) if clip == "Walk" else clampf(speed / 9.0, 0.7, 1.6))
 	for flame in root.find_children("Flame*", "MeshInstance3D", true, false): flame.visible = thrust
 	for child in root.get_children():
 		if str(child.name).begins_with("Leg_"):child.rotation.x=sin(time*11+child.position.z*3+child.position.x*5)*minf(speed*0.08,0.7)

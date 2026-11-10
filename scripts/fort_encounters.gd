@@ -114,7 +114,7 @@ func state() -> Dictionary:
 	var list:Dictionary={}
 	for id in sites:
 		var s:Dictionary=sites[id]
-		if s.seen or s.phase!="sleeping":list[id]={"phase":s.phase,"seen":s.seen,"crew":s.crew}
+		if s.seen or s.phase!="sleeping":list[id]={"phase":s.phase,"seen":s.seen,"crew":s.crew,"return_wave":s.get("return_wave",-1)}
 	return {"seed":layout_seed,"revision":revision,"sites":list,"unlocked":unlocked}
 
 func receive(data:Dictionary) -> void:
@@ -127,7 +127,7 @@ func receive(data:Dictionary) -> void:
 
 func _visual(site:Dictionary) -> void:
 	var text:="HEARTH %d / %s"%[site.spec.tier,site.spec.name]
-	if site.phase=="claimed":text="CLAIMED / "+site.spec.name
+	if site.phase=="claimed":text="CLAIMED / "+site.spec.name+"\nReturns after two dawns, once the crew leaves"
 	elif site.phase=="cleared":text+="\nE / FREE CREW TREASURE"
 	elif site.phase=="active":text+="\nDEFEAT THE ENCOUNTER"
 	site.label.text=text
@@ -175,8 +175,13 @@ func tick() -> void:
 	next_check=world.clock+.35
 	for id in sites:
 		var site:Dictionary=sites[id];var distance:=INF
+		if site.get("razed",false):continue
 		for p in world.players.values():
 			if p.health>0:distance=minf(distance,p.position.distance_to(site.spec.pos))
+		if site.phase in ["claimed","cleared"]:
+			if int(site.get("return_wave",-1))<0:site.return_wave=world.wave+2;revision+=1
+			if not world.is_night and world.wave>=int(site.return_wave) and distance>60:
+				site.phase="sleeping";site.crew=0;site.away=0;site.return_wave=-1;revision+=1;_visual(site)
 		if distance<48 and not site.seen:
 			site.seen=true;revision+=1
 			world.broadcast("recv_notice",["DISCOVERED / %s. %s"%[site.spec.name,"Dragon territory — bring your crew!" if site.spec.type=="dragon" else "Explore and claim shared treasure."]])
@@ -203,7 +208,7 @@ func interact(player_id:int) -> bool:
 	if site.phase=="active" and members(id).is_empty():site.phase="cleared"
 	if site.phase!="cleared":
 		world.personal(player_id,"Treasure already claimed." if site.phase=="claimed" else "Defeat this site's guardians first.");return true
-	site.phase="claimed";site.seen=true;revision+=1
+	site.phase="claimed";site.seen=true;site.return_wave=world.wave+2;revision+=1
 	var tier:int=site.spec.tier;var rare:bool=site.spec.type=="dragon"
 	var received:Dictionary={};var new_items:Array=[]
 	for resource in GameData.RESOURCES:

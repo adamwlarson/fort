@@ -8,10 +8,8 @@ class RaidSandbox extends FortWorld:
 	func broadcast(_method:String,_args:Array=[])->void:pass
 	func _spawn_enemy(kind:="",angle:=INF)->bool:
 		if enemies.size()>=raid_cap():return false
-		var permitted:=false
-		for lane in director.lanes():
-			if absf(angle_difference(angle,lane*PI/2))<=.171:permitted=true
-		if not permitted:invalid=true
+		# Fort 26: raiders may arrive from any compass direction.
+		if not is_finite(angle):invalid=true
 		enemies[next_enemy_id]={"kind":kind,"camp":-1,"born":director.elapsed}
 		next_enemy_id+=1;raid_spawned+=1;return true
 

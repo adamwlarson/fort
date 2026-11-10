@@ -47,7 +47,7 @@ static func inspect(c:FortCastle,target:Dictionary)->Dictionary:
 	result.token=str([int(target.x),int(target.z),int(target.floor),ledger]).sha256_text()
 	return result
 static func summary(info:Dictionary)->String:
-	return "AUTO-CLEAR / %d resources · %d scenery · %d defenses\nSalvage to shared stock: %s\nClearing happens on placement; canceling does not restore removed objects."%[info.resources.size(),info.scenery.size(),info.defenses.size(),GameData.supplies_text(info.refund,true)]
+	return "Cleared when placed: %d resource nodes, %d scenery, %d defenses  ·  salvage returned: %s"%[info.resources.size(),info.scenery.size(),info.defenses.size(),GameData.supplies_text(info.refund,true)]
 static func apply(c:FortCastle,info:Dictionary)->void:
 	for id in info.resources:
 		c.world.resource_nodes[id].respawn=65.0

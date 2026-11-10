@@ -43,7 +43,7 @@ func run()->void:
 	check(FortBalance.colossus_multiplier(8)>FortBalance.colossus_multiplier(4) and FortBalance.wilderness_multiplier(8)>FortBalance.wilderness_multiplier(4),"large crews also scale colossi and wilderness encounters")
 	w.wave=8;w.is_night=true;w.director.start();check(w.director.crew==8 and w.director.lane_count()==4,"raid director recognizes eight live or downed players")
 	w.is_night=false
-	w.hud._process(0);check(w.hud.crew_right.visible and w.hud.crew_right.text.contains("8 "),"compact HUD includes eighth dwarf")
+	w.hud._process(0);check(not w.hud.crew.visible and not w.hud.crew_right.visible,"crew roster box is removed from the HUD")
 	for dwarf in w.players.values():dwarf.position=Vector3(0,.7,5)
 	w.hud.map.refresh();check(w.hud.map.crew.size()==7,"minimap retains all seven teammates")
 	for i in w.hud.map.crew.size():

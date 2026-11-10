@@ -51,15 +51,15 @@ func run()->void:
 	w.recv_enemy_dead(999)
 	var upstairs:={"x":1,"z":0,"floor":1};p.position=w.castle.rooms["1:0:0"].sign
 	w.castle.plan(1,"1:0:0",upstairs,"Stairs",w.castle.revision);complete("1:0:1")
-	check(is_equal_approx(w.castle.floor_at(Vector3(20,4.6,0)),4.6),"upper floor supports elevated construction")
-	p.position=Vector3(26,.7,-5.5);await walk_to(Vector3(26,4.6,5.7))
-	check(p.position.y>4.4 and p.position.z>4.7,"normal movement climbs to the second storey through the open stairwell")
+	check(is_equal_approx(w.castle.floor_at(Vector3(20,5.6,0)),5.6),"upper floor supports elevated construction")
+	p.position=Vector3(26,.7,-5.5);await walk_to(Vector3(26,5.6,5.7))
+	check(p.position.y>5.3 and p.position.z>5.0,"normal movement climbs to the second storey through the open stairwell")
 	await walk_to(Vector3(26,.6,-5.5))
 	check(p.position.y<.9 and p.position.z< -4.7,"normal movement descends the stairwell without getting stuck")
 	check(w.castle.plan_reason("1:0:1",{"x":2,"z":0,"floor":1},"Courtyard").contains("supporting"),"unsupported upper wings are rejected")
 	p.position=w.castle.rooms["1:0:1"].sign;w.castle.plan(1,"1:0:1",{"x":1,"z":0,"floor":2},"Research",w.castle.revision);complete("1:0:2")
-	p.position=Vector3(14,4.7,-5.5);await walk_to(Vector3(14,8.6,5.7))
-	check(p.position.y>8.4 and p.position.z>4.7,"alternating stairwells remain walkable to the third storey")
+	p.position=Vector3(14,5.7,-5.5);await walk_to(Vector3(14,10.6,5.7))
+	check(p.position.y>10.3 and p.position.z>5.0,"alternating stairwells remain walkable to the third storey")
 	p.position=w.castle.rooms["1:0:2"].sign;w.castle.begin_task(1,"1:0:2","tech:Logistics",w.castle.revision);complete("1:0:2")
 	check(w.castle.pack_bonus()==6 and p.carry_limit==24,"research is hand-built and changes crew capacity")
 	var before:int=w.shared.wood;w.castle.begin_task(1,"1:0:2","tech:Logistics",w.castle.revision);check(w.shared.wood==before and w.castle.rooms["1:0:2"].task=="","completed research cannot charge again")
@@ -71,9 +71,10 @@ func run()->void:
 		p.position=w.castle.rooms[addition[0]].sign
 		w.castle.plan(1,addition[0],{"x":addition[1],"z":addition[2],"floor":0},addition[3],w.castle.revision)
 		complete(FortCastle.key(addition[1],addition[2],0))
-	p.position=w.castle.rooms["2:0:0"].sign;var stock:=w.shared.duplicate();var rev:=w.castle.revision
+	p.position=FortMerchant.location(w.castle,"2:0:0")+Vector3(2,0,0);w.shared.gold=200;var stock:=w.shared.duplicate();var rev:=w.castle.revision
+	var price:=FortMerchant.price(w,"2:0:0","iron")*5
 	w.castle.trade(1,"2:0:0","iron",rev);w.castle.trade(1,"2:0:0","iron",rev)
-	check(w.shared.wood==stock.wood-20 and w.shared.stone==stock.stone-10 and w.shared.iron==stock.iron+2,"merchant trade charges once and delivers the advertised iron")
+	check(w.shared.gold==stock.gold-price and w.shared.iron==stock.iron+5,"tent trade charges gold once and delivers advertised iron")
 	p.position=w.castle.rooms["0:2:0"].sign;w.castle.assign(1,"0:2:0","wood",w.castle.revision)
 	var resource_id:=-1
 	for id in w.resource_nodes:
@@ -91,9 +92,9 @@ func run()->void:
 	p.position=w.castle.rooms["3:0:0"].sign;stock=w.shared.duplicate();w.castle.fund(1,"3:0:0",true,w.castle.revision);w.clock+=1;w.castle.work(1,"3:0:0")
 	var refund:=floori(30*(1-float(w.castle.rooms["3:0:0"].work)/20));w.castle.cancel(1,"3:0:0",w.castle.revision)
 	check(not w.castle.rooms.has("3:0:0") and w.shared.wood==stock.wood-30+refund,"cancellation removes blueprint and refunds only unused paid materials")
-	p.position=Vector3(18,8.6,-1);p.class_id=2;w._ability(1);p.class_id=0
+	p.position=Vector3(18,10.6,-1);p.class_id=2;w._ability(1);p.class_id=0
 	var field:Dictionary=w.defenses[w.next_defense_id-1]
-	check(field.temporary and is_equal_approx(field.node.position.y,8.6),"engineer field turret deploys on the occupied upper floor")
+	check(field.temporary and is_equal_approx(field.node.position.y,10.6),"engineer field turret deploys on the occupied upper floor")
 	for k in w.castle.rooms.keys():
 		if k=="0:0:0":continue
 		p.position=w.castle.rooms[k].sign;w.castle.begin_task(1,k,"walls",w.castle.revision);complete(k)

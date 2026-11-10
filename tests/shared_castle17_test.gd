@@ -13,7 +13,7 @@ func run()->void:
 	w.castle.plan(1,"0:0:0",{"x":1,"z":0,"floor":0},"Courtyard",w.castle.revision)
 	var k:="1:0:0";p.position=w.castle.rooms[k].sign;w.shared={"wood":100,"stone":100};p.carrying={"wood":5,"stone":5}
 	w.castle.menu.open_nearest();await create_timer(.1).timeout
-	check(w.castle.menu.guidance.text.contains("shared stock first") and w.castle.prompt(p).contains("shared stock"),"architect and sign explain hold-E shared funding")
+	check(w.castle.menu.guidance.text.contains("shared stockpile is used first") and w.castle.prompt(p).contains("shared stockpile"),"architect and sign explain hold-E shared funding")
 	if DisplayServer.get_name()!="headless":
 		await RenderingServer.frame_post_draw;root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://build/shared_castle17.png"))
 	w.castle.menu.close_panel()

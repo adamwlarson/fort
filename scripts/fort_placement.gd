@@ -1,7 +1,7 @@
 class_name FortPlacement
 extends RefCounted
-static func is_wall(kind:String)->bool:return kind in ["Barricade","MetalWall","Gatehouse"]
-static func wall_width(kind:String)->float:return 5.6 if kind=="Gatehouse" else (3.5 if kind=="Barricade" else 2.8)
+static func is_wall(kind:String)->bool:return kind in ["Barricade","MetalWall","Gatehouse","CastleWall","CastleWindow","CastleGate"]
+static func wall_width(kind:String)->float:return 4.0 if kind.begins_with("Castle") else (5.6 if kind=="Gatehouse" else (3.5 if kind=="Barricade" else 2.8))
 static func wall_depth(kind:String)->float:return 1.35 if kind=="Gatehouse" else .20
 static func snap(world:FortWorld,kind:String,pos:Vector3,yaw:float)->Vector3:
 	if not is_wall(kind):return pos

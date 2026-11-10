@@ -40,12 +40,12 @@ func run()->void:
 	w.shared={"wood":18,"stone":8,"crystal":0}
 	await capture("interface_build")
 	check(hud.build_cards.size()==GameData.BUILD_ORDER.size() and hud.build_cards[0].visible,"B opens all illustrated recipe cards")
-	check(hud.card_costs[0].text.contains("14 wood") and hud.card_costs[0].text.contains("6 stone"),"Engineer card uses real rounded discounts")
-	check(hud.card_status[2].text.begins_with("Need"),"unaffordable recipe lists missing supplies")
+	check(hud.card_costs[0].text.contains("14"+FortGlyphs.g("wood")) and hud.card_costs[0].text.contains("6"+FortGlyphs.g("stone")),"Engineer card uses real rounded discounts")
+	check(hud.card_status[2].text.begins_with("Short by"),"unaffordable recipe lists missing supplies")
 	check(not hud.stock_panel.visible,"stockpile does not overlap construction")
 	for i in 7:
 		check(hud.card_status[i].get_minimum_size().x<191,"card status fits width "+str(i))
-		check(hud.build_cards[i].position.x+hud.build_cards[i].size.x<=1280,"card fits viewport "+str(i))
+		check(hud.build_cards[i].position.x+hud.build_cards[i].size.x*hud.build_cards[i].scale.x<=1280,"card fits viewport "+str(i))
 	w.toggle_build_mode()
 	w.toggle_pause()
 	await capture("interface_camp_menu")

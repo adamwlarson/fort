@@ -20,8 +20,8 @@ static func chip(kind:String,text:String)->PanelContainer:
 	var panel:=PanelContainer.new();panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	var style:=StyleBoxFlat.new();style.bg_color=Color("#14262b");style.border_color=GameData.resource_color(kind) if kind in GameData.RESOURCES else FortInterface.GOLD;style.set_border_width_all(1);style.set_corner_radius_all(5);style.content_margin_left=5;style.content_margin_right=7;style.content_margin_top=3;style.content_margin_bottom=3;panel.add_theme_stylebox_override("panel",style)
 	var row:=HBoxContainer.new();row.name="HBoxContainer";row.mouse_filter=Control.MOUSE_FILTER_IGNORE;panel.add_child(row)
-	var icon:=FortIcon.new();icon.kind=icon_kind(kind);icon.tint=style.border_color;icon.custom_minimum_size=Vector2(24,24);row.add_child(icon)
-	var label:=Label.new();label.name="Text";label.text=text;label.add_theme_font_size_override("font_size",14);label.mouse_filter=Control.MOUSE_FILTER_IGNORE;row.add_child(label)
+	var icon:=FortIcon.new();icon.kind=icon_kind(kind);icon.tint=style.border_color;icon.custom_minimum_size=Vector2(17,17);row.add_child(icon)
+	var label:=Label.new();label.name="Text";label.text=text;label.add_theme_font_size_override("font_size",12);label.mouse_filter=Control.MOUSE_FILTER_IGNORE;row.add_child(label)
 	return panel
 func _ready()->void:
 	layer=4
@@ -81,7 +81,7 @@ func scan_resources(p:FortPlayer)->void:
 		if not badges.has(id):badges[id]=chip(r.kind,"");add_child(badges[id])
 		var locked:=FortForestry.requirement(r,p)!=""
 		var label:Label=badges[id].get_node("HBoxContainer/Text")
-		label.text="%s %d%s"%[str(r.kind).to_upper(),r.amount," / AXE +%d"%int(r.get("axe",1)) if locked else ""]
+		label.text="%d%s"%[r.amount,"  needs axe +%d"%int(r.get("axe",1)) if locked else ""]
 		label.modulate=Color("#f1b07d") if locked else Color.WHITE
 func gain(actor:int,pos:Vector3,kind:String,amount:int,destination:String)->void:
 	if kind not in GameData.RESOURCES or amount<=0:return
@@ -91,7 +91,7 @@ func gain(actor:int,pos:Vector3,kind:String,amount:int,destination:String)->void
 	if flying.size()>=18:var oldest:Dictionary=flying.pop_front();oldest.node.queue_free()
 	var where:=destination
 	if destination=="PACK":where="YOUR PACK" if actor==p.peer_id else "CREW PACK"
-	var badge:=chip(kind,"+%d %s · %s"%[amount,kind.capitalize(),where]);badge.z_index=2;add_child(badge)
+	var badge:=chip(kind,"+%d  %s"%[amount,where.to_lower()]);badge.z_index=2;add_child(badge)
 	flying.append({"node":badge,"pos":pos,"age":0.0})
 func loot(title:String,resources:Dictionary,items:Array,spent:Dictionary={})->void:
 	var data:={"title":title,"resources":resources.duplicate(),"items":items.duplicate(),"spent":spent.duplicate()}
@@ -106,7 +106,7 @@ func show_loot(data:Dictionary)->void:
 		var caption:=Label.new();caption.text="Added to SHARED STOCKPILE";receipt_rows.add_child(caption)
 		var row:=HFlowContainer.new();row.custom_minimum_size.x=475;receipt_rows.add_child(row)
 		for kind in data.resources:
-			if int(data.resources[kind])>0:row.add_child(chip(kind,"+%d %s"%[data.resources[kind],kind.capitalize()]))
+			if int(data.resources[kind])>0:row.add_child(chip(kind,"+%d"%data.resources[kind]))
 	for kind in data.items:receipt_rows.add_child(chip(kind,"NEW CREW GEAR / "+item_name(kind)))
-	for kind in data.spent:receipt_rows.add_child(chip(kind,"LOCK COST / −%d %s"%[data.spent[kind],kind.capitalize()]))
+	for kind in data.spent:receipt_rows.add_child(chip(kind,"lock cost  −%d"%data.spent[kind]))
 	receipt_time=8;receipt.size.y=0

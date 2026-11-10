@@ -19,7 +19,7 @@ func run()->void:
 	if server:
 		main._host();main._start_match();var w:FortWorld=main.world;var host:FortPlayer=w.local_player()
 		w.set_hearth_level(3);w.shared={"wood":500,"stone":500,"crystal":500,"iron":500,"aether":500}
-		host.position=Vector3(-4.6,0,2);w._craft_weapon(1,"Repeater");w._upgrade_weapon(1,"Repeater",1);w.clock+=1;w._upgrade_weapon(1,"Repeater",2)
+		host.position=(FortHearthGrowth.workshop(w)+Vector3(2,0,0));w._craft_weapon(1,"Repeater");w._upgrade_weapon(1,"Repeater",1);w.clock+=1;w._upgrade_weapon(1,"Repeater",2)
 		w._spawn_defense("Ballista",Vector3(0,0,100),0,false)
 		w._spawn_defense("Mender",Vector3(5,0,100),0,false);w.defenses[2].level=3;w.progression.defense_visual(w.defenses[2])
 		w._spawn_defense("MetalWall",Vector3(5,0,106),0,false)
@@ -38,7 +38,7 @@ func run()->void:
 		await wait(1.3)
 		w._mount(gunner,-1)
 		for id in w.players:
-			if id!=1:w.broadcast("recv_teleport",[int(id),Vector3(-4.6,0,2)])
+			if id!=1:w.broadcast("recv_teleport",[int(id),(FortHearthGrowth.workshop(w)+Vector3(2,0,0))])
 		verify(await until(func():
 			for p in w.players.values():
 				if p.peer_id!=1 and int(p.weapon_levels.get("Repeater",1))<2:return false
@@ -60,7 +60,7 @@ func run()->void:
 			verify(await until(func():return p.mounted_ballista==1),"remote dwarf mounts ballista")
 			p.look_yaw=-PI/2;p.look_pitch=-.12
 		verify(await until(func():return absf(w.defenses[1].node.get_node("Turret").rotation.y)>1),"other clients see ballista tracking the remote gunner")
-		verify(await until(func():return p.mounted_ballista<0 and p.position.distance_to(Vector3(-4.6,0,2))<2),"crew reaches workshop")
+		verify(await until(func():return p.mounted_ballista<0 and p.position.distance_to((FortHearthGrowth.workshop(w)+Vector3(2,0,0)))<2),"crew reaches workshop")
 		w.request_action("craft_weapon",{"weapon":"Repeater"})
 		verify(await until(func():return p.weapon=="Repeater"),"remote forge craft acknowledged")
 		w.request_action("upgrade_weapon",{"weapon":"Repeater","level":1});w.request_action("upgrade_weapon",{"weapon":"Repeater","level":1})

@@ -2,7 +2,7 @@ class_name FortBalance
 extends RefCounted
 
 # Threat points, not hit points: specialists consume a larger part of each assault.
-const COST := {"Raider":10,"EmberRunner":13,"Brute":30,"Ashwing":18,"Sapper":25,"Cinderlobber":30,"Bombwing":35,"Shieldguard":24,"Prowler":16,"Hexer":32}
+const COST := {"Raider":10,"EmberRunner":13,"Brute":30,"Ashwing":18,"Sapper":25,"Cinderlobber":30,"Bombwing":35,"FireArcher":22,"Shieldguard":24,"Prowler":16,"Hexer":32}
 const CREW := [1.0,1.75,2.6,3.5,4.45,5.45,6.5,7.6]
 const FRONT_NAMES := ["SOUTH","EAST","NORTH","WEST"]
 
@@ -18,7 +18,7 @@ static func fronts(night:int,crew:int)->int:
 	return mini(4,clampi(crew,1,4)+(1 if crew==1 and night>=6 else 0))
 
 static func category(kind:String)->String:
-	return "bombard" if kind in ["Cinderlobber","Bombwing"] else kind
+	return "bombard" if kind in ["Cinderlobber","Bombwing","FireArcher"] else kind
 
 static func special_cap(kind:String,night:int,crew:int)->int:
 	match category(kind):
@@ -33,7 +33,7 @@ static func special_cap(kind:String,night:int,crew:int)->int:
 static func pool(night:int)->Array[String]:
 	var result:Array[String]=["Raider","Raider","Raider","Raider","Raider","Raider","Raider","Raider","EmberRunner","EmberRunner"]
 	if night>=2:result.append_array(["Brute","Brute","Ashwing","Ashwing"])
-	if night>=3:result.append_array(["Sapper","Cinderlobber"])
+	if night>=3:result.append_array(["Sapper","Cinderlobber","FireArcher"])
 	if night>=4:result.append("Bombwing")
 	if night>=6:result.append("Prowler")
 	if night>=8:result.append("Shieldguard")

@@ -14,7 +14,7 @@ func run()->void:
 	for id in w.enemies.keys():w.recv_enemy_dead(id)
 	p.position=Vector3(0,.7,18);map.refresh()
 	check(not map.resources_enabled and map.resources.is_empty(),"default minimap omits individual resource noise")
-	check(map.point(p.position)==Vector2.ZERO and map.point(p.position+Vector3(0,0,-100))==Vector2(0,-80),"local player stays centered; fixed north-up 100m scale")
+	check(map.point(p.position)==Vector2.ZERO and map.point(p.position+Vector3(0,0,-90)).is_equal_approx(Vector2(0,-map.RADIUS)),"local player stays centered; fixed north-up scale")
 	check(map.rooms.size()==1,"finished starting keep provides subtle castle footprint")
 	for i in 3:w.recv_player(50+i,{"name":"Map Dwarf","class":i+1});w.players[50+i].set_physics_process(false);w.players[50+i].position=p.position
 	w.players[51].health=0;w.players[52].position=Vector3(500,.7,0)
@@ -50,7 +50,7 @@ func run()->void:
 	check(not map.visible and map.resources_enabled,"menu hides map and prevents resource toggle")
 	w.menu_open=false;w.local_build_mode=true;map._process(.3);check(not map.visible,"build cards do not overlap minimap");w.local_build_mode=false
 	p.position=Vector3(400,.7,300);map.refresh()
-	check(map.hearth_outside and is_equal_approx(map.hearth_point.length(),68) and map.hearth_point.x<0 and map.hearth_point.y<0,"distant home stays pinned toward the correct rim")
+	check(map.hearth_outside and is_equal_approx(map.hearth_point.length(),map.RADIUS-12) and map.hearth_point.x<0 and map.hearth_point.y<0,"distant home stays pinned toward the correct rim")
 	check(map.threats.is_empty() and map.resources.is_empty(),"local map does not compress the entire world as player travels")
 	map._process(.3);await create_timer(.2).timeout;await shot("minimap23_exploration")
 	for site in w.encounters.sites.values():site.phase="claimed"

@@ -32,6 +32,7 @@ func work(player_id:int,id:int)->void:
 		world.personal(player_id,"Keep clear of the gatehouse piers and arch while building. Work from beside the entrance.");return
 	d.work=minf(d.work_total,d.work+(2.0 if p.role_id==2 else 1.0)*FortBalance.work_multiplier(world.players.size())*world.castle.work_multiplier());d.work_revision+=1
 	visual(d)
+	FortStats.award(world,player_id,3)
 	world.broadcast("recv_action",[player_id,"construct",d.node.position])
 	world.broadcast("recv_fx",[d.node.position+Vector3.UP*.65,Color("#dcc296"),"","construction"])
 	if d.work>=d.work_total:

@@ -34,7 +34,7 @@ func run()->void:
 	check(map.visible and map.cells["0:0:0"].status=="finished" and map.cells["2:0:0"].status=="ready","ground map shows finished rooms and buildable connections across the castle")
 	var revision:=w.castle.revision;map.select_room("1:0:1");await create_timer(.1).timeout
 	check(menu.panel.visible and menu.anchor=="0:0:0" and menu.target=="1:0:1","browsing another floor does not close the architect or move the player")
-	check(menu.plan_button.disabled and menu.placement_status.text.contains("REMOTELY"),"remote inspection visibly requires the selected room's sign")
+	check(menu.plan_button.disabled and menu.placement_status.text.contains("LOOKING ONLY"),"remote inspection visibly requires the selected room's sign")
 	menu.send("castle_task",{"task":"walls"});check(w.castle.revision==revision,"remote map inspection cannot perform unauthorized construction")
 	map.select_cell("2:0:1")
 	check(map.cells["2:0:1"].status=="locked" and map.support.visible and menu.placement_status.text.contains("supporting"),"locked upper footprint identifies missing supporting room")
