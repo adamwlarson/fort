@@ -50,7 +50,7 @@ foreach ($test in @('asset_test', 'gameplay_test', 'raid_test', 'world_test', 'p
 }
 if ($Render) {
 	Run-GodotCheck 'audio30_review' @('--audio-driver', 'Dummy', '--script', 'res://tests/audio30_review.gd', '--', '--fort-test')
-	foreach ($review in @('terrain30_review','fort26_test','heroes26_review','enemies26_review','vista26_review','pets26_review','towers_review','improvements25_review')) { Run-GodotCheck ($review + '_render') @('--script', "res://tests/$review.gd", '--', '--fort-test') }
+	foreach ($review in @('sky32_review','terrain30_review','fort26_test','heroes26_review','enemies26_review','vista26_review','pets26_review','towers_review','improvements25_review')) { Run-GodotCheck ($review + '_render') @('--script', "res://tests/$review.gd", '--', '--fort-test') }
 	Run-GodotCheck 'gate24_render' @('--script', 'res://tests/gate24_test.gd', '--', '--fort-test')
 	Run-GodotCheck 'crew24_render' @('--script', 'res://tests/crew24_test.gd', '--', '--fort-test')
 	Run-GodotCheck 'gate24_review' @('--script', 'res://tests/gate24_review.gd', '--', '--fort-test')

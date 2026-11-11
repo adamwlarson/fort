@@ -4,6 +4,8 @@ A playable Godot co-op survival build for one to eight dwarves. Gather by day, r
 
 ## Play
 
+Fort 32 is a **new sky**: real sunrises and sunsets, lit clouds, a detailed moon and a second small one, the Milky Way, shooting stars and an aurora. See [RELEASE_NOTES_32.md](RELEASE_NOTES_32.md).
+
 Fort 31 makes the late game keep going: **raids grow with the fort you build**, **elite raiders** appear from night 8, and each outer biome has **its own material** that pays for the hearth's upper tiers, tower levels 5 to 8 and a new set of permanent hearth boons. See [RELEASE_NOTES_31.md](RELEASE_NOTES_31.md).
 
 Fort 30 replaces the flat world with **real terrain**: one continuous landscape of hills, lakes and mountains generated from the expedition seed. Hearthhold stays level, every camp and site sits on its own shelf, castle rooms and foundations level the ground they stand on, towers can be placed on slopes, every lake can be waded, and the map shows the land as relief. It also adds recorded sound: day and night music that cross-fades, ambience, positional effects, footsteps and splashes, and voices for the dwarves. See [RELEASE_NOTES_30.md](RELEASE_NOTES_30.md).

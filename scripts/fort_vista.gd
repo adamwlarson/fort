@@ -25,6 +25,8 @@ static func build_sky(world:FortWorld)->void:
 	world.environment.fog_density=0.0006
 	world.environment.fog_sun_scatter=0.18
 	world.environment.fog_aerial_perspective=0.15
+	# The sky paints its own horizon haze; scene fog over it would wash out clouds and stars.
+	world.environment.fog_sky_affect=0.0
 	world.environment.adjustment_enabled=true
 	world.environment.adjustment_saturation=1.18
 	world.environment.adjustment_contrast=1.04
@@ -36,12 +38,15 @@ static func update_light(world:FortWorld,delta:float,t:float)->void:
 	var night:=world.is_night
 	var blend:=clampf(delta*0.9,0,1)
 	# Dawn and dusk warm the first and last tenth of each day.
-	var edge:=0.0 if night else clampf(1.0-minf(t,1.0-t)*9.0,0.0,1.0)
+	var edge:=0.0 if night else clampf(1.0-minf(t,1.0-t)*7.0,0.0,1.0)
 	var energy:=0.3 if night else lerpf(1.05,0.8,edge)
 	world.sun.light_energy=lerpf(world.sun.light_energy,energy,blend)
 	var day_color:=Color("#fff1d2").lerp(Color("#ffb074"),edge)
 	world.sun.light_color=world.sun.light_color.lerp(Color("#8fa6e6") if night else day_color,blend)
-	world.sun.rotation_degrees=Vector3(-22-sin(clampf(t,0,1)*PI)*38,-32+t*64.0,0) if not night else Vector3(-52,38,0)
+	# The sun climbs from low in the east to high at noon and sinks low in the west, so dawn
+	# and dusk are real sunsets. The moon crosses the other way, more slowly.
+	var arc:=sin(clampf(t,0,1)*PI)
+	world.sun.rotation_degrees=Vector3(-11-arc*49,-70+t*140.0,0) if not night else Vector3(-36-arc*16,48-t*96.0,0)
 	world.environment.ambient_light_energy=lerpf(world.environment.ambient_light_energy,0.3 if night else 0.44,blend)
 	world.environment.ambient_light_color=world.environment.ambient_light_color.lerp(Color("#6f86b8") if night else Color("#b9c8dc").lerp(Color("#d9b9a3"),edge),blend)
 	world.environment.fog_light_color=world.environment.fog_light_color.lerp(Color("#1d2c44") if night else Color("#a9c3d6").lerp(Color("#e0a983"),edge),blend)
@@ -49,10 +54,12 @@ static func update_light(world:FortWorld,delta:float,t:float)->void:
 	var top:Color=sky.get_shader_parameter("top_color") if sky.get_shader_parameter("top_color")!=null else Color("#4278b8")
 	var horizon:Color=sky.get_shader_parameter("horizon_color") if sky.get_shader_parameter("horizon_color")!=null else Color("#c7d6db")
 	var amount:float=sky.get_shader_parameter("night") if sky.get_shader_parameter("night")!=null else 0.0
-	sky.set_shader_parameter("top_color",top.lerp(Color("#0b1630") if night else Color("#2f6fc4").lerp(Color("#59669e"),edge),blend))
-	sky.set_shader_parameter("horizon_color",horizon.lerp(Color("#2c3a55") if night else Color("#b4d3ea").lerp(Color("#f3b888"),edge),blend))
+	sky.set_shader_parameter("top_color",top.lerp(Color("#050a1c") if night else Color("#2364c2").lerp(Color("#4a5aa0"),edge),blend))
+	sky.set_shader_parameter("horizon_color",horizon.lerp(Color("#17243f") if night else Color("#b4d3ea").lerp(Color("#f6b27c"),edge),blend))
 	sky.set_shader_parameter("ground_color",Color("#16202b") if night else Color("#4d6156"))
 	sky.set_shader_parameter("night",lerpf(amount,1.0 if night else 0.0,blend))
+	var glow:float=sky.get_shader_parameter("dusk") if sky.get_shader_parameter("dusk")!=null else 0.0
+	sky.set_shader_parameter("dusk",lerpf(glow,edge,blend))
 	if range_material:
 		range_material.set_shader_parameter("haze",world.environment.fog_light_color)
 		range_material.set_shader_parameter("dim",lerpf(float(range_material.get_shader_parameter("dim")),0.34 if night else 1.0,blend))
