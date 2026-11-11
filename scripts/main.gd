@@ -2,7 +2,7 @@ extends Node
 
 const WorldScript = preload("res://scripts/world.gd")
 const InternetScript = preload("res://scripts/fort_internet.gd")
-const BUILD_VERSION := "28"
+const BUILD_VERSION := "29"
 
 var menu:Control
 var status_label:Label
@@ -483,6 +483,7 @@ func _start_match() -> void:
 		world.prepare_network_player(id, player_info[id])
 		begin_remote.rpc_id(id, player_info)
 	if not resuming:world.configure_opening_day()
+	if not resuming and not "--fort-test" in OS.get_cmdline_user_args():world.pieces.starter()
 
 func _safe_name() -> String:
 	var value := name_edit.text.strip_edges().left(18)

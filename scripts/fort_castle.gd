@@ -47,6 +47,8 @@ func receive(data:Dictionary)->void:
 func changed()->void:
 	FortPerimeter.sync(self)
 	revision+=1;rebuild();refresh_packs();world.broadcast("recv_castle",[state()])
+	# Pieces that stood on a room which is now gone come down.
+	if world.pieces and world.multiplayer.is_server():world.pieces.collapse()
 func refresh_packs()->void:
 	for p in world.players.values():p.apply_progression(p.backpack_level,p.relics,p.armor,p.progression_revision)
 func completed_ground()->int:
@@ -112,7 +114,8 @@ func plan(id:int,from:String,target:Dictionary,kind:String,expected:int,clearanc
 	# An upstairs project uses the landing at the lower stair's foot until finished.
 	if upper:r.sign=parent_pos+Vector3(4 if int(rooms[from].floor)%2==0 else -4,0,-5)
 	rooms[key(r.x,r.z,r.floor)]=r
-	FortCastleClearance.apply(self,clearance);FortRaze.raze_under(self,r);changed()
+	FortCastleClearance.apply(self,clearance);FortRaze.raze_under(self,r)
+	world.pieces.clear_box(pos+Vector3.UP*2.4,Vector3(9.9,2.45,9.9));changed()
 	world.broadcast("recv_full",[world.full_state()])
 	if not clearance.defenses.is_empty():world.broadcast("recv_notice",["CASTLE CLEARANCE / %d defenses salvaged · %s returned to shared stock"%[clearance.defenses.size(),GameData.supplies_text(clearance.refund,true)]])
 func cost(r:Dictionary)->Dictionary:

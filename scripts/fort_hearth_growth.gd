@@ -44,4 +44,4 @@ static func sky_open(w:FortWorld,pos:Vector3)->bool:
 	for r in w.castle.rooms.values():
 		var center:=FortCastle.position(r)
 		if r.complete and center.y>pos.y+1 and absf(center.x-pos.x)<10 and absf(center.z-pos.z)<10:return false
-	return true
+	return not (w.pieces and w.pieces.covered(pos))

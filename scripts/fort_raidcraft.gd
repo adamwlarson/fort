@@ -78,6 +78,7 @@ func tick()->void:
 		blast(shot.pos,shot.radius,shot.damage,bool(shot.get("demolish",false)),bool(shot.get("fire",false)))
 
 func blast(pos:Vector3,radius:float,damage:float,demolish:=false,fire:=false)->void:
+	world.pieces.blast(pos,radius,damage)
 	blast_count+=1
 	for id in world.defenses.keys():
 		var d:Dictionary=world.defenses[id]

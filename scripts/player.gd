@@ -164,7 +164,10 @@ func shot_direction()->Vector3:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_local_player() or world.ended: return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_TAB:
-		world.hud.sheet.toggle();get_viewport().set_input_as_handled();return
+		# In build mode Tab walks the build categories; otherwise it opens the character sheet.
+		if world.local_build_mode and not world.menu_open:world.select_tab(world.build_tab+(-1 if event.shift_pressed else 1))
+		else:world.hud.sheet.toggle()
+		get_viewport().set_input_as_handled();return
 	if event.is_action_pressed("cancel"):
 		if world.local_build_mode: world.toggle_build_mode()
 		else: world.toggle_pause()
@@ -186,7 +189,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("travel"): world.cycle_travel(self)
 	if event.is_action_pressed("cycle_weapon"):world.cycle_weapon(self)
 	if event.is_action_pressed("build_mode"): world.toggle_build_mode()
-	if event.is_action_pressed("rotate_build"): world.build_rotation += PI / 4
+	if event.is_action_pressed("rotate_build"): world.build_rotation += PI / 4;world.pieces.turn+=1
+	if world.local_build_mode:
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.physical_keycode==KEY_X:world.pieces.remove_aimed()
+			if event.physical_keycode==KEY_UP:world.pieces.lift=mini(world.pieces.lift+1,6)
+			if event.physical_keycode==KEY_DOWN:world.pieces.lift=maxi(world.pieces.lift-1,-6)
+		if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_MIDDLE:world.pieces.remove_aimed()
 	if event.is_action_pressed("ready_night"): world.request_action("ready")
 	if event.is_action_pressed("interact"):
 		world.player_interact(self)
@@ -197,7 +206,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.physical_keycode==KEY_K:world.castle.menu.open_nearest()
 		if event.physical_keycode==KEY_G:world.hud.upgrade_menu.open_nearest()
 		if event.physical_keycode==KEY_0:world.select_build_slot(9)
-		if event.physical_keycode in [KEY_PAGEDOWN,KEY_PAGEUP]:world.select_build(10 if world.selected_build<10 else 0)
+		if event.physical_keycode in [KEY_PAGEDOWN,KEY_PAGEUP]:world.select_tab(world.build_tab+(1 if event.physical_keycode==KEY_PAGEDOWN else -1) if world.local_build_mode else 0)
 		if event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_9:
 			world.select_build_slot(int(event.physical_keycode - KEY_1))
 

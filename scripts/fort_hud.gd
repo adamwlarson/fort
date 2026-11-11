@@ -138,6 +138,7 @@ func _ready() -> void:
 	upgrade_menu=FortUpgradeMenu.new();upgrade_menu.world=world;add_child(upgrade_menu)
 	combat_overlay=FortCombatOverlay.new();combat_overlay.world=world;add_child(combat_overlay)
 	siege_indicators=FortSiegeIndicators.new();siege_indicators.world=world;add_child(siege_indicators)
+	var piece_bar:=FortPieceBar.new();piece_bar.world=world;piece_bar.name="PieceBar";add_child(piece_bar)
 	weapon_label=label(null,Vector2(-400,-400),12,FortInterface.GOLD);weapon_label.hide()
 	fps_counter=label(null,Vector2(368,44),11,FortInterface.PAPER);fps_counter.size=Vector2(70,22);fps_counter.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var config:=ConfigFile.new();config.load(fps_settings_path());var preference:Variant=config.get_value("display","show_fps",false)
@@ -240,16 +241,18 @@ func _process(delta:float)->void:
 	build.position=Vector2(200,640);build.size=Vector2(880,20)
 	build.text=""
 	if world.local_build_mode:
-		var reason:String=world.build_block_reason(GameData.BUILD_ORDER[world.selected_build],world.build_position,world.build_rotation)
-		build.text="Page %d/2 (PgUp/PgDn)  ·  Wheel or 1-0 choose  ·  Q rotate  ·  Click place     "%[1+world.selected_build/10]+("OK to build here" if reason.is_empty() else "CANNOT BUILD: "+reason)
+		if world.build_tab>=2:build.position=Vector2(200,626);build.text=world.pieces.status()
+		else:
+			var reason:String=world.build_block_reason(GameData.BUILD_ORDER[world.selected_build],world.build_position,world.build_rotation)
+			build.text="Tab category  ·  Wheel or 1-0 choose  ·  Q rotate  ·  Click place  ·  X salvage     "+("OK to build here" if reason.is_empty() else "CANNOT BUILD: "+reason)
 
 func _update_work_panels(p: FortPlayer) -> void:
 	var working:bool=world.local_build_mode and not world.menu_open and p.health>0
 	hints.hide()
 	for i in build_cards.size():
 		var card:=build_cards[i]
-		card.visible=working and i/10==world.selected_build/10
-		if not working:continue
+		card.visible=working and i/10==world.build_tab
+		if not card.visible:continue
 		var selected:bool=i==world.selected_build
 		if card.get_meta("selected",false)!=selected:
 			card.add_theme_stylebox_override("panel",FortInterface.frame(selected))

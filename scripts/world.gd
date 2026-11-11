@@ -34,6 +34,9 @@ var expedition:FortExpedition
 var pets:FortPets
 var encounters:FortEncounters
 var castle:FortCastle
+var pieces:FortPieces
+## 0 towers, 1 gatehouse page, 2+ the building-piece categories.
+var build_tab:=0
 var saved_characters:Dictionary={}
 var autosave_enabled:=not "--fort-test" in OS.get_cmdline_user_args()
 var save_status:=""
@@ -103,6 +106,7 @@ func _ready() -> void:
 	encounters.unlock(1)
 	castle=FortCastle.new(self)
 	castle.rebuild()
+	pieces=FortPieces.new(self)
 	var ring_mesh:=TorusMesh.new()
 	ring_mesh.inner_radius=0.87
 	ring_mesh.outer_radius=0.92
@@ -234,6 +238,7 @@ func receive(method:String,args:Array) -> void:
 	if method=="recv_gain":readability.gain.callv(args);return
 	if method=="recv_loot":readability.loot.callv(args);return
 	if method=="recv_castle":castle.receive(args[0]);return
+	if method in ["recv_piece","recv_piece_gone","recv_piece_hp","recv_drop"]:pieces.callv(method,args);return
 	if method not in ["recv_player","recv_remove_player","recv_snapshot","recv_full","recv_resource","recv_defense","recv_remove_defense","recv_enemy","recv_enemy_hit","recv_enemy_dead","recv_action","recv_fx","recv_notice","recv_phase","recv_health","recv_teleport","recv_mount","recv_end","recv_loadout"]:return
 	callv(method,args)
 
@@ -327,6 +332,7 @@ func snapshot() -> Dictionary:
 func full_state() -> Dictionary:
 	var state:=snapshot()
 	state["castle"]=castle.state()
+	state["pieces"]=pieces.state()
 	var resources:Dictionary={}
 	for id in resource_nodes:resources[id]=resource_nodes[id].amount
 	state["resources"]=resources
@@ -348,6 +354,7 @@ func recv_full(state:Dictionary) -> void:
 	expedition.receive(state.get("expedition",{}))
 	set_hearth_level(int(state.get("hearth_level",1)))
 	for args in state.buildings:callv("recv_defense",args)
+	pieces.receive(state.get("pieces",{}))
 	for args in state.swarm:callv("recv_enemy",args)
 	for id in state.resources:
 		recv_resource(int(id),int(state.resources[id]),false)
@@ -419,6 +426,7 @@ func _process(delta:float) -> void:
 	_update_preview()
 	battlements.tick(delta)
 	gates.tick(delta)
+	pieces.tick(delta)
 	_update_resource_focus()
 	_animate_enemies(delta)
 	raiders.visual_tick()
@@ -566,6 +574,8 @@ func server_action(id:int,kind:String,data:Dictionary) -> void:
 		"ability":_ability(id)
 		"build":
 			if _allow(id,"build",0.50):_build(id,data)
+		"piece_place":pieces.request_place(id,data)
+		"piece_remove":pieces.request_remove(id,int(data.get("key",-1)))
 		"travel":
 			var mode:=int(data.get("mode",0))
 			if mode>=0 and mode<workshop_level and _allow(id,"travel",0.3):
@@ -889,23 +899,46 @@ func _ability(id:int)->void:
 func toggle_build_mode()->void:
 	local_build_mode=not local_build_mode
 	if not local_build_mode and is_instance_valid(preview):preview.hide()
+	if not local_build_mode:pieces.hide()
 
 func select_build(index:int)->void:
 	selected_build=clampi(index,0,GameData.BUILD_ORDER.size()-1)
+	build_tab=selected_build/10
 	local_build_mode=true
 
 func select_build_slot(slot:int)->void:
+	if local_build_mode and build_tab>=2:
+		if slot<FortPieces.TABS[build_tab-2].items.size():pieces.select(build_tab-2,slot)
+		return
 	var index:=(selected_build/10)*10+slot if local_build_mode else slot
 	if index<GameData.BUILD_ORDER.size():select_build(index)
 
 func cycle_build(step:int)->void:
+	if build_tab>=2:pieces.cycle(step);return
 	select_build(posmod(selected_build+step,GameData.BUILD_ORDER.size()))
+
+## Build menu categories: the tower pages, then the building-piece sets.
+func build_tabs()->PackedStringArray:
+	var names:PackedStringArray=["TOWERS","GATE"]
+	for tab in FortPieces.TABS:names.append(tab.name)
+	return names
+
+func select_tab(tab:int)->void:
+	build_tab=posmod(tab,build_tabs().size());local_build_mode=true
+	if build_tab<2:selected_build=mini(build_tab*10,GameData.BUILD_ORDER.size()-1)
+	else:pieces.select(build_tab-2,pieces.index if pieces.tab==build_tab-2 else 0)
 
 func _update_preview()->void:
 	var p:=local_player()
 	if not p or not local_build_mode or menu_open or p.health<=0:
 		if is_instance_valid(preview):preview.hide()
+		pieces.hide()
 		return
+	if build_tab>=2:
+		if is_instance_valid(preview):preview.hide()
+		pieces.update_preview()
+		return
+	pieces.hide()
 	var kind:String=GameData.BUILD_ORDER[selected_build]
 	if not is_instance_valid(preview) or preview_kind!=kind:
 		if is_instance_valid(preview):preview.queue_free()
@@ -970,6 +1003,7 @@ func build_block_reason(kind:String,pos:Vector3,rotation_y:float,_temporary:=fal
 	return ""
 
 func place_build()->void:
+	if build_tab>=2:pieces.place_selected();return
 	if not preview_valid:
 		var reason:=build_block_reason(GameData.BUILD_ORDER[selected_build],build_position,build_rotation)
 		show_toast(reason if not reason.is_empty() else "Not enough in the shared stockpile. Deposit more at the stockpile (hold E).")
@@ -998,6 +1032,7 @@ func _build(id:int,data:Dictionary)->void:
 func _spawn_defense(kind:String,pos:Vector3,yaw:float,temporary:bool)->void:
 	var id:=next_defense_id
 	next_defense_id+=1
+	if kind.begins_with("Castle"):pieces.clear_box(pos+Vector3.UP*2.5,Vector3(2.2,2.6,.9),Basis(Vector3.UP,yaw))
 	broadcast("recv_defense",[id,kind,pos,yaw,float(GameData.RECIPES[kind].hp)*(0.6 if temporary else 1),temporary])
 
 func recv_defense(id:int,kind:String,pos:Vector3,yaw:float,hp:float,temporary:bool)->void:
@@ -1040,6 +1075,7 @@ func _repair(id:int)->void:
 	var p:FortPlayer=players[id]
 	if FortCastleFeatures.repair(castle,id):return
 	if FortPerimeter.repair_breach(castle,p):return
+	if construction.nearest(p)<0 and pieces.repair(p):return
 	var work_id:=construction.nearest(p)
 	if work_id>=0:construction.work(id,work_id);return
 	if shared.wood<=0:personal(id,FortGlyphs.t("Repairs use 1{wood} each. The shared stockpile has none."));return
@@ -1259,6 +1295,7 @@ func _simulate_enemies(delta:float)->void:
 		if e.kind=="Ashwing":
 			_simulate_ashwing(e,delta)
 			continue
+		if pieces.siege(e,delta):continue
 		var target:=Vector3(0,FortCastle.BASE,0)
 		var ally:FortPlayer=null
 		var nearest:=8.0
