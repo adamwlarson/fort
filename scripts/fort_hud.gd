@@ -40,6 +40,8 @@ var fps_counter:Label
 var fps_refresh:=0.0
 var controls:FortControls
 var merchant:FortMerchant
+var cook:FortCookMenu
+var boosts:Label
 var sheet:FortSheet
 var down_banner:Label
 var hp_text:Label
@@ -110,6 +112,8 @@ func _ready() -> void:
 	var resume:=Button.new();resume.text="Return to the crew";resume.custom_minimum_size.y=46;resume.pressed.connect(world.toggle_pause);stack.add_child(resume)
 	controls=FortControls.new();controls.hud=self;add_child(controls)
 	merchant=FortMerchant.new();merchant.world=world;add_child(merchant)
+	cook=FortCookMenu.new();cook.world=world;add_child(cook)
+	boosts=label(null,Vector2(14,640),12,Color("#9fe3cb"));boosts.size=Vector2(520,18)
 	sheet=FortSheet.new();sheet.world=world;add_child(sheet)
 	var controls_button:=Button.new();controls_button.name="ControlsButton";controls_button.text="Controls";controls_button.pressed.connect(controls.open_panel);stack.add_child(controls_button)
 	var unstuck:=Button.new();unstuck.name="UnstuckButton";unstuck.text="I'm stuck / move to safe ground";unstuck.custom_minimum_size.y=40
@@ -230,6 +234,7 @@ func _process(delta:float)->void:
 		xp_bar.value=100.0*p.xp/FortStats.need(p.level)
 		pack.text="PACK %d/%d   %s"%[p.total_carried(),p.carry_limit,FortGlyphs.cost(p.carrying) if p.total_carried()>0 else "empty"]
 		pack.size=Vector2(244,18);pack.clip_text=true
+		boosts.text=FortCooking.summary(p)
 		ability.text="[F] %s %s   ·   [C] %s   ·   [TAB] LV %d%s"%[GameData.class_data(p.class_id).ability,("%.0fs"%ceilf(p.ability_cooldown)) if p.ability_cooldown>0 else "READY",GameData.weapon_title(p),p.level,"  +%d"%p.stat_points if p.stat_points>0 else ""]
 		if p.travel_mode==2:ability.text+="   ·   Fuel %.1fs"%p.fuel
 		ability.visible=not world.menu_open

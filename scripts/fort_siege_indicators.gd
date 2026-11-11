@@ -62,7 +62,7 @@ func refresh()->void:
 		if repairs.size()>2:repairs.resize(2)
 	for id in world.enemies:
 		var e:Dictionary=world.enemies[id]
-		if e.hp<=0:continue
+		if e.hp<=0 or e.get("fauna",false):continue
 		var pos:Vector3=e.node.position
 		var wild:bool=int(e.get("camp",-1))>=0 or FortEncounters.is_wild(int(e.get("camp",-1)))
 		if not wild:fronts[sector(pos)]+=1

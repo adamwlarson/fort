@@ -38,6 +38,7 @@ var pets:FortPets
 var encounters:FortEncounters
 var castle:FortCastle
 var pieces:FortPieces
+var wildlife:FortWildlife
 ## 0 towers, 1 gatehouse page, 2+ the building-piece categories.
 var build_tab:=0
 var saved_characters:Dictionary={}
@@ -111,6 +112,7 @@ func _ready() -> void:
 	castle=FortCastle.new(self)
 	castle.rebuild()
 	pieces=FortPieces.new(self)
+	wildlife=FortWildlife.new(self)
 	var ring_mesh:=TorusMesh.new()
 	ring_mesh.inner_radius=0.87
 	ring_mesh.outer_radius=0.92
@@ -319,6 +321,7 @@ func snapshot() -> Dictionary:
 		roster[id].merge({"weapon_levels":p.weapon_levels,"weapon_revision":p.weapon_revision})
 		roster[id].merge({"pack_level":p.backpack_level,"relics":p.relics,"armor":p.armor,"progression_revision":p.progression_revision})
 		roster[id].merge(FortStats.state(p))
+		roster[id]["buffs"]=p.buffs.duplicate()
 	var swarm:Dictionary={}
 	for id in enemies:
 		var e:Dictionary=enemies[id]
@@ -389,6 +392,7 @@ func recv_snapshot(state:Dictionary) -> void:
 			p.remote_moving=Vector2(p.velocity.x,p.velocity.z).length()>0.2
 		p.health=data.health;p.carrying=data.carry.duplicate();p.set_travel_mode(data.travel)
 		if data.has("stats_revision") and not multiplayer.is_server():FortStats.apply(p,data)
+		if not multiplayer.is_server():p.buffs=data.get("buffs",{}).duplicate()
 		p.ability_cooldown=data.ability;p.down_time=data.down;p.mounted_ballista=data.mount;p.rally_time=data.rally
 		recv_loadout(id,data.get("owned",PackedStringArray(["Axe"])),data.get("weapon","Axe"),data.get("loadout_revision",0))
 		p.apply_weapon_levels(data.get("weapon_levels",{}),int(data.get("weapon_revision",0)))
@@ -444,13 +448,15 @@ func _process(delta:float) -> void:
 	progression.tick()
 	encounters.tick()
 	raiders.tick()
+	wildlife.tick()
 	FortFire.tick(self,delta)
 	for id in players:
 		var p:FortPlayer=players[id]
 		if p.health<=0 and p.down_time<=0:_respawn(int(id))
-		# Glowspore Salve: a slow, steady mend for every dwarf on their feet.
-		elif p.health>0 and p.health<p.max_health and FortAttune.regeneration(self)>0.0 and clock>=float(p.get_meta("salve_at",0.0)):
-			p.set_meta("salve_at",clock+1.0);_set_health(int(id),minf(p.max_health,p.health+FortAttune.regeneration(self)))
+		# Glowspore Salve and hearty meals: a slow, steady mend for every dwarf on their feet.
+		elif p.health>0 and p.health<p.max_health and FortAttune.regeneration(self)+FortCooking.regeneration(p)>0.0 and clock>=float(p.get_meta("salve_at",0.0)):
+			p.set_meta("salve_at",clock+1.0);_set_health(int(id),minf(p.max_health,p.health+FortAttune.regeneration(self)+FortCooking.regeneration(p)))
+		FortCooking.tick(self,p,delta)
 	for hit in delayed_hits.duplicate():
 		if clock>=hit.when:
 			delayed_hits.erase(hit)
@@ -570,6 +576,8 @@ func server_action(id:int,kind:String,data:Dictionary) -> void:
 		"equip_weapon":_equip_weapon(id,str(data.get("weapon","")))
 		"upgrade_hearth":_upgrade_hearth(id,int(data.get("level",0)))
 		"attune":FortAttune.request(self,id,str(data.get("kind","")),int(data.get("rank",-1)))
+		"cook":FortCooking.cook(self,id,str(data.get("dish","")))
+		"eat":FortCooking.eat(self,id,str(data.get("dish","")))
 		"craft_pack":progression.craft_pack(id,int(data.get("level",-1)))
 		"upgrade_defense":progression.upgrade_defense(id,int(data.get("id",-1)),int(data.get("level",-1)))
 		"work_defense":construction.work(id,int(data.get("id",-1)))
@@ -605,6 +613,8 @@ func player_attack(_player:FortPlayer,direction:Vector3)->void:
 	request_action("attack",{"direction":direction})
 
 func player_interact(_player:FortPlayer,held:=false)->void:
+	if not held and not menu_open and _player.is_local_player() and _player.mounted_ballista<0 and not local_build_mode and FortCooking.nearest(self,_player.position)>=0:
+		hud.cook.open_panel();return
 	var merchant_key:=FortMerchant.nearest(self,_player.position)
 	if not held and merchant_key!="" and not menu_open:
 		hud.merchant.open_panel(merchant_key);return
@@ -770,6 +780,7 @@ func _gather(id:int,resource_id:int)->void:
 	var amount:=mini(mini((3 if p.role_id==3 else 2)*expedition.gather_multiplier(),r.amount),p.carry_limit-p.total_carried())
 	if amount>0 and r.amount>amount and p.total_carried()+amount<p.carry_limit and randf()<FortStats.bonus_chance(p):amount+=1
 	if amount>0 and r.amount>amount and p.total_carried()+amount<p.carry_limit and randf()<FortAttune.gather_chance(self):amount+=1
+	if amount>0 and r.amount>amount and p.total_carried()+amount<p.carry_limit and FortCooking.has(p,"bountiful"):amount+=1
 	p.carrying[r.kind]=int(p.carrying.get(r.kind,0))+amount
 	FortStats.award(self,id,2)
 	r.respawn=65.0
@@ -938,7 +949,7 @@ func cycle_build(step:int)->void:
 
 ## Build menu categories: the tower pages, then the building-piece sets.
 func build_tabs()->PackedStringArray:
-	var names:PackedStringArray=["TOWERS","GATE"]
+	var names:PackedStringArray=["TOWERS","CAMP"]
 	for tab in FortPieces.TABS:names.append(tab.name)
 	return names
 
@@ -1069,6 +1080,7 @@ func recv_defense(id:int,kind:String,pos:Vector3,yaw:float,hp:float,temporary:bo
 	node.add_child(label)
 	# Anything built on open ground stays on it when rooms or foundations reshape the land.
 	if absf(pos.y)<.05 or pos.y<FortGround.height(pos.x,pos.z)+.3:FortGround.ground(node)
+	if kind=="CookingPot":sound.loop_on(node,"pot_loop")
 	defenses[id]={"node":node,"kind":kind,"hp":hp,"max_hp":hp,"temporary":temporary,"life":40.0,"occupant":-1,"level":1}
 
 func recv_remove_defense(id:int,quiet:=false)->void:
@@ -1263,7 +1275,10 @@ func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1,elite:="")->voi
 	if kind=="Colossus":capsule.radius=.9;capsule.height=5.4
 	if kind in FortEncounters.CREATURES:capsule.radius=.6;capsule.height=1.6
 	if kind in FortEncounters.DRAGONS:capsule.radius=1.1;capsule.height=3.2
+	var animal:Dictionary=FortWildlife.SPECIES.get(kind,{})
+	if not animal.is_empty():capsule.radius=float(animal.radius);capsule.height=maxf(float(animal.height),float(animal.radius)*2.0)
 	col.shape=capsule;col.position.y=0.8
+	if not animal.is_empty():col.position.y=capsule.height*.5
 	if kind=="Chieftain":col.position.y=1.6
 	if kind=="Colossus":col.position.y=2.7
 	if kind in FortEncounters.DRAGONS:col.position.y=1.6
@@ -1284,6 +1299,9 @@ func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1,elite:="")->voi
 	if kind=="Shieldguard":enemies[id].speed=2.1
 	enemies[id].merge({"camp":camp,"home":pos,"slow":0.0})
 	if FortElites.KINDS.has(elite):enemies[id].elite=elite;FortElites.dress(enemies[id])
+	if not animal.is_empty():
+		enemies[id].merge({"fauna":true,"speed":float(animal.speed),"aim_height":float(animal.height)*.55,"call_at":clock+randf_range(4.0,20.0)},true)
+		bar.position.y=float(animal.height)+.5;bar.font_size=16;bar.modulate=Color("#cfe6b8");bar.visibility_range_end=26
 	if clock>2.0:
 		if kind=="Colossus":sound.play_at("brute_roar",pos,6.0,.6,260.0)
 		elif kind in ["Brute","Chieftain","Stonebear"]:sound.play_at("brute_roar",pos,-3.0,1.0,80.0)
@@ -1294,6 +1312,7 @@ func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1,elite:="")->voi
 func _nearest_enemy(pos:Vector3,radius:float)->int:
 	var nearest:=-1
 	for id in enemies:
+		if enemies[id].get("fauna",false):continue
 		var distance:float=pos.distance_to(enemies[id].node.position)
 		if distance<radius:nearest=int(id);radius=distance
 	return nearest
@@ -1320,6 +1339,7 @@ func _simulate_enemies(delta:float)->void:
 			e.moving=false
 			if FortEncounters.is_wild(int(e.get("camp",-1))):e.windup=0
 			continue
+		if wildlife.simulate(e,delta):continue
 		if expedition.simulate(e,delta):continue
 		if encounters.simulate(e,delta):continue
 		if raiders.simulate(int(id),e,delta):continue
@@ -1493,7 +1513,11 @@ func _animate_enemies(delta:float)->void:
 			e.wade_at=clock+.5
 			if body.position.y<FortGround.WATER and FortGround.wet(body.position.x,body.position.z):FortParticles.wade(self,body.position,false,false)
 		FortFire.restore(e,clock)
-		e.label.text=e.kind if FortEncounters.is_wild(int(e.get("camp",-1))) else FortElites.title(e)
+		e.label.text=(FortWildlife.title(e) if e.get("fauna",false) else e.kind) if FortEncounters.is_wild(int(e.get("camp",-1))) else FortElites.title(e)
+		# Each animal calls now and then, in its own voice.
+		if e.get("fauna",false) and clock>=float(e.get("call_at",0.0)):
+			e.call_at=clock+randf_range(11.0,30.0)
+			sound.play_at(str(FortWildlife.SPECIES[e.kind].call),body.position+Vector3.UP*.5,-5.0,float(FortWildlife.SPECIES[e.kind].pitch),42.0)
 	for d in defenses.values():
 		FortFire.visual(d)
 		var label:Label3D=d.node.get_node("Status")
@@ -1506,12 +1530,18 @@ func _damage_enemy(id:int,damage:float,knockback:=Vector3.ZERO,source:="player_d
 	if not enemies.has(id):return
 	var e:Dictionary=enemies[id]
 	if source!="buried" and FortElites.shielded(self,e):damage*=.7
+	if e.get("fauna",false):
+		if source in ["tower_damage","field_turret_damage"]:return
+		if clock<float(e.get("shell_until",0.0)):damage*=.3
 	if e.kind=="Shieldguard" and source in ["tower_damage","field_turret_damage"] and not piercing:damage*=.7
 	director.record(source,minf(e.hp,damage))
 	e.hp-=damage
 	var resistance:=.12 if e.kind=="Colossus" or e.kind in FortEncounters.DRAGONS else (.4 if e.kind in ["Brute","Chieftain","Shieldguard","Stonebear"] else 1.0)
 	e.impulse=(e.get("impulse",Vector3.ZERO)+knockback*5.0*resistance).limit_length(22)
 	broadcast("recv_enemy_hit",[id,e.hp,damage])
+	if e.get("fauna",false) and source!="buried":
+		wildlife.hurt(e)
+		if e.hp<=0:wildlife.drop(e)
 	if e.hp<=0:
 		var boss:bool=e.kind=="Colossus"
 		if source!="buried":
@@ -1525,7 +1555,8 @@ func recv_enemy_hit(id:int,hp:float,amount:float)->void:
 	if not enemies.has(id):return
 	enemies[id].hp=hp
 	FortFire.hit(enemies[id],clock)
-	if randf()<.35:sound.play_at("enemy_hurt",enemies[id].node.position+Vector3.UP,-7.0,.75 if enemies[id].kind in ["Brute","Chieftain","Colossus","Stonebear"] else 1.0)
+	if enemies[id].get("fauna",false):sound.play_at("animal_hurt_large" if FortWildlife.SPECIES[enemies[id].kind].big else "animal_hurt_small",enemies[id].node.position+Vector3.UP*.5,-4.0,float(FortWildlife.SPECIES[enemies[id].kind].pitch))
+	elif randf()<.35:sound.play_at("enemy_hurt",enemies[id].node.position+Vector3.UP,-7.0,.75 if enemies[id].kind in ["Brute","Chieftain","Colossus","Stonebear"] else 1.0)
 	recv_fx(enemies[id].node.position+Vector3.UP*1.5,Color("#f5d3a0"),str(int(amount)),"hit")
 	var visual:Node3D=enemies[id].visual
 	var anim:=FortPlayer.find_animation(visual)
@@ -1544,7 +1575,8 @@ func recv_enemy_dead(id:int)->void:
 	var anim:=FortPlayer.find_animation(enemies[id].visual)
 	if anim and anim.has_animation("Death"):anim.play("Death",0.08)
 	var big:bool=enemies[id].kind in ["Brute","Chieftain","Colossus","Stonebear","Emberdrake","Frostwyrm"]
-	sound.play_at("brute_roar" if big else "enemy_die",body.position+Vector3.UP,-5.0,.7 if big else 1.0)
+	if enemies[id].get("fauna",false):sound.play_at(str(FortWildlife.SPECIES[enemies[id].kind].call),body.position+Vector3.UP*.5,-3.0,float(FortWildlife.SPECIES[enemies[id].kind].pitch)*.8)
+	else:sound.play_at("brute_roar" if big else "enemy_die",body.position+Vector3.UP,-5.0,.7 if big else 1.0)
 	enemies.erase(id)
 	body.set_physics_process(false)
 	if body is CollisionObject3D:body.collision_layer=0
@@ -1571,6 +1603,7 @@ func _set_health(id:int,value:float)->void:
 	var p:FortPlayer=players[id]
 	if value<p.health and (p.invulnerable>0 or p.health<=0):return
 	if value<p.health and p.armor:value=p.health-(p.health-value)*0.8
+	if value<p.health and FortCooking.has(p,"thick"):value=p.health-(p.health-value)*0.75
 	value=clampf(value,0,p.max_health)
 	if value<=0:
 		p.down_time=18.0
@@ -1690,6 +1723,7 @@ func show_toast(message:String,duration:=3.0)->void:
 func toggle_pause()->void:
 	if hud.sheet.visible:hud.sheet.close_panel();return
 	if hud.merchant.visible:hud.merchant.close_panel();return
+	if hud.cook.visible:hud.cook.close_panel();return
 	if hud.controls.visible:hud.controls.close_panel();return
 	if get_parent().save_menu.panel.visible:get_parent().save_menu.close_panel();return
 	if castle.menu.panel.visible:castle.menu.close_panel();return
@@ -1731,6 +1765,7 @@ func context_prompt(p:FortPlayer)->String:
 	for record in castle.perimeter.get("segments",{}).values():
 		if not defenses.has(int(record.id)) and p.position.distance_to(record.pos)<4:return FortGlyphs.t("HOLD R   Rebuild wall breach   6{stone}  2{wood}")
 	if FortMerchant.nearest(self,p.position)!="":return "E / Trade at merchant tent for shared gold"
+	if FortCooking.nearest(self,p.position)>=0:return "E   Cooking pot   /   cook game and eat for health and a boost"
 	if expedition.event_name=="Supply Caravan" and not expedition.event_claimed and p.position.distance_to(FortExpedition.CACHE_POS)<3:return "E / Claim caravan supplies for the crew"
 	if p.mounted_ballista>=0:return "HOLD CLICK fire ballista   /   E dismount"
 	for ally in players.values():

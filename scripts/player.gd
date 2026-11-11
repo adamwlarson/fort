@@ -23,6 +23,9 @@ var visual_root: Node3D
 var camera_pivot: Node3D
 var camera: Camera3D
 var stuck_time:=0.0
+## Fort 33: timed boosts from meals, seconds remaining by name. The host owns them.
+var buffs:Dictionary={}
+var buff_light:OmniLight3D
 var step_distance:=0.0
 var last_step_position:=Vector3.INF
 var was_airborne:=false
@@ -68,7 +71,7 @@ var stats:Dictionary={}
 var stats_revision:=0
 
 func weapon_power(kind:String)->float:
-	return (1.0+(int(weapon_levels.get(kind,1))-1)*.25)*FortStats.damage_multiplier(self)
+	return (1.0+(int(weapon_levels.get(kind,1))-1)*.25)*FortStats.damage_multiplier(self)*(1.25 if FortCooking.has(self,"fiery") else 1.0)
 
 func apply_weapon_levels(levels:Dictionary,revision:int)->void:
 	if revision<weapon_revision:return
@@ -249,6 +252,11 @@ func _physics_process(delta: float) -> void:
 	invulnerable = maxf(0, invulnerable - delta)
 	down_time = maxf(0, down_time - delta)
 	_animate(delta)
+	# Glowcap Broth: a soft light that follows the dwarf.
+	if FortCooking.has(self,"glowing")!=is_instance_valid(buff_light):
+		if is_instance_valid(buff_light):buff_light.queue_free();buff_light=null
+		else:
+			buff_light=OmniLight3D.new();buff_light.light_color=Color("#7ff0d2");buff_light.light_energy=.9;buff_light.omni_range=9.0;buff_light.position=Vector3(0,1.4,0);add_child(buff_light)
 	if not is_local_player():
 		position = position.lerp(target_position, 1.0 - exp(-18.0 * delta))
 		_footsteps(position.y<=world.castle.floor_at(position)+.25 if world and world.castle else true,velocity.y)
@@ -279,6 +287,7 @@ func _physics_process(delta: float) -> void:
 	if rally_time > 0: speed *= 1.25
 	if travel_mode == 1: speed *= 1.85
 	if action_time > 0 and travel_mode == 0: speed *= 0.5
+	if FortCooking.has(self,"fleet"): speed *= 1.15
 	# Wading through a lake is slower going than the meadow.
 	if position.y<FortGround.WATER-.3 and FortGround.wet(position.x,position.z):speed*=.72
 	dash_time = maxf(0, dash_time - delta)

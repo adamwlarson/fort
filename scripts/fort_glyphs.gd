@@ -4,7 +4,7 @@ extends RefCounted
 # Resource symbols as real font glyphs. A small bitmap font with private-use
 # characters is added as a fallback to the default font, so every Label, Button,
 # tooltip and Label3D can show "12[wood] 6[stone]" without naming the resource.
-const KINDS := ["wood","stone","crystal","iron","aether","gold","hp","xp","resin","spore","cinder","frost","bloom"]
+const KINDS := ["wood","stone","crystal","iron","aether","gold","hp","xp","resin","spore","cinder","frost","bloom","meat","venison","glowcap","embertail","frostfat","sunmeat","stew","roast","broth","skewers","hotpot","platter"]
 const BASE := 0xE000
 const SIZE := 48
 static var installed := false
@@ -167,4 +167,22 @@ static func _draw(kind:String)->Image:
 			for i in 6:_disc(image,Vector2(24,24)+Vector2(sin(i*TAU/6),-cos(i*TAU/6))*12.0,Vector2(7.2,7.2),Color("#f2d85a"))
 			_disc(image,Vector2(24,24),Vector2(7.5,7.5),outline)
 			_disc(image,Vector2(24,24),Vector2(5.5,5.5),Color("#e88f3a"))
+	if kind in GameData.FOOD:
+		# A joint of meat on the bone, in the colour of the animal it came from.
+		var flesh:=GameData.resource_color(kind)
+		_poly(image,PackedVector2Array([Vector2(27,25),Vector2(40,38),Vector2(44,34),Vector2(31,21)]),outline)
+		_disc(image,Vector2(41,38),Vector2(6,6),outline);_disc(image,Vector2(41,38),Vector2(3.8,3.8),Color("#f3ead8"))
+		_poly(image,PackedVector2Array([Vector2(29,25),Vector2(39,35),Vector2(41,33),Vector2(31,23)]),Color("#f3ead8"))
+		_disc(image,Vector2(19,19),Vector2(16,14.5),outline)
+		_disc(image,Vector2(19,19),Vector2(13.5,12),flesh)
+		_disc(image,Vector2(15,15),Vector2(5,4),flesh.lightened(.35))
+	elif kind in GameData.MEALS:
+		# A steaming bowl, coloured by the dish.
+		var dish:=GameData.resource_color(kind)
+		_poly(image,PackedVector2Array([Vector2(3,22),Vector2(45,22),Vector2(39,41),Vector2(9,41)]),outline)
+		_poly(image,PackedVector2Array([Vector2(7,25),Vector2(41,25),Vector2(36.5,38),Vector2(11.5,38)]),Color("#8a5a33"))
+		_disc(image,Vector2(24,23),Vector2(20,6),outline)
+		_disc(image,Vector2(24,23),Vector2(17.5,4.2),dish)
+		_disc(image,Vector2(18,22),Vector2(4,1.6),dish.lightened(.4))
+		for x in [16.0,24.0,32.0]:_poly(image,PackedVector2Array([Vector2(x-1.5,14),Vector2(x+1.5,12),Vector2(x+1.5,5),Vector2(x-1.5,7)]),Color(1,1,1,.85))
 	return image

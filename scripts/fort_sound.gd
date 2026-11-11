@@ -16,7 +16,10 @@ const FILES:={
 	"splash_step":["splash_step_1","splash_step_2"],"splash_big":["splash_big_1"],"tree_fall":["tree_fall_1"],
 	"enemy_hurt":["enemy_hurt_1"],"enemy_die":["enemy_die_1"],"brute_roar":["brute_roar_1"],"dragon_roar":["dragon_roar_1"],
 	"wolf":["wolf_1"],"wings":["wings_1"],"slam":["slam_1"],"ui_click":["ui_click_1"],"level_up":["level_up_1"],
-	"chest":["chest_1"],"hearth_up":["hearth_up_1"],
+	"chest":["chest_1"],"hearth_up":["hearth_up_1"],"cook":["cook_1"],"eat":["eat_1"],
+	"animal_rabbit":["animal_rabbit_1"],"animal_deer":["animal_deer_1"],"animal_stag":["animal_stag_1"],"animal_boar":["animal_boar_1"],"animal_boar_charge":["animal_boar_charge_1"],
+	"animal_fox":["animal_fox_1"],"animal_ram":["animal_ram_1"],"animal_tortoise":["animal_tortoise_1"],"animal_salamander":["animal_salamander_1"],"animal_yak":["animal_yak_1"],
+	"animal_hurt_small":["animal_hurt_small_1"],"animal_hurt_large":["animal_hurt_large_1"],
 }
 ## Trim per sound, in dB, on top of what the caller asks for.
 const GAIN:={"step_grass":-9.0,"step_stone":-8.0,"splash_step":-5.0,"ui_click":-8.0,"swing":-4.0,"hit":-3.0,"enemy_hurt":-5.0,"enemy_die":-4.0,"night":3.0,"level_up":-3.0,"build":-3.0,"construction":-6.0,"crystal":-4.0}
@@ -103,6 +106,14 @@ func _allow(kind:String)->bool:
 
 func _release(kind:String,player:Node)->void:
 	live[kind]=maxi(0,int(live.get(kind,1))-1);player.queue_free()
+
+## A looping sound fixed to something in the world, such as a bubbling pot.
+func loop_on(target:Node3D,title:String,volume:=-8.0,reach:=22.0)->void:
+	var path:String=DIR+"sfx/"+title+".ogg"
+	if silent or not ResourceLoader.exists(path):return
+	var player:=AudioStreamPlayer3D.new();player.stream=_looped(load(path));player.bus="Ambience"
+	player.unit_size=4.0;player.max_distance=reach;player.volume_db=volume;player.position=Vector3(0,1.0,0)
+	target.add_child(player);player.play()
 
 ## A sound with no place: interface, your own actions, world events.
 func play(kind:String,volume:=-13.0)->void:

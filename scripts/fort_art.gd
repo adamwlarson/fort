@@ -20,7 +20,7 @@ static func asset(key: String) -> Node3D:
 	var model:Node3D=(scene_cache[path] as PackedScene).instantiate()
 	FortSolids.attach(model,key)
 	# Locally sculpted creatures are vertex-painted; the Compatibility renderer needs sRGB colours.
-	if (key in ["pet_badger","pet_mole","pet_sprite","horse"] or key.begins_with("def_") or key.begins_with("piece_")) and ProjectSettings.get_setting("rendering/renderer/rendering_method")=="gl_compatibility":
+	if (key in ["pet_badger","pet_mole","pet_sprite","horse"] or FortWildlife.is_fauna(key.capitalize()) or key.begins_with("def_") or key.begins_with("piece_")) and ProjectSettings.get_setting("rendering/renderer/rendering_method")=="gl_compatibility":
 		_compatibility_palette(model)
 	return model
 
@@ -257,6 +257,7 @@ static func set_stage(root:Node3D,level:int)->void:
 static func make_defense(kind: String, collision := true) -> Node3D:
 	if kind in ["CastleWall","CastleWindow","CastleGate","SentryCannon"]:return FortCastleDefenses.make(kind,collision)
 	if kind=="Gatehouse":return FortGates.make(collision)
+	if kind=="CookingPot":return FortCooking.make_pot(collision)
 	var painted:=staged(kind)
 	if painted:
 		if collision:

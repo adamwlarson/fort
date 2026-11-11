@@ -18,7 +18,7 @@ static func solution(world:FortWorld,p:FortPlayer,direction:Vector3,ballista:=fa
 			return {"origin":start,"point":direct.position,"enemy":int(collider.get_meta("enemy_id")),"blocked":false}
 	var best:=-1;var nearest:=reach
 	for id in world.enemies:
-		var point:Vector3=world.enemies[id].node.position+Vector3.UP*(1.6 if world.enemies[id].kind=="Chieftain" else .85)
+		var point:Vector3=world.enemies[id].node.position+Vector3.UP*(1.6 if world.enemies[id].kind=="Chieftain" else float(world.enemies[id].get("aim_height",.85)))
 		var offset:=point-start
 		if offset.length()<nearest and direction.normalized().dot(offset.normalized())>(0.985 if ballista else 0.992):
 			best=id;nearest=offset.length();end=point

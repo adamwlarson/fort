@@ -11,7 +11,7 @@ import array, math, os, re, subprocess, sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(ROOT, "raw")
 OUT = os.path.normpath(os.path.join(ROOT, "..", "..", "assets", "audio"))
-LOOPS = {"amb_day": (-25.0, 1.5), "amb_night": (-25.0, 1.5), "amb_water": (-24.0, 1.2), "fire_loop": (-22.0, 0.8), "jetpack_loop": (-20.0, 0.5)}
+LOOPS = {"amb_day": (-25.0, 1.5), "amb_night": (-25.0, 1.5), "amb_water": (-24.0, 1.2), "fire_loop": (-22.0, 0.8), "jetpack_loop": (-20.0, 0.5), "pot_loop": (-22.0, 0.8)}
 TRIM = "silenceremove=start_periods=1:start_threshold=-42dB:start_silence=0.01,areverse,silenceremove=start_periods=1:start_threshold=-46dB:start_silence=0.03,areverse"
 
 

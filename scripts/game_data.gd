@@ -5,11 +5,14 @@ const PORT := 24567
 const MAX_PLAYERS := 8
 const MAX_HEARTH := 8
 const MAX_GEAR_LEVEL := 8
-const RESOURCES := ["wood","stone","crystal","iron","aether","resin","spore","cinder","frost","bloom"]
+const RESOURCES := ["wood","stone","crystal","iron","aether","resin","spore","cinder","frost","bloom","meat","venison","glowcap","embertail","frostfat","sunmeat","stew","roast","broth","skewers","hotpot","platter"]
+## Fort 33: game from the wild, and the meals cooked from it. Both sit in the shared stockpile.
+const FOOD := ["meat","venison","glowcap","embertail","frostfat","sunmeat"]
+const MEALS := ["stew","roast","broth","skewers","hotpot","platter"]
 ## The five everyday materials, and (Fort 31) the five found only in one outer biome each.
 const BASIC := ["wood","stone","crystal","iron","aether"]
 const RARE := ["resin","spore","cinder","frost","bloom"]
-const RARE_NAMES := {"resin":"Amber resin","spore":"Glowspore","cinder":"Cinderite","frost":"Frostglass","bloom":"Sunbloom"}
+const RARE_NAMES := {"resin":"Amber resin","spore":"Glowspore","cinder":"Cinderite","frost":"Frostglass","bloom":"Sunbloom","meat":"Game meat","venison":"Venison","glowcap":"Glowcap flesh","embertail":"Embertail","frostfat":"Frost hare","sunmeat":"Sunhorn cut","stew":"Hunter's stew","roast":"Roast haunch","broth":"Glowcap broth","skewers":"Embertail skewers","hotpot":"Frost hotpot","platter":"Sunhorn platter"}
 static func resource_name(kind:String)->String:return RARE_NAMES.get(kind,kind.capitalize())
 ## A stockpile with every material present, so old saves and packets never miss a key.
 static func stock(source:Dictionary={})->Dictionary:
@@ -50,9 +53,10 @@ const RECIPES := {
 	"GravityWell":{"wood":12,"stone":40,"iron":32,"crystal":15,"aether":22,"hp":550.0,"tier":5},
 	"Sunlance":{"wood":30,"stone":35,"iron":50,"crystal":20,"aether":35,"hp":650.0,"tier":6},
 	"Gatehouse":{"wood":40,"stone":64,"iron":18,"crystal":0,"hp":1200.0,"tier":2},
+	"CookingPot":{"wood":14,"stone":10,"hp":260.0},
 }
-const BUILD_ORDER := ["Watchtower", "Barricade", "Ballista", "Mender", "MetalWall", "StormSpire", "FrostMortar", "Embercoil", "GravityWell", "Sunlance", "Gatehouse"]
-const BUILD_DESCS := ["Automatic ranged defense\n17m range / upgrades extend reach","A sturdy obstacle\nSlow the approaching swarm","Crew-operated heavy weapon\nE mount / click fire","Repairs nearby defenses\nHeals dwarves and hearth","Iron-plated fortification\n850 health / Hearth tier 2","Chains lightning to 3 targets\nAether / Hearth tier 3","Area frost shells slow crowds\nAether / Hearth tier 3","Scorches every nearby enemy\nClose-range area control / tier 4","Pulls and slows enemies\nCombine with area towers / tier 5","Long-range beam pierces armor\nBoss hunter / Hearth tier 6","Animated fortified entrance\nE open/close / G dusk setting / tier 2"]
+const BUILD_ORDER := ["Watchtower", "Barricade", "Ballista", "Mender", "MetalWall", "StormSpire", "FrostMortar", "Embercoil", "GravityWell", "Sunlance", "Gatehouse", "CookingPot"]
+const BUILD_DESCS := ["Automatic ranged defense\n17m range / upgrades extend reach","A sturdy obstacle\nSlow the approaching swarm","Crew-operated heavy weapon\nE mount / click fire","Repairs nearby defenses\nHeals dwarves and hearth","Iron-plated fortification\n850 health / Hearth tier 2","Chains lightning to 3 targets\nAether / Hearth tier 3","Area frost shells slow crowds\nAether / Hearth tier 3","Scorches every nearby enemy\nClose-range area control / tier 4","Pulls and slows enemies\nCombine with area towers / tier 5","Long-range beam pierces armor\nBoss hunter / Hearth tier 6","Animated fortified entrance\nE open/close / G dusk setting / tier 2","Cook game into meals\nE to cook and eat / heals and gives timed boosts"]
 const BACKPACKS := [{"name":"Trail Pack","wood":16,"stone":0,"crystal":2,"iron":0,"bonus":12},{"name":"Expedition Frame","wood":24,"stone":0,"crystal":4,"iron":12,"bonus":28}]
 
 static func supplies_text(stock:Dictionary,compact:=false)->String:
@@ -96,4 +100,4 @@ static func weapon_upgrade_cost(level:int)->Dictionary:
 	return {"iron":8,"crystal":3} if level==1 else {"iron":16+(level-2)*10,"aether":6+(level-2)*5,"crystal":5+(level-2)*3}
 
 static func resource_color(kind:String) -> Color:
-	return {"wood":Color("c78245"),"stone":Color("a9b0bb"),"crystal":Color("54d8e8"),"iron":Color("bca07c"),"aether":Color("c191ed"),"resin":Color("e8a03a"),"spore":Color("8fe6c9"),"cinder":Color("e8603c"),"frost":Color("a9dcf5"),"bloom":Color("f2d85a")}.get(kind, Color.WHITE)
+	return {"wood":Color("c78245"),"stone":Color("a9b0bb"),"crystal":Color("54d8e8"),"iron":Color("bca07c"),"aether":Color("c191ed"),"resin":Color("e8a03a"),"spore":Color("8fe6c9"),"cinder":Color("e8603c"),"frost":Color("a9dcf5"),"bloom":Color("f2d85a"),"meat":Color("d0604a"),"venison":Color("a13c48"),"glowcap":Color("63e0c2"),"embertail":Color("ff8a3a"),"frostfat":Color("bfe4f7"),"sunmeat":Color("f1cf5a"),"stew":Color("b9773f"),"roast":Color("c4533a"),"broth":Color("58c9ad"),"skewers":Color("f07a2e"),"hotpot":Color("8fc7e8"),"platter":Color("e8c64a")}.get(kind, Color.WHITE)

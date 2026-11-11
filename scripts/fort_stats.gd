@@ -25,7 +25,7 @@ static func damage_multiplier(p:Node)->float:return 1.0+0.06*rank(p,"damage")
 static func cooldown_multiplier(p:Node)->float:return 1.0-0.04*rank(p,"cooldown")
 static func speed_multiplier(p:Node)->float:return 1.0+0.03*rank(p,"speed")
 static func storage_bonus(p:Node)->int:return 3*rank(p,"storage")
-static func gather_multiplier(p:Node)->float:return 1.0-0.05*rank(p,"mining_speed")
+static func gather_multiplier(p:Node)->float:return (1.0-0.05*rank(p,"mining_speed"))*(.8 if FortCooking.has(p,"bountiful") else 1.0)
 static func bonus_chance(p:Node)->float:return 0.10*rank(p,"mining_eff")
 
 static func value_text(p:Node,stat:String)->String:

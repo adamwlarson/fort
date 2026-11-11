@@ -4,6 +4,8 @@ A playable Godot co-op survival build for one to eight dwarves. Gather by day, r
 
 ## Play
 
+Fort 33 adds **wildlife and cooking**: twelve animals with their own temperaments and voices, from rabbits and deer near the hearth to sporeback tortoises and cinder salamanders in the outer biomes. Hunt them, deposit the game, and cook it at a buildable cooking pot into meals that restore health and give timed boosts. See [RELEASE_NOTES_33.md](RELEASE_NOTES_33.md).
+
 Fort 32 is a **new sky**: real sunrises and sunsets, lit clouds, a detailed moon and a second small one, the Milky Way, shooting stars and an aurora. See [RELEASE_NOTES_32.md](RELEASE_NOTES_32.md).
 
 Fort 31 makes the late game keep going: **raids grow with the fort you build**, **elite raiders** appear from night 8, and each outer biome has **its own material** that pays for the hearth's upper tiers, tower levels 5 to 8 and a new set of permanent hearth boons. See [RELEASE_NOTES_31.md](RELEASE_NOTES_31.md).

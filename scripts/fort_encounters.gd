@@ -161,7 +161,7 @@ func activate(id:int) -> void:
 	if site.phase!="sleeping":return
 	var crew:=clampi(world.players.size(),1,GameData.MAX_PLAYERS);var list:=roster(site.spec,crew);var live:=0
 	for enemy in world.enemies.values():
-		if is_wild(int(enemy.get("camp",-1))):live+=1
+		if is_wild(int(enemy.get("camp",-1))) and not enemy.get("fauna",false):live+=1
 	if live+list.size()>24:return
 	site.crew=crew;site.phase="cleared" if list.is_empty() else "active";site.away=0;revision+=1
 	for i in list.size():
@@ -213,6 +213,7 @@ func interact(player_id:int) -> bool:
 	var received:Dictionary={};var new_items:Array=[]
 	for resource in GameData.RESOURCES:
 		if resource=="iron" and tier<2 or resource=="aether" and tier<3:continue
+		if resource in GameData.FOOD or resource in GameData.MEALS:continue
 		# Biome materials only from sites in the biome that grows them.
 		if resource in GameData.RARE and (tier<4 or world.expedition.rare(tier-3)!=resource):continue
 		var amount:=int((12+tier*3 if resource in ["wood","stone"] else 3+tier)*(2 if rare else 1))

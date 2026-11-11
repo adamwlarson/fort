@@ -68,6 +68,8 @@ func run()->void:
 	w.select_build(10);w.hud._update_work_panels(p)
 	check(w.hud.build_cards[10].visible and not w.hud.build_cards[0].visible,"page two shows gatehouse without overlapping earlier build cards")
 	w.select_build_slot(0);check(w.selected_build==10,"page-two numeric slot selects gatehouse")
+	# Fort 33 added the cooking pot after the gatehouse on the second page.
+	w.cycle_build(1);check(w.selected_build==11 and GameData.BUILD_ORDER[11]=="CookingPot","the wheel moves on to the cooking pot")
 	w.cycle_build(1);check(w.selected_build==0,"mouse-wheel selection wraps across both pages")
 	w.select_build(10);w._update_preview();await capture("build_menu_game");w.local_build_mode=false;w.preview.hide()
 	w.hud.upgrade_menu.open_nearest();await capture("settings_game");w.hud.upgrade_menu.close_panel()

@@ -71,7 +71,7 @@ func run()->void:
 	w.director.finish();w.is_night=false;w.wave=3
 	# --- one material per outer biome
 	var stock:=GameData.stock({"wood":1})
-	check(stock.size()==10 and GameData.RESOURCES.size()==10 and GameData.RARE.size()==5,"ten materials: five everyday, five from the outer biomes")
+	check(stock.size()==GameData.RESOURCES.size() and GameData.BASIC.size()==5 and GameData.RARE.size()==5,"ten materials: five everyday, five from the outer biomes")
 	var ranks:Array=[]
 	for rank in range(1,6):ranks.append(w.expedition.rare(rank))
 	var sorted_ranks:=ranks.duplicate();sorted_ranks.sort();var all_rare:=GameData.RARE.duplicate();all_rare.sort()
@@ -122,6 +122,6 @@ func run()->void:
 	var state:=FortSave.capture(w)
 	check(FortSave.validate(state)=="","a checkpoint with biome materials and boons validates")
 	for kind in GameData.RARE:state.world.shared.erase(kind)
-	check(FortSave.validate(state)=="" and GameData.stock(state.world.shared).size()==10,"a checkpoint from before Fort 31 still loads, with the new materials at zero")
+	check(FortSave.validate(state)=="" and GameData.stock(state.world.shared).size()==GameData.RESOURCES.size(),"a checkpoint from before Fort 31 still loads, with the new materials at zero")
 	print("FORT31_RESULT ","PASS" if failures==0 else "FAIL"," failures=",failures)
 	main.queue_free();await process_frame;quit(0 if failures==0 else 1)

@@ -133,7 +133,7 @@ func refresh()->void:
 		crew.append({"pos":chosen,"class_id":other.class_id,"down":other.health<=0,"outside":outside})
 	var groups:Dictionary={}
 	for e in world.enemies.values():
-		if e.hp<=0:continue
+		if e.hp<=0 or e.get("fauna",false):continue
 		var pos:=point(e.node.position)
 		if not inside(pos):continue
 		# No global enemy radar: guards appear only within 35m of the local dwarf.

@@ -52,6 +52,7 @@ static func tick_cannon(w:FortWorld,d:Dictionary)->void:
 	var outward:=Vector3.BACK.rotated(Vector3.UP,d.node.rotation.y)
 	var target:=-1;var distance:=38.0
 	for id in w.enemies:
+		if w.enemies[id].get("fauna",false):continue
 		var point:Vector3=w.enemies[id].node.position+Vector3.UP
 		var offset:=point-origin
 		if offset.length()<distance and offset.normalized().dot(outward)>.65 and FortSiege.clear(w,origin+outward*2,point):target=id;distance=offset.length()

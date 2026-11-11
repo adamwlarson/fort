@@ -136,8 +136,8 @@ func refresh()->void:
 		if r.kind=="Sentry":button(services,"BUILD WINDOW CANNONS   "+FortGlyphs.t("40{wood}  32{iron}  20{stone}"),func():send("castle_task",{"task":"sentry_cannons"}))
 	if r.complete and r.kind=="Gatherers":
 		var choice:=OptionButton.new();services.add_child(choice)
-		for resource in GameData.RESOURCES:choice.add_item("Gather  "+FortGlyphs.g(resource)+"  "+resource)
-		choice.select(GameData.RESOURCES.find(r.resource));choice.item_selected.connect(func(i):send("castle_assign",{"resource":GameData.RESOURCES[i]}))
+		for resource in GameData.BASIC:choice.add_item("Gather  "+FortGlyphs.g(resource)+"  "+resource)
+		choice.select(maxi(0,GameData.BASIC.find(r.resource)));choice.item_selected.connect(func(i):send("castle_assign",{"resource":GameData.BASIC[i]}))
 	if r.complete and r.kind=="Research":
 		for tech in FortCastle.TECH:
 			if tech not in castle.research:

@@ -12,7 +12,7 @@ static func budget(night:int,hearth:int,crew:int)->int:
 
 ## Fort 31: how much fort the crew has built. Towers count by kind and upgrade level,
 ## walls, castle rooms and building pieces a little each.
-const TOWER_WEIGHT := {"Watchtower":1.0,"Ballista":1.2,"Mender":.8,"SentryCannon":1.2,"StormSpire":2.0,"FrostMortar":2.0,"Embercoil":2.5,"GravityWell":3.0,"Sunlance":4.0}
+const TOWER_WEIGHT := {"CookingPot":.2,"Watchtower":1.0,"Ballista":1.2,"Mender":.8,"SentryCannon":1.2,"StormSpire":2.0,"FrostMortar":2.0,"Embercoil":2.5,"GravityWell":3.0,"Sunlance":4.0}
 static func strength(world:FortWorld)->float:
 	var towers:=0.0;var walls:=0.0
 	for d in world.defenses.values():

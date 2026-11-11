@@ -28,7 +28,7 @@ static func player_state(p:FortPlayer)->Dictionary:
 	for k in ["health","carrying","travel_mode","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel","weapon","owned_weapons","loadout_revision","backpack_level","relics","armor","progression_revision","weapon_levels","weapon_revision","xp","level","stat_points","stats","stats_revision"]:data[k]=clean(p.get(k))
 	return data
 static func capture(w:FortWorld)->Dictionary:
-	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"32","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
+	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"33","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
 	data.world.players={};data.world.enemies={};data.world.defenses={}
 	for p in w.players.values():data.characters[p.class_id]=player_state(p)
 	for id in w.enemies:
@@ -87,7 +87,7 @@ static func validate(data:Variant)->String:
 		if not id is int or not data.enemies[id] is Dictionary:return "Invalid enemy record"
 		var e:Dictionary=data.enemies[id]
 		if not e.has_all(["kind","position","hp","max_hp","camp"]):return "Invalid saved enemy"
-		if e.kind not in ["Raider","Brute","Sapper","Ashwing","EmberRunner","Chieftain","Cinderlobber","Bombwing","Shieldguard","Hexer","Colossus","Prowler","FireArcher","Razorback","Direwolf","Stonebear","Emberdrake","Frostwyrm"]:return "Unknown enemy type"
+		if e.kind not in ["Raider","Brute","Sapper","Ashwing","EmberRunner","Chieftain","Cinderlobber","Bombwing","Shieldguard","Hexer","Colossus","Prowler","FireArcher","Razorback","Direwolf","Stonebear","Emberdrake","Frostwyrm"] and not FortWildlife.is_fauna(str(e.kind)):return "Unknown enemy type"
 		if not e.position is Vector3 or not e.position.is_finite():return "Invalid enemy position"
 	for id in data.resources:
 		var r:Variant=data.resources[id]
