@@ -16,7 +16,7 @@ static func nearest(w:FortWorld,pos:Vector3)->String:
 	return ""
 static func price(w:FortWorld,k:String,resource:String)->int:
 	var level:=int(w.castle.rooms[k].get("level",1))
-	var sale:bool=GameData.RESOURCES[posmod(w.wave,GameData.RESOURCES.size())]==resource
+	var sale:bool=GameData.BASIC[posmod(w.wave,GameData.BASIC.size())]==resource
 	return maxi(int(SELL[resource])+1,ceili(float(BUY[resource])*(1.0-.05*(level-1))*(.75 if sale else 1.0)))
 static func trade(w:FortWorld,id:int,k:String,resource:String,sell:bool,revision:int,day:int)->void:
 	if not w.multiplayer.is_server() or not w.players.has(id) or revision!=w.castle.revision or day!=w.wave:return
@@ -52,7 +52,7 @@ func refresh()->void:
 	stamp=next
 	title.text="MERCHANT / SHARED GOLD: %d\nToday's sale: %s at 25%% off. Sell or buy 5 at a time.\nPrices include this hall's upgrade discount."%[int(world.shared.get("gold",0)),GameData.RESOURCES[posmod(world.wave,5)].capitalize()]
 	for child in rows.get_children():rows.remove_child(child);child.queue_free()
-	for resource in GameData.RESOURCES:
+	for resource in GameData.BASIC:
 		var row:=HBoxContainer.new();rows.add_child(row)
 		var text:=Label.new();text.text="%s  %d"%[FortGlyphs.g(resource),int(world.shared.get(resource,0))];text.custom_minimum_size.x=170;row.add_child(text)
 		for sell in [true,false]:

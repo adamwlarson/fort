@@ -10,6 +10,27 @@ static func budget(night:int,hearth:int,crew:int)->int:
 	var n:=mini(29,maxi(0,night-1))
 	return roundi((70+18*n+4*n*n+maxi(0,night-30)*80)*10*CREW[clampi(crew,1,GameData.MAX_PLAYERS)-1]*(1+.1*(clampi(hearth,1,GameData.MAX_HEARTH)-1)))
 
+## Fort 31: how much fort the crew has built. Towers count by kind and upgrade level,
+## walls, castle rooms and building pieces a little each.
+const TOWER_WEIGHT := {"Watchtower":1.0,"Ballista":1.2,"Mender":.8,"SentryCannon":1.2,"StormSpire":2.0,"FrostMortar":2.0,"Embercoil":2.5,"GravityWell":3.0,"Sunlance":4.0}
+static func strength(world:FortWorld)->float:
+	var towers:=0.0;var walls:=0.0
+	for d in world.defenses.values():
+		if d.get("temporary",false) or FortConstruction.foundation(d):continue
+		if FortPlacement.is_wall(d.kind):walls+=1.0+.5*(int(d.get("level",1))-1)
+		else:towers+=10.0*float(TOWER_WEIGHT.get(d.kind,1.0))*(1.0+.5*(int(d.get("level",1))-1))
+	var rooms:=0.0
+	if world.castle:
+		for room in world.castle.rooms.values():
+			if room.complete and str(room.kind)!="Keep":rooms+=6.0
+	var pieces:=minf(40.0,world.pieces.pieces.size()*.15) if world.pieces else 0.0
+	return towers+minf(walls,70.0)+rooms+pieces
+
+## The raid grows with the fort. A modest fort for its hearth tier is free; beyond that every
+## 400 points of strength is another full raid, up to two and a quarter times the base.
+static func pressure(fort_strength:float,hearth:int)->float:
+	return 1.0+clampf((fort_strength-(60.0+60.0*hearth))/400.0,0.0,1.25)
+
 static func active_cap(night:int,crew:int)->int:
 	crew=clampi(crew,1,GameData.MAX_PLAYERS)
 	return mini(100,roundi(22+(crew-1)*12+maxi(0,night-1)*(3+crew*.5)))

@@ -27,6 +27,7 @@ function Run-GodotCheck([string]$Name, [string[]]$Arguments, [int]$Timeout = 600
 }
 
 Run-GodotCheck 'art_import' @('--headless', '--editor', '--quit')
+Run-GodotCheck 'fort31_test' @('--headless', '--script', 'res://tests/fort31_test.gd', '--', '--fort-test')
 Run-GodotCheck 'terrain30_test' @('--headless', '--script', 'res://tests/terrain30_test.gd', '--', '--fort-test')
 Run-GodotCheck 'fort26_test' @('--headless', '--script', 'res://tests/fort26_test.gd', '--', '--fort-test')
 Run-GodotCheck 'improvements25_test' @('--headless', '--script', 'res://tests/improvements25_test.gd', '--', '--fort-test')

@@ -4,6 +4,8 @@ A playable Godot co-op survival build for one to eight dwarves. Gather by day, r
 
 ## Play
 
+Fort 31 makes the late game keep going: **raids grow with the fort you build**, **elite raiders** appear from night 8, and each outer biome has **its own material** that pays for the hearth's upper tiers, tower levels 5 to 8 and a new set of permanent hearth boons. See [RELEASE_NOTES_31.md](RELEASE_NOTES_31.md).
+
 Fort 30 replaces the flat world with **real terrain**: one continuous landscape of hills, lakes and mountains generated from the expedition seed. Hearthhold stays level, every camp and site sits on its own shelf, castle rooms and foundations level the ground they stand on, towers can be placed on slopes, every lake can be waded, and the map shows the land as relief. It also adds recorded sound: day and night music that cross-fades, ambience, positional effects, footsteps and splashes, and voices for the dwarves. See [RELEASE_NOTES_30.md](RELEASE_NOTES_30.md).
 
 Fort 29 adds **free-form building**: press **B**, then **Tab** to switch from towers to building pieces, and put up foundations, floors, timber and stone walls, doors, stairs and roofs one piece at a time. **X** takes a piece down and drops its materials on the ground to pick up. A new expedition starts with a small timber shell on the keep. See [RELEASE_NOTES_29.md](RELEASE_NOTES_29.md).
@@ -224,6 +226,7 @@ $godotExe = '.tools\godot45\Godot_v4.5.2-stable_win64_console.exe'
 & $godotExe --headless --path . --script res://tests/fort5_test.gd -- --fort-test
 & $godotExe --headless --path . --script res://tests/fort6_test.gd -- --fort-test
 & $godotExe --headless --path . --script res://tests/terrain30_test.gd -- --fort-test
+& $godotExe --headless --path . --script res://tests/fort31_test.gd -- --fort-test
 & tests/run_network.ps1
 & tests/run_network.ps1 -Packaged
 & tests/run_network.ps1 -Packaged -Driver weapons_network_driver

@@ -344,6 +344,18 @@ static func make_crossbow() -> Node3D:
 	gun.add_child(cone(0.14,0.35,STONE.lightened(0.3),Vector3(0,0.16,-1.35)))
 	return gun
 
+## Recolours every surface of a model, keeping its shading. Used for biome materials.
+static func tint(node: Node, color: Color) -> void:
+	if node is MeshInstance3D and node.mesh:
+		for surface in node.mesh.get_surface_count():
+			var source: Material = node.get_active_material(surface)
+			if source is StandardMaterial3D:
+				var copy: StandardMaterial3D = source.duplicate()
+				copy.albedo_color = color.lerp(copy.albedo_color, 0.25)
+				copy.emission_enabled = true; copy.emission = color; copy.emission_energy_multiplier = 0.35
+				node.set_surface_override_material(surface, copy)
+	for child in node.get_children(): tint(child, color)
+
 static func make_enemy(kind: String) -> Node3D:
 	var model := asset("sapper7" if kind=="Sapper" else kind.to_lower())
 	if model: return model

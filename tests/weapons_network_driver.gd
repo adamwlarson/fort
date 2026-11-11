@@ -36,7 +36,7 @@ func run()->void:
 				if p.peer_id!=1 and p.weapon!="Crossbow":crafted=false
 			await wait(0.1)
 		verify(crafted,"three remote forge buttons craft authoritative crossbows")
-		verify(w.shared=={"wood":20,"stone":58,"crystal":16},"concurrent crafts charge each recipe exactly once")
+		verify(w.shared==GameData.stock({"wood":20,"stone":58,"crystal":16}),"concurrent crafts charge each recipe exactly once")
 		await wait(0.5)
 		for id in w.players:
 			if id!=1:

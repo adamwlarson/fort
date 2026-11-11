@@ -56,6 +56,7 @@ static func award(world:Node,id:int,amount:int)->void:
 ## Shared kill experience for every living dwarf near the fight.
 static func award_kill(world:Node,enemy:Dictionary)->void:
 	var amount:=maxi(3,int(FortBalance.COST.get(enemy.kind,14))/2)
+	if enemy.get("elite","")!="":amount*=3
 	if enemy.kind=="Colossus" or enemy.kind in FortEncounters.DRAGONS:amount=90
 	elif enemy.kind=="Chieftain":amount=45
 	for id in world.players:

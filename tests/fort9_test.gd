@@ -73,6 +73,8 @@ func run()->void:
 	check(p.weapon_levels.Greatmaul==8 and is_equal_approx(p.weapon_power("Greatmaul"),2.75),"weapons reinforce through level eight")
 	w.hud.show();p.camera.current=true;w.open_forge();w.hud.forge.tabs.current_tab=0;await capture("fort9_forge");w.toggle_pause()
 	# Three distinct towers perform damage/control.
+	# Fort 31: levels five to eight are tempered with the outer biomes' materials.
+	for rare in GameData.RARE:w.shared[rare]=999
 	for i in 3:
 		var kind:String=["Embercoil","GravityWell","Sunlance"][i]
 		w._spawn_defense(kind,Vector3(i*8,0,100),0,false);id=w.next_defense_id-1

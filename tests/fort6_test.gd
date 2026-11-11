@@ -81,20 +81,22 @@ func run()->void:
 	check(not w.defenses.has(blocking_wall) or w.defenses[blocking_wall].hp<850,"sapper breaches the intervening wall instead of getting stuck pursuing its work-site target")
 	# Physical quarry ramp and elevated mining resources.
 	check(w.frontier.has_node("RustscarQuarry"),"hearth two loads authored quarry")
+	# The quarry stands on a level shelf of the terrain, at whatever height the land has there.
+	var shelf:=FortGround.height(120,7)
 	var elevated:=0
 	for resource in w.resource_nodes.values():
-		if resource.kind=="iron" and resource.node.position.y>=2:elevated+=1
+		if resource.kind=="iron" and resource.node.position.y>=shelf+1.5:elevated+=1
 	check(elevated>=8,"quarry contains iron on real upper terraces")
-	w.hud.hide();camera.position=Vector3(87,24,43);camera.look_at(Vector3(122,2,9));await capture("fort6_rustscar")
+	w.hud.hide();camera.position=Vector3(87,shelf+24,43);camera.look_at(Vector3(122,shelf+2,9));await capture("fort6_rustscar")
 	for id in w.enemies.keys():w.recv_enemy_dead(id)
-	p.position=Vector3(109,.4,20);p.look_yaw=-PI/2;p.set_physics_process(true);Input.action_press("move_forward")
+	p.position=Vector3(109,shelf+.4,20);p.look_yaw=-PI/2;p.set_physics_process(true);Input.action_press("move_forward")
 	await wait(2.5);Input.action_release("move_forward");await wait(.1)
-	check(p.position.x>120 and p.position.y>1.8,"dwarf walks up quarry ramp onto terrace")
-	p.position=Vector3(123,2.2,-11);p.velocity=Vector3.ZERO;Input.action_press("move_forward");await wait(2);Input.action_release("move_forward");await wait(.1)
-	check(p.position.x>133 and p.position.y>3.8,"second ramp and landing reach the upper quarry shelf")
-	p.set_physics_process(false);p.position=Vector3(124,2.1,9);w.clock+=2;w.server_action(1,"interact",{})
+	check(p.position.x>120 and p.position.y>shelf+1.8,"dwarf walks up quarry ramp onto terrace")
+	p.position=Vector3(123,shelf+2.2,-11);p.velocity=Vector3.ZERO;Input.action_press("move_forward");await wait(2);Input.action_release("move_forward");await wait(.1)
+	check(p.position.x>133 and p.position.y>shelf+3.8,"second ramp and landing reach the upper quarry shelf")
+	p.set_physics_process(false);p.position=Vector3(124,shelf+2.1,9);w.clock+=2;w.server_action(1,"interact",{})
 	check(p.carrying.get("iron",0)>0,"elevated quarry ore is harvestable")
-	camera.position=Vector3(119,7,16);camera.look_at(Vector3(126,4,1));await capture("fort6_crane")
+	camera.position=Vector3(119,shelf+7,16);camera.look_at(Vector3(126,shelf+4,1));await capture("fort6_crane")
 	w.hud.show();p.camera.current=true;w.local_build_mode=true;w.construction.draw_range();check(w.construction.range_ring.visible,"construction mode shows current build boundary")
 	w.local_build_mode=false;w.construction.draw_range();check(not w.construction.range_ring.visible,"build boundary disappears outside construction")
 	main._leave_game();await wait(.2);main.queue_free();await wait(.1)

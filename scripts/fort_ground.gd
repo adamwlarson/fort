@@ -147,7 +147,8 @@ static func wet(x:float,z:float)->bool:
 ## Nearest dry spot to a map position. Uses the exact field, so every machine agrees.
 static func dry(pos:Vector3)->Vector3:
 	if _computed(pos.x,pos.z)>WATER+.2:return pos
-	for ring in range(1,18):
+	# Far enough to reach the shore of the broadest lake a seed can make.
+	for ring in range(1,70):
 		for step in 12:
 			var a:=step*TAU/12.0+ring*.4
 			var at:=pos+Vector3(sin(a),0,cos(a))*ring*3.0

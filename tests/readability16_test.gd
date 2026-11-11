@@ -10,7 +10,7 @@ func shot(name:String)->void:
 func run()->void:
 	var main:Node=load("res://scenes/main.tscn").instantiate();root.add_child(main);main.port_edit.value=24737;main._host();main._start_match()
 	var w:FortWorld=main.world;var p:=w.local_player();w.set_process(false);p.set_physics_process(false)
-	check(w.hud.stock_icons.get_child_count()==6,"shared stock has a symbol counter for each resource and gold")
+	check(w.hud.stock_icons.get_child_count()==GameData.RESOURCES.size()+1,"shared stock has a symbol counter for each resource and gold")
 	await create_timer(.1).timeout
 	check(w.hud.stock_icons.global_position.y>w.hud.phase.global_position.y+18,"resource counters stay below the phase and hearth display")
 	p.position=w.castle.rooms["0:0:0"].sign;w.castle.menu.open_nearest();await create_timer(.1).timeout

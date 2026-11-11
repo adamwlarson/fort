@@ -175,7 +175,10 @@ func craft_pack(id:int,expected:int)->void:
 func upgrade_cost(id:int)->Dictionary:
 	if not world.defenses.has(id):return {}
 	var level:int=world.defenses[id].get("level",1)
-	return {"wood":12,"stone":10,"iron":8,"aether":0} if level==1 else {"wood":12+(level-2)*6,"stone":16+(level-2)*8,"iron":16+(level-2)*10,"aether":5+(level-2)*5}
+	var cost:Dictionary={"wood":12,"stone":10,"iron":8,"aether":0} if level==1 else {"wood":12+(level-2)*6,"stone":16+(level-2)*8,"iron":16+(level-2)*10,"aether":5+(level-2)*5}
+	# Fort 31: the upper levels are tempered with biome materials, one biome per level.
+	if level>=4:cost[world.expedition.rare(level-3)]=3+(level-4)*2
+	return cost
 
 func upgrade_defense(player_id:int,id:int,expected:int)->void:
 	if not world.defenses.has(id):return

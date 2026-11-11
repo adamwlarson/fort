@@ -5,7 +5,18 @@ const PORT := 24567
 const MAX_PLAYERS := 8
 const MAX_HEARTH := 8
 const MAX_GEAR_LEVEL := 8
-const RESOURCES := ["wood","stone","crystal","iron","aether"]
+const RESOURCES := ["wood","stone","crystal","iron","aether","resin","spore","cinder","frost","bloom"]
+## The five everyday materials, and (Fort 31) the five found only in one outer biome each.
+const BASIC := ["wood","stone","crystal","iron","aether"]
+const RARE := ["resin","spore","cinder","frost","bloom"]
+const RARE_NAMES := {"resin":"Amber resin","spore":"Glowspore","cinder":"Cinderite","frost":"Frostglass","bloom":"Sunbloom"}
+static func resource_name(kind:String)->String:return RARE_NAMES.get(kind,kind.capitalize())
+## A stockpile with every material present, so old saves and packets never miss a key.
+static func stock(source:Dictionary={})->Dictionary:
+	var filled:=source.duplicate()
+	for kind in RESOURCES:
+		if not filled.has(kind):filled[kind]=0
+	return filled
 
 static func network_port()->int:
 	# Automated worlds must not interrupt a player's running Fort session.
@@ -85,4 +96,4 @@ static func weapon_upgrade_cost(level:int)->Dictionary:
 	return {"iron":8,"crystal":3} if level==1 else {"iron":16+(level-2)*10,"aether":6+(level-2)*5,"crystal":5+(level-2)*3}
 
 static func resource_color(kind:String) -> Color:
-	return {"wood":Color("c78245"),"stone":Color("a9b0bb"),"crystal":Color("54d8e8"),"iron":Color("bca07c"),"aether":Color("c191ed")}.get(kind, Color.WHITE)
+	return {"wood":Color("c78245"),"stone":Color("a9b0bb"),"crystal":Color("54d8e8"),"iron":Color("bca07c"),"aether":Color("c191ed"),"resin":Color("e8a03a"),"spore":Color("8fe6c9"),"cinder":Color("e8603c"),"frost":Color("a9dcf5"),"bloom":Color("f2d85a")}.get(kind, Color.WHITE)

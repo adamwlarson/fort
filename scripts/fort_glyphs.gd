@@ -4,7 +4,7 @@ extends RefCounted
 # Resource symbols as real font glyphs. A small bitmap font with private-use
 # characters is added as a fallback to the default font, so every Label, Button,
 # tooltip and Label3D can show "12[wood] 6[stone]" without naming the resource.
-const KINDS := ["wood","stone","crystal","iron","aether","gold","hp","xp"]
+const KINDS := ["wood","stone","crystal","iron","aether","gold","hp","xp","resin","spore","cinder","frost","bloom"]
 const BASE := 0xE000
 const SIZE := 48
 static var installed := false
@@ -135,4 +135,36 @@ static func _draw(kind:String)->Image:
 			var core:=PackedVector2Array()
 			for i in 10:core.append(Vector2(24,25)+Vector2(sin(i*TAU/10),-cos(i*TAU/10))*(17.0 if i%2==0 else 7.5))
 			_poly(image,core,Color("#7fe0c0"))
+		"resin":
+			# A drop of amber.
+			_poly(image,PackedVector2Array([Vector2(24,3),Vector2(38,26),Vector2(24,45),Vector2(10,26)]),outline)
+			_disc(image,Vector2(24,29),Vector2(15,15),outline)
+			_poly(image,PackedVector2Array([Vector2(24,8),Vector2(34,26),Vector2(14,26)]),Color("#e8a03a"))
+			_disc(image,Vector2(24,29),Vector2(12,12),Color("#e8a03a"))
+			_disc(image,Vector2(20,27),Vector2(4,6),Color("#f9d58a"))
+		"spore":
+			# A glowing mushroom cap.
+			_disc(image,Vector2(24,20),Vector2(20,15),outline)
+			_poly(image,PackedVector2Array([Vector2(17,22),Vector2(31,22),Vector2(33,45),Vector2(15,45)]),outline)
+			_disc(image,Vector2(24,20),Vector2(17,12),Color("#5fcfae"))
+			_poly(image,PackedVector2Array([Vector2(20,26),Vector2(28,26),Vector2(29.5,42),Vector2(18.5,42)]),Color("#d9f5e6"))
+			for spot in [Vector2(16,17),Vector2(26,13),Vector2(33,21)]:_disc(image,spot,Vector2(3,3),Color("#d6fff0"))
+		"cinder":
+			# A coal with a burning heart.
+			_poly(image,PackedVector2Array([Vector2(5,33),Vector2(11,14),Vector2(27,6),Vector2(42,17),Vector2(44,34),Vector2(30,43),Vector2(12,42)]),outline)
+			_poly(image,PackedVector2Array([Vector2(8,32),Vector2(13,16),Vector2(27,9.5),Vector2(39,18.5),Vector2(41,33),Vector2(29.5,40),Vector2(13,39)]),Color("#4a3a38"))
+			_poly(image,PackedVector2Array([Vector2(17,31),Vector2(23,17),Vector2(27,25),Vector2(32,20),Vector2(34,33),Vector2(25,37)]),Color("#e8603c"))
+			_poly(image,PackedVector2Array([Vector2(22,31),Vector2(25,24),Vector2(29,31),Vector2(25,35)]),Color("#ffd27a"))
+		"frost":
+			# A shard of clear ice.
+			_poly(image,PackedVector2Array([Vector2(18,3),Vector2(34,8),Vector2(42,30),Vector2(27,46),Vector2(9,34),Vector2(8,15)]),outline)
+			_poly(image,PackedVector2Array([Vector2(19,7),Vector2(32,11),Vector2(38.5,29.5),Vector2(26.5,42),Vector2(12,32.5),Vector2(11,16.5)]),Color("#8fd0ef"))
+			_poly(image,PackedVector2Array([Vector2(19,7),Vector2(32,11),Vector2(24,24),Vector2(11,16.5)]),Color("#dff4ff"))
+			_poly(image,PackedVector2Array([Vector2(24,24),Vector2(38.5,29.5),Vector2(26.5,42)]),Color("#6bb4dc"))
+		"bloom":
+			# A sun-coloured flower.
+			for i in 6:_disc(image,Vector2(24,24)+Vector2(sin(i*TAU/6),-cos(i*TAU/6))*12.0,Vector2(9.5,9.5),outline)
+			for i in 6:_disc(image,Vector2(24,24)+Vector2(sin(i*TAU/6),-cos(i*TAU/6))*12.0,Vector2(7.2,7.2),Color("#f2d85a"))
+			_disc(image,Vector2(24,24),Vector2(7.5,7.5),outline)
+			_disc(image,Vector2(24,24),Vector2(5.5,5.5),Color("#e88f3a"))
 	return image

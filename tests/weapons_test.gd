@@ -48,7 +48,7 @@ func run()->void:
 	w.hud.forge.buttons[1].pressed.emit()
 	await wait(0.15)
 	check(p.weapon=="Hammer" and "Hammer" in p.owned_weapons,"forge button crafts and equips hammer")
-	check(w.shared=={"wood":86,"stone":82,"crystal":18},"hammer spends exact shared cost")
+	check(w.shared==GameData.stock({"wood":86,"stone":82,"crystal":18}),"hammer spends exact shared cost")
 	w.server_action(1,"craft_weapon",{"weapon":"Hammer"})
 	check(w.shared.wood==86,"repeated craft request cannot charge twice")
 	input_action("cancel")
@@ -70,7 +70,7 @@ func run()->void:
 	p.position=(FortHearthGrowth.workshop(w)+Vector3(2,0,0))
 	w.server_action(1,"craft_weapon",{"weapon":"Crossbow"})
 	check(p.weapon=="Crossbow" and p.owned_weapons.size()==3,"crossbow crafts as a second owned weapon")
-	check(w.shared=={"wood":64,"stone":74,"crystal":14},"crossbow spends its exact fixed recipe")
+	check(w.shared==GameData.stock({"wood":64,"stone":74,"crystal":14}),"crossbow spends its exact fixed recipe")
 	check(p.animation_player.has_animation("Shoot"),"crossbow has its own authored runtime shoot clip")
 	var old_revision:=p.loadout_revision
 	w.recv_loadout(1,PackedStringArray(["Axe"]),"Axe",old_revision-1)

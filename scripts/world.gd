@@ -16,7 +16,10 @@ var tree_burst_count := 0
 var enemies: Dictionary = {}
 var defenses: Dictionary = {}
 var navigation_revision:=0
-var shared := {"wood":48,"stone":28,"crystal":0,"iron":0,"aether":0}
+## Always holds every material, whatever dictionary is assigned (older saves, packets and
+## fixtures know only the first five).
+var shared:Dictionary=GameData.stock({"wood":48,"stone":28}):
+	set(value):shared=GameData.stock(value)
 var lifetime_crystal := 0
 var workshop_level := 1
 var fort_health := 1000.0
@@ -346,7 +349,7 @@ func full_state() -> Dictionary:
 	var swarm:Array=[]
 	for id in enemies:
 		var e:Dictionary=enemies[id]
-		swarm.append([id,e.kind,e.node.position,e.max_hp,e.get("camp",-1)])
+		swarm.append([id,e.kind,e.node.position,e.max_hp,e.get("camp",-1),e.get("elite","")])
 	state["swarm"]=swarm
 	state["ended"]=ended
 	state["victory"]=fort_health>0
@@ -374,7 +377,7 @@ func recv_snapshot(state:Dictionary) -> void:
 	progression.receive(state.get("progression",{}))
 	encounters.unlock(hearth_level)
 	encounters.receive(state.get("encounters",{}))
-	shared=state.shared.duplicate();workshop_level=state.level;lifetime_crystal=state.crystals
+	shared=GameData.stock(state.shared);workshop_level=state.level;lifetime_crystal=state.crystals
 	fort_health=state.fort;is_night=state.night;wave=state.wave;phase_time=state.time
 	for raw_id in state.players:
 		var id:=int(raw_id)
@@ -445,6 +448,9 @@ func _process(delta:float) -> void:
 	for id in players:
 		var p:FortPlayer=players[id]
 		if p.health<=0 and p.down_time<=0:_respawn(int(id))
+		# Glowspore Salve: a slow, steady mend for every dwarf on their feet.
+		elif p.health>0 and p.health<p.max_health and FortAttune.regeneration(self)>0.0 and clock>=float(p.get_meta("salve_at",0.0)):
+			p.set_meta("salve_at",clock+1.0);_set_health(int(id),minf(p.max_health,p.health+FortAttune.regeneration(self)))
 	for hit in delayed_hits.duplicate():
 		if clock>=hit.when:
 			delayed_hits.erase(hit)
@@ -563,6 +569,7 @@ func server_action(id:int,kind:String,data:Dictionary) -> void:
 		"upgrade_weapon":_upgrade_weapon(id,str(data.get("weapon","")),int(data.get("level",0)))
 		"equip_weapon":_equip_weapon(id,str(data.get("weapon","")))
 		"upgrade_hearth":_upgrade_hearth(id,int(data.get("level",0)))
+		"attune":FortAttune.request(self,id,str(data.get("kind","")),int(data.get("rank",-1)))
 		"craft_pack":progression.craft_pack(id,int(data.get("level",-1)))
 		"upgrade_defense":progression.upgrade_defense(id,int(data.get("id",-1)),int(data.get("level",-1)))
 		"work_defense":construction.work(id,int(data.get("id",-1)))
@@ -762,6 +769,7 @@ func _gather(id:int,resource_id:int)->void:
 		return
 	var amount:=mini(mini((3 if p.role_id==3 else 2)*expedition.gather_multiplier(),r.amount),p.carry_limit-p.total_carried())
 	if amount>0 and r.amount>amount and p.total_carried()+amount<p.carry_limit and randf()<FortStats.bonus_chance(p):amount+=1
+	if amount>0 and r.amount>amount and p.total_carried()+amount<p.carry_limit and randf()<FortAttune.gather_chance(self):amount+=1
 	p.carrying[r.kind]=int(p.carrying.get(r.kind,0))+amount
 	FortStats.award(self,id,2)
 	r.respawn=65.0
@@ -779,12 +787,12 @@ func recv_resource(id:int,amount:int,hit:bool)->void:
 	r.amount=amount
 	var node:Node3D=r.node
 	if not FortForestry.is_tree(r):
-		var chunks:=ceili(float(amount)/(6.0 if r.kind in ["crystal","aether"] else 12.0)*6.0)
+		var chunks:=ceili(float(amount)/float(FortForestry.capacity(r))*6.0)
 		for chunk in node.find_children("HarvestChunk_*","Node3D",true,false):
 			chunk.visible=chunk.name.get_slice("_",1).to_int()<chunks
 		if hit and amount<previous:
 			FortParticles.mineral_hit(self,node.global_position,r.kind=="crystal")
-			if r.kind in ["crystal","aether"]:sound.play_at("crystal",node.global_position+Vector3.UP,-6.0)
+			if r.kind in ["crystal","aether"] or r.kind in GameData.RARE:sound.play_at("crystal",node.global_position+Vector3.UP,-6.0)
 	if destroyed:
 		var leaf_color:=Color("#cf963d") if r.get("species","")=="Amberwood" else (Color("#bfa6d2") if r.get("tree",false) and r.kind!="wood" else Color.TRANSPARENT)
 		FortParticles.tree_destroyed(self,node.global_position,id%3==2,leaf_color)
@@ -1094,7 +1102,7 @@ func _repair(id:int)->void:
 	if work_id>=0:construction.work(id,work_id);return
 	if shared.wood<=0:personal(id,FortGlyphs.t("Repairs use 1{wood} each. The shared stockpile has none."));return
 	var defense_id:=_nearest_defense(p.position,"",3.5)
-	var amount:=48.0 if p.role_id==2 else 24.0
+	var amount:=(48.0 if p.role_id==2 else 24.0)*FortAttune.repair_multiplier(self)
 	var target:=p.position
 	if defense_id>=0 and defenses[defense_id].hp<defenses[defense_id].max_hp:
 		defenses[defense_id].burning=0.0
@@ -1164,7 +1172,7 @@ func _tick_defenses()->void:
 				broadcast("recv_fx",[from,Color("#f4dc9d"),"bolt","shot",to])
 				_damage_enemy(enemy_id,25*power,Vector3.ZERO,"field_turret_damage" if d.temporary else "tower_damage")
 
-func _spawn_enemy(requested_kind:="",requested_angle:=INF)->bool:
+func _spawn_enemy(requested_kind:="",requested_angle:=INF,elite:="")->bool:
 	var raiders:=0
 	for e in enemies.values():
 		if int(e.get("camp",-1))<0 and not FortEncounters.is_wild(int(e.get("camp",-1))):raiders+=1
@@ -1193,11 +1201,14 @@ func _spawn_enemy(requested_kind:="",requested_angle:=INF)->bool:
 	if kind=="Hexer":hp*=1.3
 	if kind=="Prowler":hp*=.8
 	raid_spawned+=1
-	broadcast("recv_enemy",[id,kind,pos,float(hp)])
+	# A bigger fort draws tougher raiders as well as more of them.
+	hp*=1.0+(director.power-1.0)*.4
+	if FortElites.KINDS.has(elite):hp*=float(FortElites.KINDS[elite].hp)
+	broadcast("recv_enemy",[id,kind,pos,float(hp),-1,elite])
 	return true
 
 func raid_cap()->int:
-	return FortBalance.active_cap(wave,director.crew if director.active else maxi(1,players.size()))
+	return mini(140,roundi(FortBalance.active_cap(wave,director.crew if director.active else maxi(1,players.size()))*(1.0+(director.power-1.0)*.4)))
 
 func frontier_radius()->float:
 	return [73.0,153.0,243.0][hearth_level-1] if hearth_level<=3 else 243.0+(hearth_level-3)*80.0
@@ -1222,7 +1233,7 @@ func _upgrade_hearth(id:int,expected_level:int)->void:
 	if expected_level!=hearth_level or hearth_level>=GameData.MAX_HEARTH or is_night:return
 	var p:FortPlayer=players[id]
 	if p.position.length()>5.0 or not _allow(id,"hearth",1.0):return
-	var cost:=FortExpedition.hearth_cost(hearth_level)
+	var cost:=expedition.upgrade_cost(hearth_level)
 	for kind in cost:
 		if shared[kind]<cost[kind]:personal(id,"Deposit more supplies before upgrading the hearth.");return
 	for kind in cost:shared[kind]-=cost[kind]
@@ -1234,7 +1245,7 @@ func _upgrade_hearth(id:int,expected_level:int)->void:
 	broadcast("recv_fx",[Vector3(0,1,0),Color("#98dfd0"),"HEARTH TIER %d"%hearth_level,"ability"])
 	broadcast("recv_notice",["%s upgraded the hearth! Frontier expanded. Larger, stronger raids will follow."%p.display_name])
 
-func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1)->void:
+func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1,elite:="")->void:
 	if enemies.has(id):return
 	var body:=CharacterBody3D.new()
 	body.name="Enemy_%d"%id
@@ -1272,6 +1283,7 @@ func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1)->void:
 	if kind=="Prowler":enemies[id].speed=4.7
 	if kind=="Shieldguard":enemies[id].speed=2.1
 	enemies[id].merge({"camp":camp,"home":pos,"slow":0.0})
+	if FortElites.KINDS.has(elite):enemies[id].elite=elite;FortElites.dress(enemies[id])
 	if clock>2.0:
 		if kind=="Colossus":sound.play_at("brute_roar",pos,6.0,.6,260.0)
 		elif kind in ["Brute","Chieftain","Stonebear"]:sound.play_at("brute_roar",pos,-3.0,1.0,80.0)
@@ -1348,9 +1360,9 @@ func _simulate_enemies(delta:float)->void:
 			if e.attack<=0:
 				e.attack=1.2
 				if ally and absf(ally.position.y-body.position.y)<2.5:
-					_set_health(ally.peer_id,ally.health-(19 if e.kind=="Brute" else 9))
+					_set_health(ally.peer_id,ally.health-(19 if e.kind=="Brute" else 9)*float(e.get("might",1.0)))
 				elif not ally:
-					damage_fort(24 if e.kind in ["Sapper","EmberRunner"] else 11)
+					damage_fort((24 if e.kind in ["Sapper","EmberRunner"] else 11)*float(e.get("might",1.0)))
 					broadcast("recv_fx",[body.position+Vector3.UP,Color("#ef9a64"),"","hit"])
 					if fort_health<=0:broadcast("recv_end",[false]);return
 			continue
@@ -1481,7 +1493,7 @@ func _animate_enemies(delta:float)->void:
 			e.wade_at=clock+.5
 			if body.position.y<FortGround.WATER and FortGround.wet(body.position.x,body.position.z):FortParticles.wade(self,body.position,false,false)
 		FortFire.restore(e,clock)
-		e.label.text=e.kind if FortEncounters.is_wild(int(e.get("camp",-1))) else ""
+		e.label.text=e.kind if FortEncounters.is_wild(int(e.get("camp",-1))) else FortElites.title(e)
 	for d in defenses.values():
 		FortFire.visual(d)
 		var label:Label3D=d.node.get_node("Status")
@@ -1490,9 +1502,10 @@ func _animate_enemies(delta:float)->void:
 		label.visible=false
 
 func _damage_enemy(id:int,damage:float,knockback:=Vector3.ZERO,source:="player_damage",piercing:=false)->void:
-	if castle and source in ["tower_damage","field_turret_damage"]:damage*=castle.tower_multiplier()
+	if castle and source in ["tower_damage","field_turret_damage"]:damage*=castle.tower_multiplier()*FortAttune.tower_multiplier(self)
 	if not enemies.has(id):return
 	var e:Dictionary=enemies[id]
+	if source!="buried" and FortElites.shielded(self,e):damage*=.7
 	if e.kind=="Shieldguard" and source in ["tower_damage","field_turret_damage"] and not piercing:damage*=.7
 	director.record(source,minf(e.hp,damage))
 	e.hp-=damage
@@ -1501,7 +1514,9 @@ func _damage_enemy(id:int,damage:float,knockback:=Vector3.ZERO,source:="player_d
 	broadcast("recv_enemy_hit",[id,e.hp,damage])
 	if e.hp<=0:
 		var boss:bool=e.kind=="Colossus"
-		if source!="buried":FortStats.award_kill(self,e)
+		if source!="buried":
+			FortStats.award_kill(self,e)
+			if e.get("elite","")!="":FortElites.reward(self,e)
 		if int(e.get("camp",-1))<0 and not FortEncounters.is_wild(int(e.get("camp",-1))):director.record("killed",1)
 		broadcast("recv_enemy_dead",[id])
 		if boss:expedition.boss_killed()
@@ -1540,12 +1555,14 @@ func recv_enemy_dead(id:int)->void:
 
 func _damage_defense(id:int,amount:float)->void:
 	if not defenses.has(id):return
+	if FortPlacement.is_wall(defenses[id].kind):amount*=FortAttune.wall_multiplier(self)
 	director.record("building_damage",minf(defenses[id].hp,amount))
 	defenses[id].hp-=amount
 	broadcast("recv_fx",[defenses[id].node.position+Vector3.UP,Color("#d99564"),"","hit"])
 	if defenses[id].hp<=0:broadcast("recv_remove_defense",[id])
 
 func damage_fort(amount:float)->void:
+	amount*=FortAttune.hearth_multiplier(self)
 	director.record("fort_damage",minf(fort_health,amount))
 	fort_health=maxf(0,fort_health-amount)
 

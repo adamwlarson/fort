@@ -28,7 +28,7 @@ static func player_state(p:FortPlayer)->Dictionary:
 	for k in ["health","carrying","travel_mode","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel","weapon","owned_weapons","loadout_revision","backpack_level","relics","armor","progression_revision","weapon_levels","weapon_revision","xp","level","stat_points","stats","stats_revision"]:data[k]=clean(p.get(k))
 	return data
 static func capture(w:FortWorld)->Dictionary:
-	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"30","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
+	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"31","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
 	data.world.players={};data.world.enemies={};data.world.defenses={}
 	for p in w.players.values():data.characters[p.class_id]=player_state(p)
 	for id in w.enemies:
@@ -124,7 +124,7 @@ static func validate(data:Variant)->String:
 	if not data.director.metrics is Dictionary or not data.director.reports is Array:return "Invalid raid history"
 	for report in data.director.reports:
 		if not report is Dictionary:return "Invalid raid report"
-	for k in GameData.RESOURCES:
+	for k in GameData.BASIC:
 		if not s.shared.has(k) or int(s.shared[k])<0:return "Invalid shared stockpile"
 	return ""
 static func number(value:Variant)->bool:return (value is int or value is float) and is_finite(float(value))
@@ -191,7 +191,7 @@ static func restore(w:FortWorld,data:Dictionary)->void:
 			if FortTerrain.reserved(FortCastle.position(r),w.expedition.seed_value,15):w.expedition.terrain_enabled=false
 	w.set_hearth_level(s.hearth_level)
 	w.progression.receive(s.progression);w.encounters.unlock(w.hearth_level);w.encounters.receive(s.encounters)
-	w.shared=s.shared.duplicate();w.workshop_level=s.level;w.lifetime_crystal=s.crystals;w.fort_health=s.fort
+	w.shared=GameData.stock(s.shared);w.workshop_level=s.level;w.lifetime_crystal=s.crystals;w.fort_health=s.fort
 	w.is_night=s.night;w.wave=s.wave;w.phase_time=s.time;w.raid_spawned=s.raid_spawned;w.solo_rescue_wave=s.solo_rescue_wave
 	for id in data.resources:
 		if w.resource_nodes.has(id):w.recv_resource(id,data.resources[id].amount,false);w.resource_nodes[id].respawn=data.resources[id].respawn
@@ -204,8 +204,9 @@ static func restore(w:FortWorld,data:Dictionary)->void:
 	w.castle.receive(s.castle);w.castle.rebuild();w.castle.next_tick=data.castle_tick
 	w.pieces.receive(s.get("pieces",{}))
 	for id in data.enemies:
-		var saved:Dictionary=data.enemies[id];w.recv_enemy(id,saved.kind,saved.position,saved.max_hp,saved.camp)
-		var e:Dictionary=w.enemies[id];e.merge(saved,true)
+		var saved:Dictionary=data.enemies[id];var elite_speed:=0.0
+		w.recv_enemy(id,saved.kind,saved.position,saved.max_hp,saved.camp,str(saved.get("elite","")))
+		var e:Dictionary=w.enemies[id];elite_speed=float(e.speed);e.merge(saved,true);e.speed=elite_speed
 		# Resume ongoing enemies, but re-telegraph attacks instead of invisible saved projectiles.
 		for k in ["windup","slam_at","strike_at","dive_at","fuse_at"]:e[k]=0.0
 		e.attack=maxf(2.0,e.attack);e.taunt=-1;e.route_until=0;e.route_points=[]

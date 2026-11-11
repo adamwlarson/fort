@@ -2,11 +2,11 @@ class_name FortExpedition
 extends RefCounted
 
 const BIOMES := [
-	{"name":"AMBERWOOD","color":Color("#987a38"),"asset":"biome_amberwood","resources":["wood","wood","crystal","iron"]},
-	{"name":"MYCELIUM HOLLOW","color":Color("#756293"),"asset":"biome_mycelium","resources":["wood","aether","crystal","aether"]},
-	{"name":"CINDER WASTES","color":Color("#805546"),"asset":"biome_cinder","resources":["iron","stone","iron","aether"]},
-	{"name":"GLACIER REACH","color":Color("#8eaeb5"),"asset":"biome_glacier","resources":["crystal","iron","crystal","stone"]},
-	{"name":"ANCIENT GARDENS","color":Color("#61745c"),"asset":"biome_gardens","resources":["aether","wood","stone","crystal"]},
+	{"name":"AMBERWOOD","color":Color("#987a38"),"asset":"biome_amberwood","resources":["wood","wood","crystal","iron"],"rare":"resin"},
+	{"name":"MYCELIUM HOLLOW","color":Color("#756293"),"asset":"biome_mycelium","resources":["wood","aether","crystal","aether"],"rare":"spore"},
+	{"name":"CINDER WASTES","color":Color("#805546"),"asset":"biome_cinder","resources":["iron","stone","iron","aether"],"rare":"cinder"},
+	{"name":"GLACIER REACH","color":Color("#8eaeb5"),"asset":"biome_glacier","resources":["crystal","iron","crystal","stone"],"rare":"frost"},
+	{"name":"ANCIENT GARDENS","color":Color("#61745c"),"asset":"biome_gardens","resources":["aether","wood","stone","crystal"],"rare":"bloom"},
 ]
 var world:FortWorld
 var seed_value:=0
@@ -19,6 +19,8 @@ var event_time:=0.0
 var event_claimed:=false
 var event_node:Node3D
 var boss_night:=0
+## Fort 31: ranks of the five hearth boons, keyed by biome material. They only ever rise.
+var attune:Dictionary={}
 var bosses_defeated:=0
 const CACHE_POS:=Vector3(14,0,-14)
 
@@ -31,15 +33,32 @@ func configure(value:int)->void:
 	# The land depends on the seed; rebuild it at once rather than on the next frame.
 	if world and world.castle and world.hud:FortGround.ensure(world)
 func state()->Dictionary:
-	return {"seed":seed_value,"terrain_enabled":terrain_enabled,"event":event_name,"revision":event_revision,"time":event_time,"claimed":event_claimed,"boss_night":boss_night,"bosses_defeated":bosses_defeated}
+	return {"seed":seed_value,"terrain_enabled":terrain_enabled,"event":event_name,"revision":event_revision,"time":event_time,"claimed":event_claimed,"boss_night":boss_night,"bosses_defeated":bosses_defeated,"attune":attune.duplicate()}
 func receive(data:Dictionary)->void:
 	if data.is_empty():return
 	terrain_enabled=bool(data.get("terrain_enabled",true))
 	if seed_value!=int(data.seed):configure(int(data.seed))
+	for kind in data.get("attune",{}):
+		if kind in GameData.RARE:attune[kind]=maxi(int(attune.get(kind,0)),clampi(int(data.attune[kind]),0,FortAttune.MAX_RANK))
 	if int(data.revision)<event_revision:return
 	event_revision=data.revision;event_name=data.event;event_time=data.time;event_claimed=data.claimed
 	boss_night=data.boss_night;bosses_defeated=data.bosses_defeated;event_visual()
 func biome(level:int)->Dictionary:return BIOMES[order[clampi(level-4,0,4)]]
+## The material of the nth outer biome this expedition opens (rank 1 is the hearth 4 ring).
+func rare(rank:int)->String:return str(biome(clampi(rank,1,5)+3).rare)
+## Which rank a material is in this expedition, 1 to 5.
+func rare_rank(kind:String)->int:
+	for rank in range(1,6):
+		if rare(rank)==kind:return rank
+	return 0
+func has_rare(kind:String)->bool:
+	var rank:=rare_rank(kind)
+	return rank>0 and world.hearth_level>=rank+3
+## What the next hearth tier costs here: from tier 5 on it also wants the last biome's material.
+func upgrade_cost(level:int)->Dictionary:
+	var cost:=hearth_cost(level)
+	if level>=4:cost[rare(level-3)]=8+(level-4)*4
+	return cost
 func region_name(pos:Vector3)->String:
 	if terrain_enabled and world.hearth_level>=2 and FortTerrain.reserved(pos,seed_value):return "Hollowback Ridge / Cavern & Summit"
 	var distance:=Vector2(pos.x,pos.z).length()
@@ -55,14 +74,19 @@ func build_ring(parent:Node3D,level:int)->void:
 		for attempt in 48:
 			if not FortEncounters.reserved(position,level,seed_value):break
 			position=position.rotated(Vector3.UP,.025)
-		var kind:String=spec.resources[i%4];var node:=Node3D.new();node.position=position;world.resource_root.add_child(node)
-		var model:=FortArt.asset({"wood":"pine_tree","stone":"stone_outcrop_b","crystal":"crystal_vein","iron":"iron_ore","aether":"aether_geode"}[kind]);node.add_child(model);node.rotation.y=angle
+		var kind:String=spec.resources[i%4]
+		# One node in six is the biome's own material, found nowhere else.
+		if i%6==5:kind=str(spec.rare)
+		var node:=Node3D.new();node.position=position;world.resource_root.add_child(node)
+		var model:=FortArt.asset({"wood":"pine_tree","stone":"stone_outcrop_b","crystal":"crystal_vein","iron":"iron_ore","aether":"aether_geode"}.get(kind,"crystal_vein"));node.add_child(model);node.rotation.y=angle
+		if kind in GameData.RARE:FortArt.tint(model,GameData.resource_color(kind))
 		var animator:=FortPlayer.find_animation(model)
 		if animator and animator.has_animation("Idle"):animator.get_animation("Idle").loop_mode=Animation.LOOP_LINEAR;animator.play("Idle")
 		if kind=="wood":
 			var trunk:=StaticBody3D.new();trunk.name="TreeTrunk";node.add_child(trunk)
 			var shape:=CollisionShape3D.new();var cylinder:=CylinderShape3D.new();cylinder.radius=.24;cylinder.height=1.8;shape.shape=cylinder;shape.position.y=.9;trunk.add_child(shape)
-		world.resource_nodes[1000+level*100+i]={"kind":kind,"amount":6 if kind in ["crystal","aether"] else 12,"node":node,"animation":animator,"respawn":0.0}
+		world.resource_nodes[1000+level*100+i]={"kind":kind,"amount":6 if kind in ["crystal","aether"] or kind in GameData.RARE else 12,"node":node,"animation":animator,"respawn":0.0}
+		if kind in GameData.RARE:world.resource_nodes[1000+level*100+i].merge({"capacity":6,"species":GameData.resource_name(kind)})
 	var transforms:Array[Transform3D]=[]
 	for i in 112:
 		var angle:=i*TAU/112;var point:=Vector3(sin(angle),0,cos(angle))*random.randf_range(inner+10,outer-10)
@@ -139,7 +163,7 @@ func interact(id:int)->bool:
 	if event_name!="Supply Caravan" or event_claimed or world.players[id].position.distance_to(CACHE_POS)>3:return false
 	event_claimed=true;event_revision+=1
 	var received:Dictionary={}
-	for resource in GameData.RESOURCES:
+	for resource in GameData.BASIC:
 		var amount:=12 if resource in ["wood","stone"] else (4 if resource=="crystal" or world.hearth_level>=3 else 0)
 		world.shared[resource]+=amount
 		if amount>0:received[resource]=amount

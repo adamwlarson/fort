@@ -213,6 +213,8 @@ func interact(player_id:int) -> bool:
 	var received:Dictionary={};var new_items:Array=[]
 	for resource in GameData.RESOURCES:
 		if resource=="iron" and tier<2 or resource=="aether" and tier<3:continue
+		# Biome materials only from sites in the biome that grows them.
+		if resource in GameData.RARE and (tier<4 or world.expedition.rare(tier-3)!=resource):continue
 		var amount:=int((12+tier*3 if resource in ["wood","stone"] else 3+tier)*(2 if rare else 1))
 		world.shared[resource]+=amount;received[resource]=amount
 	var weapon:=""

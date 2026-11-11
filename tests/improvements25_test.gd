@@ -55,7 +55,7 @@ func run()->void:
 	FortMerchant.trade(w,1,merchant,"wood",true,revision,w.wave)
 	check(w.shared.wood==stock.wood-5 and w.shared.gold==stock.gold+10,"selling supplies deposits shared gold")
 	FortMerchant.trade(w,1,merchant,"wood",true,revision,w.wave);check(w.shared.wood==stock.wood-5,"stale trade revision cannot double sell")
-	for resource in GameData.RESOURCES:check(FortMerchant.price(w,merchant,resource)>int(FortMerchant.SELL[resource]),"daily sale cannot create arbitrage for "+resource)
+	for resource in GameData.BASIC:check(FortMerchant.price(w,merchant,resource)>int(FortMerchant.SELL[resource]),"daily sale cannot create arbitrage for "+resource)
 	var gold:int=w.shared.gold;var iron:int=w.shared.iron;var price:=FortMerchant.price(w,merchant,"iron")*5
 	FortMerchant.trade(w,1,merchant,"iron",false,w.castle.revision,w.wave)
 	check(w.shared.gold==gold-price and w.shared.iron==iron+5,"gold buys resources at advertised price")
