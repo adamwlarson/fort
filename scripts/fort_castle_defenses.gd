@@ -2,6 +2,24 @@ class_name FortCastleDefenses
 extends RefCounted
 
 static func make(kind:String,collision:bool)->Node3D:
+	var painted:=FortArt.staged(kind)
+	if painted:
+		# Painted model for the look; simple boxes for collision.
+		painted.set_meta("castle_skin",true)
+		var h:=FortCastle.HEIGHT
+		if collision:
+			match kind:
+				"SentryCannon":FortArt.box_collider(painted,Vector3(1.8,1.6,1.8),Vector3(0,.8,0))
+				"CastleGate":
+					for x in [-1.75,1.75]:FortArt.box_collider(painted,Vector3(.5,h,.6),Vector3(x,h*.5,0))
+					FortArt.box_collider(painted,Vector3(3.4,h-3.55,.6),Vector3(0,(h+3.55)*.5,0))
+					FortGates.body(painted,"GateDoor",Vector3(3.4,3.5,.25),Vector3(0,1.75,0))
+				"CastleWindow":
+					FortArt.box_collider(painted,Vector3(4,1.3,.55),Vector3(0,.65,0))
+					FortArt.box_collider(painted,Vector3(4,h-3.1,.55),Vector3(0,(h+3.1)*.5,0))
+					for x in [-1.6,1.6]:FortArt.box_collider(painted,Vector3(.8,1.8,.55),Vector3(x,2.2,0))
+				_:FortArt.box_collider(painted,Vector3(4,h,.55),Vector3(0,h*.5,0))
+		return painted
 	var root:=Node3D.new()
 	root.set_meta("castle_skin",true)
 	if kind=="SentryCannon":

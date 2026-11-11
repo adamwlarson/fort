@@ -4,6 +4,8 @@ A playable Godot co-op survival build for one to eight dwarves. Gather by day, r
 
 ## Play
 
+Fort 28 replaces the castle walls, windows, gates, sentry cannons and all ten towers with new painted models, gives every defense its own visible upgrade stages, and shrinks Siege Watch to a thin strip. See [RELEASE_NOTES_28.md](RELEASE_NOTES_28.md).
+
 Fort 27 rebuilds the dwarf walk and sprint, and replaces the three pets and the pony with new locally sculpted, animated models. See [RELEASE_NOTES_27.md](RELEASE_NOTES_27.md).
 
 Fort 26 replaces every dwarf and enemy with new sculpted, animated characters, adds rolling hills, a painted sky and mountain horizon, and shrinks the HUD. **Tab** opens your character sheet (gear, level, seven stats); **M** cycles the map from standard to the whole world to off; every cost is shown with resource symbols. Castle storeys are taller, cleared enemy bases can be built over, and the outer wall can hold farms. See [RELEASE_NOTES_26.md](RELEASE_NOTES_26.md).
@@ -44,7 +46,7 @@ Fort 9 adds eight hearth tiers, five seeded random biomes, endless nights and mi
 
 Run `build/Fort.exe`. It contains the game data; Godot and Blender are not required to play. Alternatively, open `project.godot` in Godot 4.5.2 and press F5.
 
-Everyone must run **Fort 27**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. One host plus up to seven guests can play. Character slots are unique: if your choice is taken, the host assigns a free one. There are four ability roles, with two character choices per role. Late joining a running expedition is supported.
+Everyone must run **Fort 28**. The host chooses a UDP port (default **24567**) and selects **Host Fort** to open a lobby. For LAN play, share the active Ethernet/Wi-Fi address using **Copy IP**. For internet play, leave the **Internet hosting** checkbox on, wait for router status, then use **Copy Public IP**. Others enter that IP and the same port (or paste `IP:port`), select **Join Crew**, then **Ready Up**. The host selects **Start Expedition** when everyone is ready. One host plus up to seven guests can play. Character slots are unique: if your choice is taken, the host assigns a free one. There are four ability roles, with two character choices per role. Late joining a running expedition is supported.
 
 - Same PC: join `127.0.0.1`.
 - Same LAN: join the host's local IPv4 address.

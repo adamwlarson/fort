@@ -194,6 +194,14 @@ func defense_visual(d:Dictionary)->void:
 	var level:int=d.get("level",1)
 	if int(d.get("visual_level",1))==level:return
 	d.visual_level=level
+	if d.node.get_meta("staged",false):
+		# Each defense has its own upgrade parts; a small rank tag shows the exact level.
+		FortArt.set_stage(d.node,level)
+		var tag:=d.node.get_node_or_null("Rank") as Label3D
+		if not tag and level>1:
+			tag=Visuals.label_3d("",Color("#ffd58a"),FortCastle.HEIGHT+.3 if d.kind.begins_with("Castle") else 3.3);tag.name="Rank";tag.font_size=16;d.node.add_child(tag)
+		if tag:tag.text="LV %d"%level;tag.visible=level>1
+		return
 	for i in range(2,level+1):
 		if d.node.has_node("Tier%d"%i):continue
 		if i>3:

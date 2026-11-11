@@ -36,7 +36,7 @@ func run()->void:
 	for i in 3:
 		w._spawn_defense("Watchtower",Vector3((i-1)*4,0,110),0,false)
 		var d:Dictionary=w.defenses[w.next_defense_id-1];d.level=i+1;w.progression.defense_visual(d)
-		check(i==0 or d.node.has_node("Tier%d"%(i+1)),"tower level %d has its own visible silhouette"%(i+1))
+		check(i==0 or (d.node.has_node("Rank") and (i<2 or d.node.find_children("Up2*","Node3D",true,false).any(func(part):return part.visible))),"tower level %d shows its rank and upgrade parts"%(i+1))
 		for shape in d.node.find_children("*","CollisionShape3D",true,false):check(not shape.shape is ConvexPolygonShape3D,"watchtower no longer has a stair ramp")
 	var camera:=Camera3D.new();w.add_child(camera);camera.position=Vector3(10,6,120);camera.look_at(Vector3(0,1.6,110));camera.current=true
 	await capture("fort7_tower_tiers")

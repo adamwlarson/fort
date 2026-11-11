@@ -20,7 +20,7 @@ static func asset(key: String) -> Node3D:
 	var model:Node3D=(scene_cache[path] as PackedScene).instantiate()
 	FortSolids.attach(model,key)
 	# Locally sculpted creatures are vertex-painted; the Compatibility renderer needs sRGB colours.
-	if key in ["pet_badger","pet_mole","pet_sprite","horse"] and ProjectSettings.get_setting("rendering/renderer/rendering_method")=="gl_compatibility":
+	if (key in ["pet_badger","pet_mole","pet_sprite","horse"] or key.begins_with("def_")) and ProjectSettings.get_setting("rendering/renderer/rendering_method")=="gl_compatibility":
 		_compatibility_palette(model)
 	return model
 
@@ -229,9 +229,46 @@ static func make_fort(parent: Node3D) -> void:
 		hearth.free()
 		fort.add_child(FortCampfire.new())
 
+## Fort 28 defense art: a painted model with a Turret pivot, optional door leaves and
+## Up2 / Up3 parts that appear as the defense is upgraded. Null when no such model exists.
+static func staged(kind:String)->Node3D:
+	var model:=asset("def_"+kind.to_lower())
+	if not model:return null
+	var root:=Node3D.new();root.set_meta("staged",true)
+	model.name="Art";root.add_child(model)
+	for part in ["Turret","DoorL","DoorR"]:
+		var pivot:Node3D=model.find_child(part,true,false)
+		if not pivot:continue
+		var pose:=pivot.transform
+		var ancestor:Node=pivot.get_parent()
+		while ancestor!=root:
+			if ancestor is Node3D:pose=ancestor.transform*pose
+			ancestor=ancestor.get_parent()
+		clear_scene_owner(pivot);pivot.get_parent().remove_child(pivot);root.add_child(pivot);pivot.transform=pose;pivot.name=part
+	set_stage(root,1)
+	return root
+
+## Levels 1-2 show the base model, 3-5 add the Up2 parts, 6-8 add the Up3 parts.
+static func set_stage(root:Node3D,level:int)->void:
+	var stage:=1 if level<3 else (2 if level<6 else 3)
+	for part in root.find_children("Up*","Node3D",true,false):
+		part.visible=(str(part.name).begins_with("Up2") and stage>=2) or (str(part.name).begins_with("Up3") and stage>=3)
+
 static func make_defense(kind: String, collision := true) -> Node3D:
 	if kind in ["CastleWall","CastleWindow","CastleGate","SentryCannon"]:return FortCastleDefenses.make(kind,collision)
 	if kind=="Gatehouse":return FortGates.make(collision)
+	var painted:=staged(kind)
+	if painted:
+		if collision:
+			match kind:
+				"Watchtower":
+					box_collider(painted,Vector3(1.85,2.4,1.85),Vector3(0,1.2,0));box_collider(painted,Vector3(2.1,.18,2.1),Vector3(0,2.45,0))
+				"Barricade":box_collider(painted,Vector3(3.5,1.35,0.55),Vector3(0,0.675,0))
+				"Ballista":box_collider(painted,Vector3(1.4,0.8,1.4),Vector3(0,0.4,0))
+				"Mender":box_collider(painted,Vector3(1.4,1.5,1.4),Vector3(0,0.75,0))
+				"MetalWall":box_collider(painted,Vector3(2.8,2.1,0.4),Vector3(0,1.05,0))
+				_:box_collider(painted,Vector3(1.7,1.7,1.7),Vector3(0,0.85,0))
+		return painted
 	var root:=Node3D.new()
 	if kind in ["MetalWall","StormSpire","FrostMortar","Embercoil","GravityWell","Sunlance"]:
 		var model:=asset(kind.to_lower());root.add_child(model)

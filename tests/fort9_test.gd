@@ -80,7 +80,7 @@ func run()->void:
 		FortAdvancedArsenal.tick_tower(w,w.defenses[id]);check(target.hp<1000,kind+" attacks its target")
 		if kind=="GravityWell":check(target.slow>0 and target.impulse.length()>0,"GravityWell pulls and slows enemies")
 		p.position=Vector3(i*8,0,102);for level in range(1,8):w.clock+=1;w.progression.upgrade_defense(1,id,level);finish(w,id)
-		check(w.defenses[id].level==8 and w.defenses[id].node.has_node("Tier8"),kind+" upgrades to level eight with a visible rank")
+		check(w.defenses[id].level==8 and w.defenses[id].node.get_node("Rank").text=="LV 8" and w.defenses[id].node.find_children("Up3*","Node3D",true,false).any(func(part):return part.visible),kind+" upgrades to level eight with its final-stage parts and rank")
 	camera.current=true;w.hud.hide();camera.position=Vector3(26,8,117);camera.look_at(Vector3(8,1.5,100));await capture("fort9_towers")
 	for eid in w.enemies.keys():w.recv_enemy_dead(eid)
 	for did in w.defenses.keys():w.recv_remove_defense(did)

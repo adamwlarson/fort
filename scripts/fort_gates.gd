@@ -40,6 +40,10 @@ static func pose(d:Dictionary)->void:
 	if d.kind=="CastleGate":
 		var leaf:Node3D=d.node.get_node_or_null("DoorLeaf")
 		if leaf:leaf.scale.x=maxf(.015,1.0-amount)
+		# Painted gates have two hinged leaves that swing inward.
+		var left:Node3D=d.node.get_node_or_null("DoorL");var right:Node3D=d.node.get_node_or_null("DoorR")
+		if left:left.rotation.y=amount*1.75
+		if right:right.rotation.y=-amount*1.75
 	if is_instance_valid(parts.get("Portcullis")):parts.Portcullis.position.y=amount*3.15
 	if is_instance_valid(parts.get("Winch")):parts.Winch.rotation.x=amount*2.8
 	for name in ["WeightL","WeightR"]:
@@ -98,7 +102,8 @@ func tick(delta:float)->void:
 		if world.multiplayer.is_server() and not world.ended and not FortConstruction.foundation(d):
 			if d.get("gate_auto",false) and world.is_night and int(d.get("gate_wave",0))<world.wave:
 				d.gate_wave=world.wave;d.gate_target=0.0;d.gate_blocked=false;d.gate_revision=int(d.get("gate_revision",0))+1
-			if world.clock>=float(d.get("gate_manual_until",0)):
+			# Only room doorways open by themselves. The Gatehouse stays manual (E) with its dusk option.
+			if d.kind=="CastleGate" and world.clock>=float(d.get("gate_manual_until",0)):
 				var nearby:=false
 				for p in world.players.values():
 					if p.health>0 and p.position.distance_to(d.node.position)<4.5:nearby=true

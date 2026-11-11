@@ -28,7 +28,7 @@ static func player_state(p:FortPlayer)->Dictionary:
 	for k in ["health","carrying","travel_mode","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel","weapon","owned_weapons","loadout_revision","backpack_level","relics","armor","progression_revision","weapon_levels","weapon_revision","xp","level","stat_points","stats","stats_revision"]:data[k]=clean(p.get(k))
 	return data
 static func capture(w:FortWorld)->Dictionary:
-	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"27","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
+	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"28","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
 	data.world.players={};data.world.enemies={};data.world.defenses={}
 	for p in w.players.values():data.characters[p.class_id]=player_state(p)
 	for id in w.enemies:

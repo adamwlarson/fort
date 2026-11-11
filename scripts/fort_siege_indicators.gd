@@ -82,9 +82,13 @@ func text_at(pos:Vector2,value:String,color:Color=FortInterface.PAPER,font_size:
 func has_alerts()->bool:
 	return not forecast.is_empty() or fronts.max()>0 or not repairs.is_empty() or not threats.is_empty()
 
+## Compact strip directly under the day / night panel.
+func panel_rect()->Rect2:
+	return Rect2(10,70,352,22+mini(repairs.size(),2)*15)
+
 func reserves(rect:Rect2)->bool:
 	if not visible or not has_alerts():return false
-	if rect.intersects(Rect2(20,190,325,244)):return true
+	if rect.intersects(panel_rect()):return true
 	for other in marker_rects:
 		if rect.intersects(other):return true
 	return false
@@ -94,28 +98,22 @@ func _draw()->void:
 	var p:=world.local_player()
 	if not p or not visible:return
 	if not has_alerts():return
-	draw_style_box(frame_style,Rect2(20,190,325,244))
-	text_at(Vector2(34,214),"SIEGE WATCH",AMBER,16)
-	text_at(Vector2(34,233),"Directions from hearth / numbers = live raiders",FortInterface.MUTED,11)
-	# Fixed compass order: north, east, south, west; never camera-relative.
+	var panel:=panel_rect()
+	draw_style_box(frame_style,panel)
+	text_at(panel.position+Vector2(9,15),"SIEGE",AMBER,11)
+	# Fixed compass order: north, east, south, west; never camera-relative. Numbers are live raiders.
 	for i in 4:
 		var lane:int=[2,1,0,3][i]
-		var active:bool=lane in forecast
-		var box:=Rect2(34+i*76,243,70,34)
-		draw_rect(box,Color("#35423b") if active else Color("#15282b"))
-		if active:draw_line(box.position,box.position+Vector2(70,0),AMBER,2)
-		text_at(box.position+Vector2(7,22),"%s  %d"%[FortBalance.FRONT_NAMES[lane].left(1),fronts[lane]],AMBER if active else FortInterface.MUTED,16)
-	text_at(Vector2(34,293),"Gold edge = expected attack front",FortInterface.MUTED,11)
-	text_at(Vector2(34,316),"FORT CONDITION",TEAL,12)
-	if repairs.is_empty():text_at(Vector2(34,338),"No repairs needed",FortInterface.MUTED)
-	for i in repairs.size():
+		var busy:bool=fronts[lane]>0 or lane in forecast
+		text_at(panel.position+Vector2(62+i*72,16),"%s %d"%[FortBalance.FRONT_NAMES[lane].left(1),fronts[lane]],AMBER if busy else FortInterface.MUTED,13)
+	# Only the two most urgent repairs, one short line each.
+	for i in mini(repairs.size(),2):
 		var r:Dictionary=repairs[i]
 		var color:Color=RED if r.hit or r.fraction<=.35 else AMBER
-		var heading:String="HEARTH" if r.id==-1 else FortBalance.FRONT_NAMES[sector(r.pos)]
-		text_at(Vector2(34,338+i*29),"%s / %s %d%%"%[heading,str(r.name).to_snake_case().capitalize() if r.id!=-1 else "core",ceili(r.fraction*100)],color)
-		text_at(Vector2(34,350+i*29),"%s / %dm away"%["UNDER ATTACK" if r.hit else ("CRITICAL / repair" if r.fraction<=.35 else "Needs repair"),r.distance],FortInterface.MUTED,11)
-	text_at(Vector2(34,407),"%d damaged defenses / hold R nearby to repair"%damaged_count,FortInterface.MUTED,11)
-	text_at(Vector2(34,422),"Priority markers: bombers, heavies and siege threats",FortInterface.MUTED,11)
+		var title:String="Hearth" if r.id==-1 else str(r.name).to_snake_case().capitalize()
+		var state:String="under attack" if r.hit else ("critical" if r.fraction<=.35 else "damaged")
+		var more:String="   +%d more"%(damaged_count-2) if i==1 and damaged_count>2 else ""
+		text_at(panel.position+Vector2(9,31+i*15),"%s %d%%  ·  %s  ·  %s %dm  ·  hold R%s"%[title,ceili(r.fraction*100),state,"" if r.id==-1 else FortBalance.FRONT_NAMES[sector(r.pos)].left(1),r.distance,more],color,11)
 	for t in threats:
 		if not world.enemies.has(t.id):continue
 		var e:Dictionary=world.enemies[t.id]
