@@ -46,25 +46,30 @@ static func populate(parent:Node3D,world:FortWorld,inner:float,outer:float,seed_
 			if center.length()>outer+17 or center.length()<inner-17:continue
 			var nearby:Array=[]
 			for site in clearings:
-				if center.distance_to(site.pos)<float(site.get("radius",12))+20:nearby.append(site)
+				if FortGround.flat(center,site.pos)<float(site.get("radius",12))+20:nearby.append(site)
 			var poses:Array[Transform3D]=[];var shades:PackedColorArray=[]
 			var bushes:Array[Transform3D]=[];var blooms:Array[Transform3D]=[];var litter:Array[Transform3D]=[]
 			# Patch density varies smoothly, forming clearings and taller meadow islands.
 			for i in 1000:
-				var p:=center+Vector3(rng.randf_range(-12,12),.025,rng.randf_range(-12,12))
+				var p:=center+Vector3(rng.randf_range(-12,12),0,rng.randf_range(-12,12))
 				if p.length()<inner or p.length()>outer or not clear(world,p,inner):continue
 				var blocked:=false
 				for site in nearby:
-					if p.distance_to(site.pos)<float(site.get("radius",12)):blocked=true;break
+					if FortGround.flat(p,site.pos)<float(site.get("radius",12)):blocked=true;break
 				if blocked:continue
 				var patch:=sin(p.x*.14+sin(p.z*.09)*2)*cos(p.z*.12)
 				if patch<-.45 and i%3!=0:continue
 				var color:=tint.lightened(rng.randf_range(0,.13)).darkened(rng.randf_range(0,.18))
 				if biome=="frontier" and p.x>0:color=Color("#ab925c")
 				var h:=rng.randf_range(.65,1.35)*(1+maxf(0,patch)*.55)
-				poses.append(Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3(1,h,1)),p-center));shades.append(color)
+				# Stood on the terrain here, in one pass; FortGround only re-seats it if the land changes.
+				var land:=FortGround.height(p.x,p.z)
+				# No meadow under the lakes; sedge crowds the wet margin instead.
+				if land<FortGround.WATER+.04:continue
+				if land<FortGround.WATER+.6 and i%4==0:bushes.append(Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3.ONE*rng.randf_range(.9,1.5)),p-center+Vector3(0,land,0)))
+				poses.append(Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3(1,h,1)),p-center+Vector3(0,.025+land,0)));shades.append(color)
 				if i%47==0:
-					var pose:=Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3.ONE*rng.randf_range(.7,1.2)),p-center)
+					var pose:=Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3.ONE*rng.randf_range(.7,1.2)),p-center+Vector3(0,land,0))
 					if i%3==0:blooms.append(pose)
 					elif i%3==1:bushes.append(pose)
 					else:litter.append(pose)
@@ -74,8 +79,9 @@ static func populate(parent:Node3D,world:FortWorld,inner:float,outer:float,seed_
 			var multi:=MultiMesh.new();multi.transform_format=MultiMesh.TRANSFORM_3D;multi.use_colors=true;multi.mesh=mesh;multi.instance_count=poses.size()
 			for i in poses.size():multi.set_instance_transform(i,poses[i]);multi.set_instance_color(i,shades[i])
 			batch.multimesh=multi;batch.material_override=grass_material;batch.visibility_range_end=105;batch.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF;patch_root.add_child(batch)
-			FortLandscape.instance_asset(patch_root,plant,bushes)
-			FortLandscape.instance_asset(patch_root,flowers,blooms)
-			FortLandscape.instance_asset(patch_root,"forest_floor",litter)
+			FortGround.ground_batch(batch,18.0,.025)
+			FortLandscape.instance_asset(patch_root,plant,bushes,18.0,true)
+			FortLandscape.instance_asset(patch_root,flowers,blooms,18.0,true)
+			FortLandscape.instance_asset(patch_root,"forest_floor",litter,18.0,true)
 			for child in patch_root.get_children():
 				if child is GeometryInstance3D and child!=batch:child.visibility_range_end=88;child.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

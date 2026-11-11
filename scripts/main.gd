@@ -2,7 +2,7 @@ extends Node
 
 const WorldScript = preload("res://scripts/world.gd")
 const InternetScript = preload("res://scripts/fort_internet.gd")
-const BUILD_VERSION := "29"
+const BUILD_VERSION := "30"
 
 var menu:Control
 var status_label:Label
@@ -11,6 +11,8 @@ var name_edit:LineEdit
 var class_picker:OptionButton
 var class_description:Label
 var world:Node
+## Title, day and night music. Lives here so it carries across the menu and the game.
+var music:FortMusic
 var player_info:Dictionary = {}
 var selected_class := 0
 var ready_peers: Dictionary = {}
@@ -40,6 +42,9 @@ func _process(_delta: float) -> void:
 		_on_connection_failed()
 
 func _ready() -> void:
+	if not is_instance_valid(music):
+		music=FortMusic.new();add_child(music)
+	music.play("title",-15.0,2.5)
 	internet = InternetScript.new()
 	add_child(internet)
 	internet.changed.connect(_refresh_internet)

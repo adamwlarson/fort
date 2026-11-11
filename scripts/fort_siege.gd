@@ -30,7 +30,7 @@ static func route(world:FortWorld,e:Dictionary,goal:Vector3)->Vector3:
 		var breach:int=e.get("breach",-1)
 		return ((world.defenses[breach].node.position if world.defenses.has(breach) else goal)-pos).normalized()
 	e.route_until=world.clock+.8;e.route_goal=goal;e.breach=-1;e.route_points=[]
-	var hit:=world.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pos+Vector3.UP*.7,goal+Vector3.UP*.7,1))
+	var hit:=FortGround.sight(world.get_world_3d().direct_space_state,pos+Vector3.UP*.7,goal+Vector3.UP*.7)
 	if hit.is_empty():return FortNavigation.direction(world,e.node,e,goal) if not clear(world,pos,goal) else (goal-pos).normalized()
 	var blocker:=obstacle_id(hit.collider)
 	if blocker<0:

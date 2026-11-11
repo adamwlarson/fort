@@ -1,7 +1,8 @@
 class_name FortProgression
 extends RefCounted
 
-const SITES := [
+## Heights are filled in by FortGround for the current expedition's terrain.
+static var SITES:Array = [
 	{"name":"Fern Hollow Cache","pos":Vector3(-49,0,15),"tier":1,"guards":false,"reward":"Supplies"},
 	{"name":"Redfang Camp","pos":Vector3(46,0,15),"tier":1,"guards":true,"reward":"Embermaul"},
 	{"name":"Rustscar Stronghold","pos":Vector3(112,0,-18),"tier":2,"guards":true,"reward":"Ironheart"},
@@ -23,7 +24,7 @@ func unlock_zones(level:int)->void:
 	for i in SITES.size():
 		var spec:Dictionary=SITES[i]
 		if spec.tier>level or sites.has(i):continue
-		var node:=Node3D.new();node.name="TreasureSite%d"%i;node.position=spec.pos;world.add_child(node)
+		var node:=Node3D.new();node.name="TreasureSite%d"%i;node.position=spec.pos;world.add_child(node);FortGround.ground(node)
 		var chest:=FortArt.asset("treasure_chest");node.add_child(chest)
 		FortArt.box_collider(node,Vector3(1.3,.8,.8),Vector3(0,.4,0))
 		if spec.get("village",false):FortVillages.build(node,int(spec.tier))
@@ -56,13 +57,13 @@ func tick()->void:
 			if int(site.get("return_wave",-1))<0:site.return_wave=world.wave+2
 			var distant:=true
 			for p in world.players.values():
-				if p.health>0 and p.position.distance_to(SITES[id].pos)<60:distant=false
+				if p.health>0 and FortGround.flat(p.position,SITES[id].pos)<60:distant=false
 			if not world.is_night and world.wave>=int(site.return_wave) and distant:
 				site.active=false;site.opened=false;site.return_wave=-1
 				world.broadcast("recv_full",[world.full_state()])
 		var near:=false
 		for p in world.players.values():
-			if p.health>0 and p.position.distance_to(SITES[id].pos)<24:near=true;break
+			if p.health>0 and FortGround.flat(p.position,SITES[id].pos)<24:near=true;break
 		if near and not site.active and SITES[id].guards:_activate(id)
 
 func _activate(id:int)->void:
@@ -85,7 +86,7 @@ func guarded(id:int)->bool:
 
 func nearest(pos:Vector3)->int:
 	for id in sites:
-		if pos.distance_to(SITES[id].pos)<3:return int(id)
+		if FortGround.flat(pos,SITES[id].pos)<3:return int(id)
 	return -1
 
 func interact(player_id:int)->bool:

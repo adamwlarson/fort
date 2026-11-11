@@ -116,7 +116,7 @@ func tick(delta:float)->void:
 			var routed_goal:=world.castle.travel_goal(body.position,goal)
 			var offset:Vector3=routed_goal-body.position;offset.y=0
 			var direction:=FortNavigation.direction(world,body,p,routed_goal);direction.y=0;direction=direction.normalized()
-			var hit:=world.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(body.position+Vector3.UP*.5,body.position+Vector3.UP*.5+direction*1.6,1))
+			var hit:=FortGround.sight(world.get_world_3d().direct_space_state,body.position+Vector3.UP*.5,body.position+Vector3.UP*.5+direction*1.6)
 			if not hit.is_empty():
 				# Hop only when the landing and overhead clearance are safe.
 				var landing:=FortNavigation.floor_point(world,body.position+direction*1.8+Vector3.UP*.7,body)
@@ -129,7 +129,7 @@ func tick(delta:float)->void:
 				p.check_at=world.clock+1
 				p.stuck=float(p.stuck)+1 if body.position.distance_to(p.last)<.6 else maxf(0,float(p.stuck)-.5);p.last=body.position
 				if p.stuck>=2:p.nav_until=0.0;p.nav_points=[]
-				if p.stuck>=6 or body.position.y< -5:
+				if p.stuck>=6 or body.position.y<FortGround.height(body.position.x,body.position.z)-5:
 					# Visible magical recall is the final escape for sealed construction or bad terrain.
 					if p.target>=0:p.skip[p.target]=world.clock+30
 					world.broadcast("recv_fx",[body.position,Color("#b8e8d1"),"RECALL","ability"])

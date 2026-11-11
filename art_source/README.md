@@ -52,3 +52,13 @@ Fort 7 adds `model_frontier7.py`: ten new scenes for the stair-free watchtower, 
 `tests/art_gallery.gd` renders enemy idle, attack, face detail and camp galleries in Godot. `tests/visual_review.gd` renders actual day/night gameplay, gathering focus and traversal. `tests/asset_test.gd` checks imported geometry and that every expected animation contains changing track values.
 
 The world review also captures Pinewatch Grove, Old Quarry, Moonwell Ruins and an overview. `tests/world_test.gd` walks the actual trails with player input and verifies resource clearance, tree collision lifecycle and raider obstacle avoidance. Vegetation uses shared MultiMesh batches; windblown grass and biome/trail ground shading are Godot shaders, not bitmap textures.
+
+## Audio (Fort 30)
+
+`audio/raw/` holds the generated files as downloaded; `audio/process.py` turns them into the `.ogg` files the game loads from `assets/audio/` (run `python art_source/audio/process.py`, needs ffmpeg).
+
+- `raw/music/`: `title`, `day`, `night`. ElevenLabs Music v2.5 through Higgsfield, instrumental, 90 to 150 seconds. Loudness-normalised to -16 LUFS; the game cross-fades and loops them.
+- `raw/sfx/`: one file per sound, `_1`/`_2` for variants. Mirelo text-to-audio through Higgsfield. One-shots are trimmed of silence, faded, mixed to mono and peak-normalised to -2 dB. The five loops (`amb_day`, `amb_night`, `amb_water`, `fire_loop`, `jetpack_loop`) are cross-faded end-into-start in plain PCM so they repeat without a click. `crystal_1.wav` is synthesized with ffmpeg because the generated one came back silent.
+- `raw/voice/`: `<role>_<line>.wav`, roles 0 Vanguard, 1 Warden, 2 Engineer, 3 Scout, twelve lines each. Seed Audio through Higgsfield with preset voices Grady, Arthur, Fraser and Archie, pitched down 0 to 3 steps.
+
+To add or replace a sound, drop the raw file in with the same name, run the script, reimport, and (for a new name) add it to `FILES` in `scripts/fort_sound.gd`. Check each new file's peak level: a few generations came back nearly silent and had to be redone.

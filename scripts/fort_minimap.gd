@@ -20,9 +20,50 @@ var hearth_point:=Vector2.ZERO
 var hearth_outside:=false
 var marker_bounds:Array[Rect2]=[]
 var frame_style:StyleBoxFlat
+## Fort 30: the land itself, painted from the height field a few rows per frame.
+const RELIEF_SIZE:=256
+const RELIEF_EXTENT:=680.0
+var relief:Image
+var relief_texture:ImageTexture
+var relief_row:=RELIEF_SIZE
+var relief_revision:=-1
+var relief_above:PackedFloat32Array
+
+static func relief_color(h:float,shade:float)->Color:
+	if h<FortGround.WATER-.05:return Color(.25,.52,.66).lerp(Color(.12,.30,.45),clampf((FortGround.WATER-h)/FortGround.WADE,0,1))
+	var land:=Color(.20,.33,.24).lerp(Color(.40,.50,.29),clampf((h+4.0)/12.0,0,1))
+	land=land.lerp(Color(.60,.55,.38),clampf((h-8.0)/26.0,0,1))
+	land=land.lerp(Color(.47,.48,.50),clampf((h-45.0)/60.0,0,1))
+	land=land.lerp(Color(.90,.92,.95),clampf((h-150.0)/50.0,0,1))
+	return Color(land.r*shade,land.g*shade,land.b*shade)
+
+func relief_step()->void:
+	if DisplayServer.get_name()=="headless":return
+	if relief_row>=RELIEF_SIZE:
+		if relief_revision==FortGround.revision:return
+		relief_revision=FortGround.revision;relief_row=0
+		relief=Image.create(RELIEF_SIZE,RELIEF_SIZE,false,Image.FORMAT_RGB8)
+		relief_above=PackedFloat32Array();relief_above.resize(RELIEF_SIZE)
+	var step:=RELIEF_EXTENT*2.0/RELIEF_SIZE
+	for row in 12:
+		if relief_row>=RELIEF_SIZE:break
+		var z:=-RELIEF_EXTENT+(relief_row+.5)*step
+		var west:=FortGround._computed(-RELIEF_EXTENT-step*.5,z)
+		for i in RELIEF_SIZE:
+			var h:=FortGround._computed(-RELIEF_EXTENT+(i+.5)*step,z)
+			var north:=relief_above[i] if relief_row>0 else h
+			# Lit from the north-west, like a printed map.
+			relief.set_pixel(i,relief_row,relief_color(h,clampf(.86+((h-west)+(h-north))*.11,.45,1.3)))
+			west=h;relief_above[i]=h
+		relief_row+=1
+	if relief_row>=RELIEF_SIZE:
+		if relief_texture:relief_texture.update(relief)
+		else:relief_texture=ImageTexture.create_from_image(relief)
+		queue_redraw()
 
 func _ready()->void:
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
+	texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR
 	frame_style=FortInterface.frame()
 
 func _unhandled_input(event:InputEvent)->void:
@@ -46,6 +87,7 @@ func footprint_bottom()->float:
 
 func _process(delta:float)->void:
 	if position==Vector2.ZERO:set_mode(mode)
+	relief_step()
 	if mode==3:RANGE=world.frontier_radius()+8.0
 	visible=mode!=4 and world.local_player()!=null and not world.menu_open and not world.local_build_mode and not world.ended
 	refresh_time-=delta
@@ -157,6 +199,12 @@ func _draw()->void:
 	if not p:return
 	draw_style_box(frame_style,PANEL)
 	draw_circle(Vector2.ZERO,RADIUS,Color(0.063,0.137,0.153,0.9 if mode<3 else 0.94))
+	if relief_texture:
+		var rim:=PackedVector2Array();var uvs:=PackedVector2Array()
+		for i in 64:
+			var at:=Vector2.from_angle(i*TAU/64)*(RADIUS-.6)
+			rim.append(at);uvs.append((origin+at*(RANGE/RADIUS)+Vector2.ONE*RELIEF_EXTENT)/(RELIEF_EXTENT*2.0))
+		draw_colored_polygon(rim,Color(1,1,1,.9),uvs,relief_texture)
 	draw_arc(Vector2.ZERO,RADIUS,0,TAU,64,Color("#748b83"),1.2,true)
 	caption(Vector2(-4,-RADIUS+15),"N",FortInterface.PAPER,11)
 	draw_line(Vector2(0,-RADIUS),Vector2(0,-RADIUS+5),FortInterface.PAPER,2)

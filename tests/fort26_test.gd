@@ -109,12 +109,16 @@ func run()->void:
 	var state:=FortSave.capture(w);check(FortSave.validate(state)=="" and state.world.castle.perimeter.farms.size()==2 and "camp:1" in state.world.castle.razed,"farms and razed bases are saved")
 	await shot("farms")
 	# --- buried raiders and spawn directions
-	w.recv_enemy(88002,"Raider",Vector3(120,-4,0),80);FortVista.cull_buried(w)
+	w.recv_enemy(88002,"Raider",FortGround.on(Vector3(120,0,0),-4),80);FortVista.cull_buried(w)
 	check(not w.enemies.has(88002),"a raider under the ground dies instantly")
-	check(FortVista.knolls.size()>=10,"rolling hills are generated")
-	var k:Dictionary=FortVista.knolls[0]
-	check(FortVista.height(k.pos)>1.0 and is_zero_approx(FortVista.height(Vector3.ZERO)),"hills have height; the keep stays level")
-	w.recv_enemy(88003,"Raider",k.pos,80);FortVista.cull_buried(w)
+	# Fort 30: the knolls became real terrain. Find the tallest rise in the second ring.
+	var hilltop:=Vector3.ZERO
+	for i in 720:
+		var at:=FortGround.on(Vector3(sin(i*.7),0,cos(i*.7))*(90.0+(i%60)*2.4))
+		if at.y>hilltop.y:hilltop=at
+	check(hilltop.y>2.5,"rolling hills are generated")
+	check(FortVista.height(hilltop)>1.0 and is_zero_approx(FortVista.height(Vector3.ZERO)),"hills have height; the keep stays level")
+	w.recv_enemy(88003,"Raider",Vector3(hilltop.x,0,hilltop.z),80);FortVista.cull_buried(w)
 	check(not w.enemies.has(88003),"a raider spawned inside a hill dies instantly")
 	var sectors:Dictionary={}
 	w.is_night=true;w.wave=3

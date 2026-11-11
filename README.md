@@ -4,6 +4,8 @@ A playable Godot co-op survival build for one to eight dwarves. Gather by day, r
 
 ## Play
 
+Fort 30 replaces the flat world with **real terrain**: one continuous landscape of hills, lakes and mountains generated from the expedition seed. Hearthhold stays level, every camp and site sits on its own shelf, castle rooms and foundations level the ground they stand on, towers can be placed on slopes, every lake can be waded, and the map shows the land as relief. It also adds recorded sound: day and night music that cross-fades, ambience, positional effects, footsteps and splashes, and voices for the dwarves. See [RELEASE_NOTES_30.md](RELEASE_NOTES_30.md).
+
 Fort 29 adds **free-form building**: press **B**, then **Tab** to switch from towers to building pieces, and put up foundations, floors, timber and stone walls, doors, stairs and roofs one piece at a time. **X** takes a piece down and drops its materials on the ground to pick up. A new expedition starts with a small timber shell on the keep. See [RELEASE_NOTES_29.md](RELEASE_NOTES_29.md).
 
 Fort 28 replaces the castle walls, windows, gates, sentry cannons and all ten towers with new painted models, gives every defense its own visible upgrade stages, and shrinks Siege Watch to a thin strip. See [RELEASE_NOTES_28.md](RELEASE_NOTES_28.md).
@@ -184,7 +186,7 @@ The second art pass models the three enemies, workshop, stockpile, barrel, and s
 
 Gathering highlights the selected resource with a ground ring and remaining-supply indicator, and the dwarf turns toward it when harvesting.
 
-The world pass adds region-specific ground shading, connected dirt trails, lit windblown grass, grouped foliage rendering, distant woodland and ridgelines, and lived-in camp dressing. The playable ground remains level; the cliffs are scenery, not a new climbable terrain system.
+The world pass adds region-specific ground shading, connected dirt trails, lit windblown grass, grouped foliage rendering, distant woodland and ridgelines, and lived-in camp dressing. Since Fort 30 the ground itself is real terrain (`scripts/fort_ground.gd`): a seeded height field drawn in detail near the crew and coarsely beyond, with collision across the opened frontier.
 
 Editable sources are in `art_source/blender/`, including copies of the original dwarf and tree sources. The original tree scene was preserved while new scenes were created through Blender MCP.
 
@@ -196,7 +198,7 @@ Editable sources are in `art_source/blender/`, including copies of the original 
 - Weapons: original skinned axe separated at runtime without altering the source dwarf; new weapons follow its hand bone. Hammer uses a slower swing timed to impact; crossbow has aim, movement, firing/reload poses and a visible reload cycle.
 - Each enemy: Blender Idle, Walk, Attack, Hit, and Death clips.
 - Horse: Blender Gallop; jetpack: thrust-controlled flames.
-- Materials share a restrained stone/timber/teal palette. Lighting transitions between day and night. Terrain, grass, effects, and synthesized sound cues are generated in Godot.
+- Materials share a restrained stone/timber/teal palette. Lighting transitions between day and night. Terrain, grass and effects are generated in Godot. Music, sound effects and voices are recorded files in `assets/audio/` (sources and the processing script in `art_source/audio/`), with synthesized tones as a fallback.
 
 To rebuild the base asset library (this replaces generated exports, so preserve manual asset edits first):
 
@@ -221,6 +223,7 @@ $godotExe = '.tools\godot45\Godot_v4.5.2-stable_win64_console.exe'
 & $godotExe --headless --path . --script res://tests/weapons_test.gd -- --fort-test
 & $godotExe --headless --path . --script res://tests/fort5_test.gd -- --fort-test
 & $godotExe --headless --path . --script res://tests/fort6_test.gd -- --fort-test
+& $godotExe --headless --path . --script res://tests/terrain30_test.gd -- --fort-test
 & tests/run_network.ps1
 & tests/run_network.ps1 -Packaged
 & tests/run_network.ps1 -Packaged -Driver weapons_network_driver

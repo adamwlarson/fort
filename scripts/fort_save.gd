@@ -28,7 +28,7 @@ static func player_state(p:FortPlayer)->Dictionary:
 	for k in ["health","carrying","travel_mode","ability_cooldown","attack_cooldown","rally_time","down_time","look_yaw","look_pitch","fuel","weapon","owned_weapons","loadout_revision","backpack_level","relics","armor","progression_revision","weapon_levels","weapon_revision","xp","level","stat_points","stats","stats_revision"]:data[k]=clean(p.get(k))
 	return data
 static func capture(w:FortWorld)->Dictionary:
-	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"29","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
+	var data:Dictionary={"schema":FORMAT,"saved_at":Time.get_datetime_string_from_system(),"build":"30","world":w.full_state(),"clock":w.clock,"characters":w.saved_characters.duplicate(true),"enemies":{},"defenses":{},"resources":{},"pet_runtime":{},"director":{}}
 	data.world.players={};data.world.enemies={};data.world.defenses={}
 	for p in w.players.values():data.characters[p.class_id]=player_state(p)
 	for id in w.enemies:
@@ -214,6 +214,8 @@ static func restore(w:FortWorld,data:Dictionary)->void:
 	for id in w.pets.pets:
 		var p:Dictionary=w.pets.pets[id]
 		if data.pet_runtime.has(id):p.merge(data.pet_runtime[id],true)
+		# Checkpoints from before the real terrain stored ground-level positions at y=0.
+		if p.net_pos.y<FortGround.height(p.net_pos.x,p.net_pos.z)-.01:p.net_pos.y=FortGround.height(p.net_pos.x,p.net_pos.z)+.05
 		p.node.position=p.net_pos;p.node.rotation.y=p.net_yaw;p.target=-1;p.mode="RETURN" if p.cargo>0 else "SEEK"
 	for k in data.director:
 		if k=="reports":w.director.reports.assign(data.director.reports)
@@ -233,6 +235,7 @@ static func restore_player(w:FortWorld,p:FortPlayer)->void:
 	p.set_travel_mode(int(saved.get("travel_mode",0)));p.position=saved.position;p.target_position=p.position
 	if w.hearth_level>=2 and w.expedition.terrain_enabled and FortTerrain.reserved(p.position,w.expedition.seed_value):
 		p.position=FortTerrain.safe_position(p.position,w.expedition.seed_value);p.target_position=p.position
+	if p.position.y<FortGround.height(p.position.x,p.position.z)-.01:p.position.y=FortGround.height(p.position.x,p.position.z)+.05;p.target_position=p.position
 	p.visual_root.rotation.y=saved.yaw;p.target_yaw=saved.yaw;p.invulnerable=3.0
 	for d in w.defenses.values():
 		if d.get("owner_class",-1)==p.class_id:d.work_owner=p.peer_id

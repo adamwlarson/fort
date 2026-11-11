@@ -1,27 +1,15 @@
 class_name FortVista
 extends RefCounted
 
-# Fort 26 environment pass: painted sky, warmer light, rolling walkable knolls,
-# distant mountain ranges, drifting motes and cloud shadows.
-# Knolls are rebuilt from the expedition seed, so hosts, guests and saves agree without packets.
+# Environment pass: painted sky, warmer light, distant mountain ranges, drifting motes
+# and cloud shadows. The walkable land itself is FortGround (Fort 30); the Fort 26 knolls
+# that used to sit on a flat plane are now part of the real terrain.
 
-static var knolls:Array[Dictionary]=[]
-static var built_seed:=-1
-static var built_world:int=0
 static var sky:ShaderMaterial
 static var range_material:ShaderMaterial
 
 static func height(pos:Vector3)->float:
-	var best:=0.0
-	for k in knolls:
-		var d:float=Vector2(pos.x-k.pos.x,pos.z-k.pos.z).length()/float(k.radius)
-		if d<1.0:best=maxf(best,float(k.height)*pow(1.0-d*d,2.0))
-	return best
-
-static func on_knoll(pos:Vector3,padding:=0.0)->bool:
-	for k in knolls:
-		if Vector2(pos.x-k.pos.x,pos.z-k.pos.z).length()<float(k.radius)+padding:return true
-	return false
+	return FortGround.height(pos.x,pos.z)
 
 # ---------------------------------------------------------------- sky and light
 static func build_sky(world:FortWorld)->void:
@@ -34,7 +22,7 @@ static func build_sky(world:FortWorld)->void:
 	world.environment.ambient_light_color=Color("#b9c8dc")
 	world.environment.ambient_light_energy=0.42
 	world.environment.fog_enabled=true
-	world.environment.fog_density=0.0011
+	world.environment.fog_density=0.0006
 	world.environment.fog_sun_scatter=0.18
 	world.environment.fog_aerial_perspective=0.15
 	world.environment.adjustment_enabled=true
@@ -76,9 +64,8 @@ static func build_horizon(world:FortWorld)->void:
 	var rng:=RandomNumberGenerator.new();rng.seed=260026
 	# Three overlapping ridgelines: forested foothills, bare rock, snow peaks.
 	var layers:=[
-		{"radius":700.0,"base":26.0,"peak":52.0,"low":Color("#2f5a3c"),"high":Color("#58803f"),"snow":2.0,"haze":0.16},
-		{"radius":790.0,"base":52.0,"peak":104.0,"low":Color("#4a5f66"),"high":Color("#7d8791"),"snow":0.84,"haze":0.3},
-		{"radius":900.0,"base":84.0,"peak":170.0,"low":Color("#5d7190"),"high":Color("#8496b4"),"snow":0.66,"haze":0.44},
+		{"radius":1250.0,"base":170.0,"peak":240.0,"low":Color("#35464f"),"high":Color("#5f6c77"),"snow":0.93,"haze":0.34},
+		{"radius":1500.0,"base":240.0,"peak":380.0,"low":Color("#4d6182"),"high":Color("#7486a6"),"snow":0.86,"haze":0.5},
 	]
 	for layer in layers:
 		var tool:=SurfaceTool.new();tool.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -94,8 +81,8 @@ static func build_horizon(world:FortWorld)->void:
 			var a0:=float(i)/segments*TAU;var a1:=float(i+1)/segments*TAU
 			var r:=float(layer.radius)
 			var b0:=Vector3(sin(a0)*r,-6,cos(a0)*r);var b1:=Vector3(sin(a1)*r,-6,cos(a1)*r)
-			var mid0:=Vector3(sin(a0)*(r+18),crest[i]*0.55,cos(a0)*(r+18));var mid1:=Vector3(sin(a1)*(r+18),crest[i+1]*0.55,cos(a1)*(r+18))
-			var t0:=Vector3(sin(a0)*(r+46),crest[i],cos(a0)*(r+46));var t1:=Vector3(sin(a1)*(r+46),crest[i+1],cos(a1)*(r+46))
+			var mid0:=Vector3(sin(a0)*(r+60),crest[i]*0.55,cos(a0)*(r+60));var mid1:=Vector3(sin(a1)*(r+60),crest[i+1]*0.55,cos(a1)*(r+60))
+			var t0:=Vector3(sin(a0)*(r+150),crest[i],cos(a0)*(r+150));var t1:=Vector3(sin(a1)*(r+150),crest[i+1],cos(a1)*(r+150))
 			var top0:Color=layer.high;var top1:Color=layer.high
 			var limit:=(float(layer.base)+float(layer.peak))*float(layer.snow)
 			if crest[i]>limit:top0=Color("#eef3f7")
@@ -109,7 +96,7 @@ static func build_horizon(world:FortWorld)->void:
 		var material:ShaderMaterial=range_material.duplicate() if layer!=layers[0] else range_material
 		material.set_shader_parameter("haze_amount",layer.haze)
 		ridge.material_override=material;ridge.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		ridge.extra_cull_margin=2000
+		ridge.extra_cull_margin=4000
 		root.add_child(ridge)
 		if layer!=layers[0]:ridge.set_meta("vista_material",material)
 	# Motes of pollen by day and fireflies by night drift around the camera.
@@ -137,121 +124,14 @@ static func follow(world:FortWorld)->void:
 				var material:ShaderMaterial=ridge.get_meta("vista_material")
 				material.set_shader_parameter("haze",range_material.get_shader_parameter("haze"));material.set_shader_parameter("dim",range_material.get_shader_parameter("dim"))
 
-# ---------------------------------------------------------------- knolls
-static func clear_spot(world:FortWorld,pos:Vector3,radius:float)->bool:
-	if absf(pos.x)<11+radius*0.2 or absf(pos.z)<11+radius*0.2:return false
-	if pos.x>90 and pos.x<150 and pos.z>-32 and pos.z<46:return false
-	for site in FortProgression.SITES:
-		if pos.distance_to(site.pos)<radius+(26 if site.get("village",false) else 17):return false
-	for landmark in FortLandscape.LANDMARKS:
-		if pos.distance_to(landmark.pos)<radius+17:return false
-	for spec in FortEncounters.layout(world.expedition.seed_value):
-		if pos.distance_to(spec.pos)<radius+float(spec.radius)+6:return false
-	if FortTerrain.reserved(pos,world.expedition.seed_value,radius+8):return false
-	for other in knolls:
-		if pos.distance_to(other.pos)<radius+float(other.radius)+5:return false
-	if world.castle:
-		for room in world.castle.rooms.values():
-			if pos.distance_to(FortCastle.position(room))<radius+26:return false
-	for defense in world.defenses.values():
-		if pos.distance_to(defense.node.position)<radius+4:return false
-	return true
-
-static func ensure(world:FortWorld)->void:
-	if not world.expedition:return
-	if built_seed==world.expedition.seed_value and built_world==world.get_instance_id():return
-	built_seed=world.expedition.seed_value;built_world=world.get_instance_id()
-	var old:=world.get_node_or_null("VistaKnolls")
-	if old:world.remove_child(old);old.queue_free()
-	for i in range(world.scenery_keepouts.size()-1,-1,-1):
-		if world.scenery_keepouts[i].get("knoll",false):world.scenery_keepouts.remove_at(i)
-	knolls.clear()
-	var root:=Node3D.new();root.name="VistaKnolls";world.add_child(root)
-	var rng:=RandomNumberGenerator.new();rng.seed=built_seed+260026
-	var wanted:=[[40.0,70.0,5],[78.0,150.0,9],[158.0,238.0,10]]
-	# Automated fixtures place walls and raiders at fixed meadow coordinates; keep that ring level for them.
-	if "--fort-test" in OS.get_cmdline_user_args():wanted.remove_at(0)
-	for band in wanted:
-		var made:=0
-		for attempt in 260:
-			if made>=int(band[2]):break
-			var angle:=rng.randf()*TAU;var distance:=rng.randf_range(band[0],band[1])
-			var radius:=rng.randf_range(9.0,15.0) if band[0]<75 else rng.randf_range(11.0,19.0)
-			var pos:=Vector3(sin(angle)*distance,0,cos(angle)*distance)
-			if distance-radius<34 or not clear_spot(world,pos,radius):continue
-			var knoll:={"pos":pos,"radius":radius,"height":radius*rng.randf_range(0.14,0.21)}
-			knolls.append(knoll);made+=1
-			root.add_child(make_knoll(knoll,rng))
-			world.scenery_keepouts.append({"pos":pos,"radius":radius*0.92,"terrain":true,"knoll":true})
-	settle(world)
-	world.navigation_revision+=1
-
-static func make_knoll(knoll:Dictionary,rng:RandomNumberGenerator)->Node3D:
-	var node:=Node3D.new();node.name="Knoll";node.position=knoll.pos
-	var rings:=9;var segments:=26
-	var radius:float=knoll.radius;var top:float=knoll.height
-	var faces:=PackedVector3Array()
-	var tool:=SurfaceTool.new();tool.begin(Mesh.PRIMITIVE_TRIANGLES);tool.set_smooth_group(0)
-	var point:=func(ring:int,segment:int)->Vector3:
-		var d:=float(ring)/rings
-		var a:=float(segment%segments)/segments*TAU
-		return Vector3(sin(a)*radius*d,top*pow(1.0-d*d,2.0)-0.02,cos(a)*radius*d)
-	for ring in rings:
-		for segment in segments:
-			var a:Vector3=point.call(ring,segment);var b:Vector3=point.call(ring+1,segment)
-			var c:Vector3=point.call(ring+1,segment+1);var d:Vector3=point.call(ring,segment+1)
-			var tris:=[b,a,c] if ring==0 else [a,d,c,a,c,b]
-			if ring==0:tris=[a,c,b]
-			for v in tris:tool.add_vertex(v);faces.append(v)
-	tool.generate_normals();tool.index()
-	var mesh:=MeshInstance3D.new();mesh.mesh=tool.commit()
-	var material:=ShaderMaterial.new();material.shader=preload("res://assets/shaders/world_ground.gdshader");mesh.material_override=material
-	node.add_child(mesh)
-	var shape:=ConcavePolygonShape3D.new();shape.set_faces(faces);shape.backface_collision=true
-	Visuals.add_static_collision(node,shape)
-	# Wind-blown grass and a few stones so the hill reads as part of the meadow.
-	var verts:=PackedVector3Array();var colors:=PackedColorArray()
-	for i in int(radius*radius*4.5):
-		var a:=rng.randf()*TAU;var d:=sqrt(rng.randf())*0.96
-		var base:=Vector3(sin(a)*radius*d,top*pow(1.0-d*d,2.0),cos(a)*radius*d)
-		var h:=rng.randf_range(0.2,0.5)
-		var color:=Color("#87a25a").darkened(rng.randf_range(0,0.2))
-		for blade in 2:
-			var ba:=blade*PI/2+i*1.7
-			var side:=Vector3(cos(ba),0,sin(ba))*0.05
-			for v in [base-side,base+Vector3.UP*h+Vector3(sin(ba),0,cos(ba))*h*0.3,base+side]:verts.append(v);colors.append(color if v.y<base.y+0.01 else color.lightened(0.18))
-	var arrays:=[];arrays.resize(Mesh.ARRAY_MAX);arrays[Mesh.ARRAY_VERTEX]=verts;arrays[Mesh.ARRAY_COLOR]=colors
-	var blades:=ArrayMesh.new();blades.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
-	var grass:=MeshInstance3D.new();grass.mesh=blades;grass.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var grass_material:=ShaderMaterial.new();grass_material.shader=preload("res://assets/shaders/knoll_grass.gdshader");grass.material_override=grass_material
-	node.add_child(grass)
-	for i in 2+int(radius/5):
-		var a:=rng.randf()*TAU;var d:=rng.randf_range(0.2,0.85)
-		var spot:=Vector3(sin(a)*radius*d,top*pow(1.0-d*d,2.0)-0.08,cos(a)*radius*d)
-		FortLandscape.place(node,"moss_rock",spot,rng.randf()*TAU,rng.randf_range(0.45,0.95))
-	return node
-
-# Harvest nodes that happen to sit inside a knoll are lifted onto its surface.
-static func settle(world:FortWorld)->void:
-	for resource in world.resource_nodes.values():
-		var node:Node3D=resource.node
-		if not is_instance_valid(node):continue
-		var lift:=height(node.position)
-		if lift>0.02 and (node.position.y<0.05 or node.has_meta("vista_lift")):
-			node.position.y=lift;node.set_meta("vista_lift",true)
-		elif node.has_meta("vista_lift") and lift<=0.02:
-			node.position.y=0;node.remove_meta("vista_lift")
-
 # Raiders that fall through or spawn inside the ground are removed (host only).
 static func cull_buried(world:FortWorld)->void:
 	for id in world.enemies.keys():
 		var e:Dictionary=world.enemies[id]
 		var body:Node3D=e.node
-		var floor_height:=height(body.position)
-		if body.position.y<-1.8 or (floor_height>0.5 and body.position.y<floor_height-1.6):
+		if body.position.y<FortGround.height(body.position.x,body.position.z)-1.8:
 			world._damage_enemy(int(id),float(e.hp)+1.0,Vector3.ZERO,"buried")
 
 static func release(world:FortWorld)->void:
-	if built_world==world.get_instance_id():knolls.clear();built_seed=-1;built_world=0
 	if world.environment:world.environment.sky=null
 	sky=null;range_material=null

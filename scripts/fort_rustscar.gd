@@ -2,7 +2,7 @@ class_name FortRustscar
 extends RefCounted
 const ORE:=[Vector3(101,0,7),Vector3(108,0,5),Vector3(105,0,-5),Vector3(116,0,8),Vector3(124,2,8),Vector3(128,2,18),Vector3(125,2,26),Vector3(128,2,-4),Vector3(136,4,7),Vector3(136,4,16),Vector3(136,4,26),Vector3(136,4,-4)]
 static func build(world:FortWorld)->void:
-	var root:=Node3D.new();root.name="RustscarQuarry";world.frontier.add_child(root)
+	var root:=Node3D.new();root.name="RustscarQuarry";world.frontier.add_child(root);FortGround.ground(root,0.0,0.0,Vector2(120,7))
 	for shelf in [{"pos":Vector3(126,1,10),"size":Vector3(12,2,36)},{"pos":Vector3(136,2,10),"size":Vector3(8,4,36)}]:
 		root.add_child(Visuals.box(shelf.size,Color("#856d56"),shelf.pos));FortArt.box_collider(root,shelf.size,shelf.pos)
 	for z in [-5,1,7,13,25]:

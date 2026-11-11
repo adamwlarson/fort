@@ -33,7 +33,7 @@ static func apply(w:FortWorld)->void:
 	if rank>=6:
 		for x in [-7,7]:FortCastleArt.model(detail,"waystone",Vector3(x,0,-7),Vector3.ONE*.8)
 static func flight_height(w:FortWorld,pos:Vector3,goal:Vector3)->float:
-	var height:=maxf(4.8,goal.y+3)
+	var height:=maxf(FortGround.height(pos.x,pos.z)+4.8,goal.y+3)
 	for r in w.castle.rooms.values():
 		if not r.complete:continue
 		var center:=FortCastle.position(r)

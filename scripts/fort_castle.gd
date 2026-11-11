@@ -249,7 +249,7 @@ func pack_bonus()->int:
 		if r.complete and FortCastleFeatures.healthy(r) and r.kind=="Research":bonus=maxi(bonus,2*(FortCastleFeatures.level(r)-1))
 	return (6 if "Logistics" in research else 0)+bonus
 func floor_at(pos:Vector3)->float:
-	var height:=0.0
+	var height:=FortGround.height(pos.x,pos.z)
 	for r in rooms.values():
 		var p:=position(r)
 		if not r.complete or absf(pos.x-p.x)>=10 or absf(pos.z-p.z)>=10 or p.y>pos.y+1.2:continue

@@ -12,7 +12,7 @@ static func clear(w:FortWorld,a:Vector3,b:Vector3,radius:=.5)->bool:
 	var side:=Vector3(-offset.z,0,offset.x).normalized()*radius
 	var space:=w.get_world_3d().direct_space_state
 	for shift in [Vector3.ZERO,side,-side]:
-		var hit:=space.intersect_ray(PhysicsRayQueryParameters3D.create(a+shift+Vector3.UP*.65,b+shift+Vector3.UP*.65,1))
+		var hit:=FortGround.sight(space,a+shift+Vector3.UP*.65,b+shift+Vector3.UP*.65)
 		if not hit.is_empty() and hit.normal.y<.7:return false
 	return true
 static func floor_point(w:FortWorld,anchor:Vector3,body:CharacterBody3D)->Vector3:
@@ -65,7 +65,11 @@ static func direction(w:FortWorld,body:CharacterBody3D,state:Dictionary,goal:Vec
 	if not route.is_empty() and w.clock<float(state.get("nav_until",0)):
 		if clear(w,pos,route[0],radius):return (route[0]-pos).normalized()
 		state.nav_points=[];state.nav_until=0.0
-	if clear(w,pos,goal,radius):return (goal-pos).normalized()
+	if w.clock<float(state.get("direct_until",0)) and not changed:return (goal-pos).normalized()
+	if clear(w,pos,goal,radius):
+		# Remember an open line briefly: a hundred raiders need not re-cast it every frame.
+		state.direct_until=w.clock+.12;state.nav_goal=goal;state.nav_revision=w.navigation_revision
+		return (goal-pos).normalized()
 	if w.clock>=float(state.get("nav_until",0)) and budget(w):
 		state.nav_points=path(w,body,goal);state.nav_until=w.clock+2.5;state.nav_goal=goal;state.nav_revision=w.navigation_revision
 		if not state.nav_points.is_empty():return (state.nav_points[0]-pos).normalized()

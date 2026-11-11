@@ -59,6 +59,8 @@ var world:FortWorld
 var root:Node3D
 var drop_root:Node3D
 var pieces:Dictionary={}     # key -> {kind, turn, hp, max_hp, node}
+## Bumped whenever a foundation appears or goes, so the terrain re-levels beneath them.
+var ground_revision:=0
 var occupied:Dictionary={}   # slot key -> owning piece key
 var spans:Dictionary={}      # key -> tiles from direct support
 var spans_dirty:=false
@@ -221,7 +223,7 @@ func reason(kind:String,k:int,t:int)->String:
 			if castle_deck(ix,iz,level):return "The castle floor is already here. Build straight onto it."
 			if spec.get("ground",false):
 				if level!=0:return "Foundations sit on the ground. Use a floor up here."
-				if FortVista.height(pos)>.45:return "The ground rises here. Foundations need level ground."
+				if absf(FortGround.height(pos.x,pos.z))>1.2:return "The ground is too steep here. Start on gentler ground and build across."
 				if world.hearth_level>=2 and world.expedition.terrain_enabled and FortTerrain.reserved(pos,world.expedition.seed_value,3):return "Too close to the cliffs and caverns"
 				for obstacle in world.scenery_keepouts:
 					if Vector2(pos.x-obstacle.pos.x,pos.z-obstacle.pos.z).length()<2.2+float(obstacle.radius):return "Keep scenery and camp supplies clear"
@@ -310,7 +312,7 @@ func destroy(k:int,share:float,notice:String)->void:
 	world.broadcast("recv_piece_gone",[k,notice])
 	if stock.is_empty():return
 	var hit:=world.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(pos+Vector3.UP*.7,pos+Vector3.DOWN*60,1,exclude))
-	spawn_drop(hit.position if not hit.is_empty() else Vector3(pos.x,FortVista.height(pos),pos.z),stock)
+	spawn_drop(hit.position if not hit.is_empty() else FortGround.on(pos),stock)
 
 ## Anything left without support falls down and drops all of its materials.
 func collapse()->void:
@@ -380,6 +382,7 @@ func recv_piece(k:int,kind:String,t:int,hp:float)->void:
 	pieces[k]=d
 	for s in slots(kind,k,t):occupied[s]=k
 	if KINDS[kind].get("door",false):doors.append(k)
+	if KINDS[kind].get("ground",false):ground_revision+=1
 	spans_dirty=true;world.navigation_revision+=1
 	if KINDS[kind].get("roof",false):reskin_around(k)
 
@@ -392,8 +395,17 @@ func recv_piece_gone(k:int,notice:String)->void:
 	doors.erase(k)
 	if marked==k:marked=-1
 	d.node.queue_free();pieces.erase(k)
+	if KINDS[d.kind].get("ground",false):ground_revision+=1
 	spans_dirty=true;world.navigation_revision+=1
 	if KINDS[d.kind].get("roof",false):reskin_around(k)
+
+## Map positions of every foundation: the terrain is cut level under each one.
+func ground_cells()->Array[Vector2]:
+	var cells:Array[Vector2]=[]
+	for k in pieces:
+		if KINDS[pieces[k].kind].get("ground",false):
+			var at:=place(k);cells.append(Vector2(at.x,at.z))
+	return cells
 
 func recv_piece_hp(k:int,hp:float)->void:
 	if pieces.has(k):pieces[k].hp=hp
@@ -516,7 +528,7 @@ func siege(e:Dictionary,delta:float)->bool:
 	if gap.length()>1.7:
 		var direction:=gap.normalized()
 		body.velocity.x=direction.x*e.speed;body.velocity.z=direction.z*e.speed;body.velocity.y-=22*delta
-		body.move_and_slide();body.rotation.y=lerp_angle(body.rotation.y,atan2(direction.x,direction.z),delta*8);e.moving=true
+		FortGround.walk(body);body.rotation.y=lerp_angle(body.rotation.y,atan2(direction.x,direction.z),delta*8);e.moving=true
 		return true
 	e.moving=false;body.velocity=Vector3.ZERO
 	if gap.length()>.05:body.rotation.y=lerp_angle(body.rotation.y,atan2(gap.x,gap.z),delta*8)

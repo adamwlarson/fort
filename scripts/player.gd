@@ -23,6 +23,10 @@ var visual_root: Node3D
 var camera_pivot: Node3D
 var camera: Camera3D
 var stuck_time:=0.0
+var step_distance:=0.0
+var last_step_position:=Vector3.INF
+var was_airborne:=false
+var fall_speed:=0.0
 var fall_retry:=0.0
 var animation_player: AnimationPlayer
 var nameplate: Label3D
@@ -210,6 +214,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_9:
 			world.select_build_slot(int(event.physical_keycode - KEY_1))
 
+## Footfalls on grass and stone, wading through the lakes, and the splash of landing in one.
+func _footsteps(grounded:bool,vertical:float)->void:
+	if world==null or world.sound==null or health<=0 or mounted_ballista>=0:
+		last_step_position=position;return
+	if not last_step_position.is_finite():last_step_position=position
+	var moved:=Vector2(position.x-last_step_position.x,position.z-last_step_position.z).length()
+	last_step_position=position
+	var wet:=position.y<FortGround.WATER-.15 and FortGround.wet(position.x,position.z)
+	if not grounded:
+		was_airborne=true;fall_speed=minf(fall_speed,vertical);return
+	if was_airborne:
+		was_airborne=false
+		if wet and fall_speed<-5.0:FortParticles.wade(world,position,true)
+		elif fall_speed<-7.0:world.sound.play_at("step_stone" if position.y>FortGround.height(position.x,position.z)+.3 else "step_grass",position,-3.0,.8)
+		fall_speed=0.0;step_distance=0.0
+	if moved>1.5:return # A teleport is not a stride.
+	step_distance+=moved
+	# A dwarf's stride; the pony's is longer.
+	if step_distance<(2.6 if travel_mode==1 else 1.75):return
+	step_distance=0.0
+	if wet:FortParticles.wade(world,position)
+	elif travel_mode!=2 or is_local_player():
+		var stone:=position.y>FortGround.height(position.x,position.z)+.3
+		var pitch:=.8 if travel_mode==1 else 1.0
+		if is_local_player():world.sound.play("step_stone" if stone else "step_grass",-14.0)
+		else:world.sound.play_at("step_stone" if stone else "step_grass",position,-6.0,pitch,26.0)
+
 func _physics_process(delta: float) -> void:
 	attack_cooldown = maxf(0, attack_cooldown - delta)
 	ability_cooldown = maxf(0, ability_cooldown - delta)
@@ -220,6 +251,7 @@ func _physics_process(delta: float) -> void:
 	_animate(delta)
 	if not is_local_player():
 		position = position.lerp(target_position, 1.0 - exp(-18.0 * delta))
+		_footsteps(position.y<=world.castle.floor_at(position)+.25 if world and world.castle else true,velocity.y)
 		visual_root.rotation.y = lerp_angle(visual_root.rotation.y, target_yaw, 1.0 - exp(-18.0 * delta))
 		return
 	camera_pivot.rotation = Vector3(look_pitch, look_yaw, 0)
@@ -247,6 +279,8 @@ func _physics_process(delta: float) -> void:
 	if rally_time > 0: speed *= 1.25
 	if travel_mode == 1: speed *= 1.85
 	if action_time > 0 and travel_mode == 0: speed *= 0.5
+	# Wading through a lake is slower going than the meadow.
+	if position.y<FortGround.WATER-.3 and FortGround.wet(position.x,position.z):speed*=.72
 	dash_time = maxf(0, dash_time - delta)
 	if dash_time > 0:
 		direction = forward
@@ -270,6 +304,10 @@ func _physics_process(delta: float) -> void:
 		var before:=position
 		FortRecovery.step_up(self,Vector3(velocity.x,0,velocity.z)*delta)
 		move_and_slide()
+		_footsteps(is_on_floor(),velocity.y)
+		# A dwarf who slips just under the land is set back on it. Deeper falls use the checked recovery below.
+		var land:=FortGround.height(position.x,position.z)
+		if position.y<land-.6 and position.y>=land-5.0:position.y=land+.05;velocity.y=0
 		if can_act and direction.length_squared()>.1 and position.distance_to(before)<.002:stuck_time+=delta
 		else:stuck_time=0
 		if stuck_time>2.5:
@@ -280,7 +318,7 @@ func _physics_process(delta: float) -> void:
 		var edge:Vector2=Vector2(position.x,position.z).normalized()*(world.frontier_radius()-0.1)
 		position.x=edge.x;position.z=edge.y;velocity.x=0;velocity.z=0
 		if world.toast_time<=0:world.show_toast("Edge of the explored land. Upgrade the hearth (U) to travel further.")
-	if position.y < -5:
+	if position.y < FortGround.height(position.x,position.z)-5:
 		velocity = Vector3.ZERO
 		fall_retry-=delta
 		if fall_retry<=0:

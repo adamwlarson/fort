@@ -87,12 +87,13 @@ func _ready() -> void:
 	defense_root = _root("Defenses")
 	resource_root = _root("Resources")
 	_build_environment()
+	# The seed shapes the land, so the expedition exists before any of it is built.
+	expedition=FortExpedition.new(self)
 	FortArt.make_landscape(self)
 	FortArt.make_fort(self)
 	_build_resources()
 	FortLandscape.populate(self)
 	frontier = FortFrontier.new()
-	expedition=FortExpedition.new(self)
 	pets=FortPets.new(self)
 	add_child(frontier)
 	progression=FortProgression.new(self)
@@ -130,12 +131,13 @@ func _ready() -> void:
 	add_child(hud)
 	readability=FortReadability.new();readability.world=self;add_child(readability)
 	FortVista.build_horizon(self)
-	FortVista.ensure(self)
+	FortGround.ensure(self)
 	show_toast("Welcome to Hearthhold. Hold E to gather; return your pack to the stockpile.",6)
 
 func _exit_tree() -> void:
 	# Release sky resources held in statics so nothing outlives the renderer.
 	FortVista.release(self)
+	FortGround.release(self)
 
 func _root(title: String) -> Node3D:
 	var node:=Node3D.new()
@@ -236,7 +238,7 @@ func broadcast(method:String,args:Array=[]) -> void:
 
 func receive(method:String,args:Array) -> void:
 	if method=="recv_gain":readability.gain.callv(args);return
-	if method=="recv_loot":readability.loot.callv(args);return
+	if method=="recv_loot":sound.play("chest",-9);readability.loot.callv(args);return
 	if method=="recv_castle":castle.receive(args[0]);return
 	if method in ["recv_piece","recv_piece_gone","recv_piece_hp","recv_drop"]:pieces.callv(method,args);return
 	if method not in ["recv_player","recv_remove_player","recv_snapshot","recv_full","recv_resource","recv_defense","recv_remove_defense","recv_enemy","recv_enemy_hit","recv_enemy_dead","recv_action","recv_fx","recv_notice","recv_phase","recv_health","recv_teleport","recv_mount","recv_end","recv_loadout"]:return
@@ -256,7 +258,7 @@ func accept_movement(id:int,pos:Vector3,yaw:float,motion:Vector3) -> void:
 	if not players.has(id) or not pos.is_finite() or not motion.is_finite() or not is_finite(yaw):return
 	var p:FortPlayer=players[id]
 	if p.health<=0 or p.mounted_ballista>=0:return
-	if pos.distance_to(p.position)>5.0 or Vector2(pos.x,pos.z).length()>frontier_radius()+1 or pos.y>35:return
+	if pos.distance_to(p.position)>5.0 or Vector2(pos.x,pos.z).length()>frontier_radius()+1 or pos.y>FortGround.height(pos.x,pos.z)+35:return
 	p.position=pos
 	p.target_position=pos
 	p.target_yaw=yaw
@@ -421,7 +423,7 @@ func _process(delta:float) -> void:
 	clock+=delta
 	toast_time=maxf(0,toast_time-delta)
 	_update_lighting(delta)
-	FortVista.ensure(self)
+	FortGround.ensure(self)
 	FortVista.follow(self)
 	_update_preview()
 	battlements.tick(delta)
@@ -469,7 +471,7 @@ func _process(delta:float) -> void:
 				broadcast("recv_resource",[id,FortForestry.capacity(r),false])
 			elif r.respawn<=0:r.respawn=5.0
 	if clock>=float(get_meta("vista_check",0.0)):
-		set_meta("vista_check",clock+1.0);FortVista.cull_buried(self);FortVista.settle(self)
+		set_meta("vista_check",clock+1.0);FortVista.cull_buried(self)
 	snapshot_timer-=delta
 	if snapshot_timer<=0:
 		snapshot_timer=0.08
@@ -500,6 +502,8 @@ func recv_phase(night:bool,new_wave:int,seconds:float)->void:
 	is_night=night;wave=new_wave;phase_time=seconds
 	show_toast("NIGHT %d · Defend the hearth!"%wave if night else "DAWN · The swarm retreats. Heal, gather, rebuild.",5)
 	sound.play("night" if night else "dawn",-10)
+	create_tween().tween_callback(func():
+		if local_player():sound.voice(local_player(),"night" if night else "dawn")).set_delay(2.4)
 
 func night_length(night:int)->float:
 	var base:=NIGHT_LENGTH+mini(29,maxi(0,night-1))*5.0+(hearth_level-1)*15.0
@@ -731,6 +735,8 @@ func _update_resource_focus()->void:
 	var capacity:int=FortForestry.capacity(resource)
 	var color:=GameData.resource_color(resource.kind).lightened(0.25)
 	focus_ring.position=resource.node.position+Vector3.UP*0.065
+	# The ring lies on the slope the resource stands on.
+	focus_ring.basis=Basis(Quaternion(Vector3.UP,FortGround.normal(resource.node.position.x,resource.node.position.z)))
 	focus_ring.scale=Vector3.ONE*(1.0+sin(clock*3)*0.025)
 	(focus_ring.material_override as StandardMaterial3D).albedo_color=color
 	var toward_player:Vector3=p.position-resource.node.position
@@ -776,10 +782,13 @@ func recv_resource(id:int,amount:int,hit:bool)->void:
 		var chunks:=ceili(float(amount)/(6.0 if r.kind in ["crystal","aether"] else 12.0)*6.0)
 		for chunk in node.find_children("HarvestChunk_*","Node3D",true,false):
 			chunk.visible=chunk.name.get_slice("_",1).to_int()<chunks
-		if hit and amount<previous:FortParticles.mineral_hit(self,node.global_position,r.kind=="crystal")
+		if hit and amount<previous:
+			FortParticles.mineral_hit(self,node.global_position,r.kind=="crystal")
+			if r.kind in ["crystal","aether"]:sound.play_at("crystal",node.global_position+Vector3.UP,-6.0)
 	if destroyed:
 		var leaf_color:=Color("#cf963d") if r.get("species","")=="Amberwood" else (Color("#bfa6d2") if r.get("tree",false) and r.kind!="wood" else Color.TRANSPARENT)
 		FortParticles.tree_destroyed(self,node.global_position,id%3==2,leaf_color)
+		sound.play_at("tree_fall",node.global_position+Vector3.UP*2,-2.0)
 		tree_burst_count+=1
 	FortSolids.harvest_collision(node,amount>0)
 	var anim:AnimationPlayer=r.animation
@@ -815,13 +824,15 @@ func recv_action(id:int,kind:String,target:=Vector3.INF)->void:
 	if not players.has(id):return
 	var p:FortPlayer=players[id]
 	p.play_action(kind)
+	if kind=="attack":sound.voice(p,"attack",.2)
+	elif kind=="ability":sound.voice(p,"ability")
 	if target.is_finite():
 		var toward:Vector3=target-p.position
 		if Vector2(toward.x,toward.z).length()>0.01:
 			p.visual_root.rotation.y=atan2(toward.x,toward.z)
 			p.target_yaw=p.visual_root.rotation.y
 	if kind=="attack" and not GameData.ranged(p.weapon):
-		sound.play("shot",-23)
+		sound.play_at("swing",p.position+Vector3.UP,-7)
 		var front:=Vector3(sin(p.visual_root.rotation.y),0,cos(p.visual_root.rotation.y))
 		_ring(p.position+front*1.0+Vector3.UP*0.8,Color("#f7d394"),1.35,0.25)
 
@@ -978,6 +989,7 @@ func build_block_reason(kind:String,pos:Vector3,rotation_y:float,_temporary:=fal
 		if not get_world_3d().direct_space_state.intersect_shape(query,1).is_empty():return "Field turret needs clear space"
 		return ""
 	if castle and absf(pos.y-castle.floor_at(pos))>.15:return "Build on a completed floor"
+	if FortGround.slope(pos.x,pos.z)>.5:return "Too steep to build here"
 	var castle_clearance:=FortPlacement.wall_width(kind)*.5 if FortPlacement.is_wall(kind) else 1.2
 	if castle and castle.placement_reason(pos,castle_clearance,kind,rotation_y)!="":return castle.placement_reason(pos,castle_clearance,kind,rotation_y)
 	if kind=="Gatehouse":
@@ -989,7 +1001,7 @@ func build_block_reason(kind:String,pos:Vector3,rotation_y:float,_temporary:=fal
 	if pos.distance_to(Vector3(4.6,0,0))<3 or pos.distance_to(FortHearthGrowth.workshop(self))<3:return "Keep the stockpile and workshop clear"
 	var footprint:=3.2 if kind=="Gatehouse" else (2.7 if kind=="Watchtower" else 2.0)
 	for obstacle in scenery_keepouts:
-		if pos.distance_to(obstacle.pos)<footprint+obstacle.radius:return "Keep scenery and camp supplies clear"
+		if FortGround.flat(pos,obstacle.pos)<footprint+obstacle.radius:return "Keep scenery and camp supplies clear"
 	if pos.distance_to(Vector3(-4.6,0,4.3))<footprint or pos.distance_to(Vector3(5.3,0,-4.4))<footprint:return "Keep camp supplies clear"
 	for resource in resource_nodes.values():
 		if resource.amount>0 and resource.node.position.distance_to(pos)<footprint:return "Clear the resource before building here"
@@ -1047,6 +1059,8 @@ func recv_defense(id:int,kind:String,pos:Vector3,yaw:float,hp:float,temporary:bo
 	label.name="Status"
 	label.visible=false
 	node.add_child(label)
+	# Anything built on open ground stays on it when rooms or foundations reshape the land.
+	if absf(pos.y)<.05 or pos.y<FortGround.height(pos.x,pos.z)+.3:FortGround.ground(node)
 	defenses[id]={"node":node,"kind":kind,"hp":hp,"max_hp":hp,"temporary":temporary,"life":40.0,"occupant":-1,"level":1}
 
 func recv_remove_defense(id:int,quiet:=false)->void:
@@ -1173,7 +1187,7 @@ func _spawn_enemy(requested_kind:="",requested_angle:=INF)->bool:
 		for attempt in 32:
 			if not FortTerrain.reserved(pos,expedition.seed_value,4):break
 			pos=pos.rotated(Vector3.UP,.07)
-	pos.y+=FortVista.height(pos)
+	pos.y+=FortGround.height(pos.x,pos.z)
 	var hp:float=(135+wave*10 if kind=="Brute" else (40+wave*5 if kind=="Ashwing" else 55+wave*6))*(1.0+(hearth_level-1)*0.05)
 	if kind=="Shieldguard":hp*=2.0
 	if kind=="Hexer":hp*=1.3
@@ -1201,6 +1215,8 @@ func set_hearth_level(level:int)->void:
 	if progression:progression.unlock_zones(level)
 	if encounters:encounters.unlock(level)
 	FortHearthGrowth.apply(self)
+	# Newly opened land needs solid ground and its scenery seated before anyone walks out.
+	FortGround.ensure(self)
 
 func _upgrade_hearth(id:int,expected_level:int)->void:
 	if expected_level!=hearth_level or hearth_level>=GameData.MAX_HEARTH or is_night:return
@@ -1227,6 +1243,7 @@ func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1)->void:
 	body.collision_layer=4
 	body.collision_mask=1
 	if kind in ["Ashwing","Bombwing"]:body.collision_mask=0
+	else:FortGround.exempt(body)
 	body.floor_snap_length=0.3
 	var col:=CollisionShape3D.new()
 	var capsule:=CapsuleShape3D.new()
@@ -1255,6 +1272,11 @@ func recv_enemy(id:int,kind:String,pos:Vector3,hp:float,camp:=-1)->void:
 	if kind=="Prowler":enemies[id].speed=4.7
 	if kind=="Shieldguard":enemies[id].speed=2.1
 	enemies[id].merge({"camp":camp,"home":pos,"slow":0.0})
+	if clock>2.0:
+		if kind=="Colossus":sound.play_at("brute_roar",pos,6.0,.6,260.0)
+		elif kind in ["Brute","Chieftain","Stonebear"]:sound.play_at("brute_roar",pos,-3.0,1.0,80.0)
+		elif kind in FortEncounters.DRAGONS:sound.play_at("dragon_roar",pos,2.0,1.0,140.0)
+		elif kind in ["Direwolf","Razorback","Prowler"]:sound.play_at("wolf",pos,-4.0)
 	if kind=="Chieftain":enemies[id].speed=2.0
 
 func _nearest_enemy(pos:Vector3,radius:float)->int:
@@ -1356,7 +1378,7 @@ func _simulate_enemies(delta:float)->void:
 		body.velocity.z=direction.z*e.speed*(0.45 if e.slow>0 else 1.0)
 		body.velocity.y-=22*delta
 		FortRecovery.step_up(body,Vector3(body.velocity.x,0,body.velocity.z)*delta)
-		body.move_and_slide()
+		FortGround.walk(body)
 		body.rotation.y=lerp_angle(body.rotation.y,atan2(direction.x,direction.z),delta*8)
 		e.moving=true
 
@@ -1418,7 +1440,7 @@ func _simulate_guard(e:Dictionary,delta:float)->void:
 		var direction:=offset.normalized() if offset.length()>1 else Vector3.ZERO
 		direction=_steer_around_scenery(body,direction,body.get_instance_id(),e)
 		body.velocity=direction*e.speed*(0.45 if e.slow>0 else 1.0)+Vector3(0,body.velocity.y-22*delta,0)
-		body.move_and_slide();e.moving=direction.length()>0
+		FortGround.walk(body);e.moving=direction.length()>0
 		if direction.length()>0:body.rotation.y=lerp_angle(body.rotation.y,atan2(direction.x,direction.z),delta*8)
 	if float(e.get("slam_at",0))>0 and clock>=float(e.slam_at):
 		e.slam_at=0
@@ -1455,6 +1477,9 @@ func _animate_enemies(delta:float)->void:
 			body.position=body.position.lerp(e.target,1-exp(-14*delta))
 			body.rotation.y=lerp_angle(body.rotation.y,e.yaw,1-exp(-14*delta))
 		FortArt.animate_enemy(e.visual,clock+int(id)*0.3,e.attack>0.85,e.moving)
+		if e.moving and clock>=float(e.get("wade_at",0.0)):
+			e.wade_at=clock+.5
+			if body.position.y<FortGround.WATER and FortGround.wet(body.position.x,body.position.z):FortParticles.wade(self,body.position,false,false)
 		FortFire.restore(e,clock)
 		e.label.text=e.kind if FortEncounters.is_wild(int(e.get("camp",-1))) else ""
 	for d in defenses.values():
@@ -1485,6 +1510,7 @@ func recv_enemy_hit(id:int,hp:float,amount:float)->void:
 	if not enemies.has(id):return
 	enemies[id].hp=hp
 	FortFire.hit(enemies[id],clock)
+	if randf()<.35:sound.play_at("enemy_hurt",enemies[id].node.position+Vector3.UP,-7.0,.75 if enemies[id].kind in ["Brute","Chieftain","Colossus","Stonebear"] else 1.0)
 	recv_fx(enemies[id].node.position+Vector3.UP*1.5,Color("#f5d3a0"),str(int(amount)),"hit")
 	var visual:Node3D=enemies[id].visual
 	var anim:=FortPlayer.find_animation(visual)
@@ -1502,6 +1528,8 @@ func recv_enemy_dead(id:int)->void:
 	var body:Node3D=enemies[id].node
 	var anim:=FortPlayer.find_animation(enemies[id].visual)
 	if anim and anim.has_animation("Death"):anim.play("Death",0.08)
+	var big:bool=enemies[id].kind in ["Brute","Chieftain","Colossus","Stonebear","Emberdrake","Frostwyrm"]
+	sound.play_at("brute_roar" if big else "enemy_die",body.position+Vector3.UP,-5.0,.7 if big else 1.0)
 	enemies.erase(id)
 	body.set_physics_process(false)
 	if body is CollisionObject3D:body.collision_layer=0
@@ -1543,7 +1571,10 @@ func recv_health(id:int,value:float,down:float)->void:
 	var p:FortPlayer=players[id]
 	if value<p.health and p.is_local_player():
 		hud.damage.color.a=0.28
-		sound.play("hurt",-10)
+		sound.play("hit",-12)
+	if value<=0 and p.health>0:sound.voice(p,"down")
+	elif value<p.health-4:sound.voice(p,"hurt",.55)
+	elif p.health<=0 and value>0:sound.voice(p,"revive")
 	p.health=value;p.down_time=down
 	if value>0:p.visual_root.rotation.z=0
 
@@ -1563,13 +1594,23 @@ func recv_teleport(id:int,pos:Vector3,protect:=true)->void:
 	if protect:p.invulnerable=4
 
 func recv_fx(pos:Vector3,color:Color,message:String,sfx:String,end:=Vector3.INF)->void:
-	if sfx.begins_with("wild_"):FortEncounters.fx(self,pos,end,color,message,sfx);return
-	if sfx=="mend":FortBattlements.mend_fx(self,pos,end);return
+	if sfx.begins_with("wild_"):
+		if sfx in ["wild_fire","wild_ice"]:sound.play_at("dragon_roar",pos,1.0,1.0,110.0)
+		elif sfx=="wild_impact":sound.play_at("slam",pos,-3.0)
+		elif message.contains("Direwolf") or message.contains("Razorback"):sound.play_at("wolf",pos,-2.0)
+		elif message.contains("Stonebear"):sound.play_at("brute_roar",pos,-2.0,.85)
+		FortEncounters.fx(self,pos,end,color,message,sfx);return
+	if sfx=="mend":sound.play_at("heal",pos,-9.0);FortBattlements.mend_fx(self,pos,end);return
+	if sfx=="boss_slam":sound.play_at("slam",pos,3.0,.8,140.0)
 	if sfx in ["enemy_shell","bomb_drop","blast","fuse","boss_slam"]:FortRaidcraft.fx(self,pos,end,sfx);return
-	var p:=local_player()
-	var nearby:=p==null or p.position.distance_to(pos)<22
-	if nearby and not sfx.is_empty():sound.play(sfx,-15)
-	if sfx=="construction":sound.play("hammer",-20)
+	var cue:=sfx
+	if message.begins_with("HEARTH TIER"):cue="hearth_up"
+	elif message=="CREW TREASURE":cue="chest"
+	elif message.begins_with("READY / "):cue="build_done"
+	elif message.begins_with("LEVEL "):cue=""
+	elif message=="DIVE INCOMING":cue="wings"
+	if not cue.is_empty():sound.play_at(cue,pos,2.0 if cue=="hearth_up" else -4.0)
+	if cue=="build_done" and local_player() and local_player().position.distance_to(pos)<6:sound.voice(local_player(),"build",.6)
 	if sfx=="arc":FortArcFX.lightning(self,pos,end,color);return
 	if sfx=="frost_shell":FortArcFX.shell(self,pos,end,color);return
 	if message=="bolt":

@@ -118,6 +118,16 @@ func _ready() -> void:
 	var sensitivity:=Label.new();sensitivity.text="Mouse sensitivity";stack.add_child(sensitivity)
 	var slider:=HSlider.new();slider.min_value=0.001;slider.max_value=0.005;slider.step=0.0001;slider.value=world.mouse_sensitivity;slider.value_changed.connect(func(value):world.mouse_sensitivity=value);stack.add_child(slider)
 	var sound:=CheckButton.new();sound.text="Sound effects";sound.button_pressed=true;sound.toggled.connect(func(value):world.sound.enabled=value);stack.add_child(sound)
+	var tunes:=CheckButton.new();tunes.text="Music";tunes.button_pressed=true;stack.add_child(tunes)
+	tunes.toggled.connect(func(value):
+		var music=world.get_parent().get("music")
+		if music:music.enabled=value)
+	for bus_title in ["Music","SFX","Voice","Ambience"]:
+		var caption:=Label.new();caption.text={"Music":"Music volume","SFX":"Effects volume","Voice":"Voices volume","Ambience":"Ambience volume"}[bus_title];stack.add_child(caption)
+		var level:=HSlider.new();level.min_value=0.0;level.max_value=1.0;level.step=.05;level.value=.8;stack.add_child(level)
+		level.value_changed.connect(func(value):
+			var bus:=AudioServer.get_bus_index(bus_title)
+			if bus>=0:AudioServer.set_bus_volume_db(bus,linear_to_db(maxf(value/.8,.0001)));AudioServer.set_bus_mute(bus,value<=0.0))
 	fps_toggle=CheckButton.new();fps_toggle.text="Show FPS counter";fps_toggle.tooltip_text="Display this computer's frames per second. Saved locally.";stack.add_child(fps_toggle)
 	var exit_button:=Button.new();exit_button.text="Leave fort";exit_button.custom_minimum_size.y=44;exit_button.pressed.connect(func():world.return_to_menu.emit("Returned to title."));stack.add_child(exit_button)
 	if multiplayer.is_server():

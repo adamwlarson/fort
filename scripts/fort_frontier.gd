@@ -32,16 +32,14 @@ func _rebuild_ward()->void:
 	if is_instance_valid(ward):ward.queue_free()
 	ward=Node3D.new();ward.name="FrontierWard";add_child(ward)
 	var radius:=world.frontier_radius()
-	var ring:=TorusMesh.new();ring.inner_radius=radius-0.10;ring.outer_radius=radius+0.10;ring.rings=160;ring.ring_segments=4
-	var mesh:=Visuals.mesh_node(ring,Color("#74b5a6"));mesh.position.y=0.13
-	(mesh.material_override as StandardMaterial3D).shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
-	ward.add_child(mesh)
+	# The ward line itself is drawn by the terrain, so it follows every rise and hollow.
+	FortGround.set_ward(radius)
 	for i in 8:
 		var angle:=i*TAU/8
 		var pos:=Vector3(sin(angle),0,cos(angle))*radius
 		FortLandscape.place(ward,"waystone",pos,angle,0.85)
 		var label:=Visuals.label_3d("WARD LIMIT / UPGRADE HEARTH" if built_level<GameData.MAX_HEARTH else "THE EDGE OF THE MARCH",Color("#a6dbca"),2.2)
-		label.position+=pos;label.font_size=22;ward.add_child(label)
+		label.position+=FortGround.on(pos);label.font_size=22;ward.add_child(label)
 
 func _build_ring(level:int)->void:
 	if level>3:world.expedition.build_ring(self,level);return
@@ -55,7 +53,7 @@ func _build_ring(level:int)->void:
 		var angle:float=(i+0.5)*TAU/72
 		var pos:=Vector3(sin(angle),0,cos(angle))*(radius+sin(i*2.4)*20)
 		for site in FortProgression.SITES:
-			if pos.distance_to(site.pos)<(15 if site.get("village",false) else 10):pos+=pos.normalized()*24
+			if FortGround.flat(pos,site.pos)<(15 if site.get("village",false) else 10):pos+=pos.normalized()*24
 		var kind:String=["wood","stone","crystal"][i%3]
 		if level==2 and pos.x>0:kind="iron" if i%3!=0 else "stone"
 		if level==3:kind="aether" if pos.z<0 else ("iron" if i%2==0 else "crystal")
@@ -90,7 +88,7 @@ func _build_ring(level:int)->void:
 		FortLandscape.place(grove,"camp_tent",pos+Vector3(-4,0,3),angle,0.85)
 		var zone:String=("RUSTSCAR QUARRY / IRON" if pos.x>10 else "ELDERWOOD / TIMBER") if level==2 else ("STORMGLASS BASIN / AETHER" if pos.z<0 else "FROSTVEIN RIDGE / IRON & CRYSTAL")
 		var label:=Visuals.label_3d(zone,Color("#b1e3d4"),3)
-		label.position+=pos;grove.add_child(label)
+		label.position+=FortGround.on(pos);grove.add_child(label)
 		for j in 5:FortLandscape.place(grove,"cliff_chunk",pos+Vector3(sin(j*1.25)*25,-0.5,cos(j*1.25)*25),j,0.7 if level==2 else 1.1)
 	var rng:=RandomNumberGenerator.new();rng.seed=4100+level
 	var ferns:Array[Transform3D]=[]
@@ -119,6 +117,6 @@ func _build_ring(level:int)->void:
 	FortLandscape.instance_asset(grove,"moss_rock",rubble)
 	if level==2:FortForestry.add_edge_woods(world)
 	FortFoliage.populate(grove,world,74 if level==2 else 154,152 if level==2 else 240,1200+level,"frontier" if level==2 else "frost")
-	var arrays:=[];arrays.resize(Mesh.ARRAY_MAX);arrays[Mesh.ARRAY_VERTEX]=verts;arrays[Mesh.ARRAY_COLOR]=colors
-	var grass:=MeshInstance3D.new();var mesh:=ArrayMesh.new();mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays);grass.mesh=mesh
+	var grass:=MeshInstance3D.new()
 	var material:=ShaderMaterial.new();material.shader=preload("res://assets/shaders/meadow_grass.gdshader");grass.material_override=material;grove.add_child(grass)
+	FortGround.ground_blades(grass,verts,colors,3)

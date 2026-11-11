@@ -1,7 +1,8 @@
 class_name FortTerrain
 extends RefCounted
 
-# A contained terrain trial: the castle and existing authored sites stay flat.
+# Hollowback Ridge: an authored hill with a cavern through it. Since Fort 30 it stands on a
+# level shelf of the real terrain (FortGround), at whatever height the land has there.
 # Rebuilt from the expedition seed, so joining/loading never needs mesh packets.
 static var origins:Dictionary={}
 static func origin(seed_value:int)->Vector3:
@@ -12,8 +13,8 @@ static func origin(seed_value:int)->Vector3:
 		var p:=Vector3(sin(a),0,cos(a))*112
 		if p.x>45:continue # Preserve the quarry terraces and their access ramps.
 		var clearance:=INF
-		for spec in FortEncounters.layout(seed_value):clearance=minf(clearance,p.distance_to(spec.pos)-float(spec.radius))
-		for spec in FortProgression.SITES:clearance=minf(clearance,p.distance_to(spec.pos)-16)
+		for spec in FortEncounters.layout(seed_value):clearance=minf(clearance,FortGround.flat(p,spec.pos)-float(spec.radius))
+		for spec in FortProgression.SITES:clearance=minf(clearance,FortGround.flat(p,spec.pos)-16)
 		if clearance>best:best=clearance;chosen=p
 		if clearance>44:break
 	origins[seed_value]=chosen
@@ -30,10 +31,10 @@ static func height_at(x:float,z:float)->float:
 static func ceiling_height(z:float)->float:return 4.8+.8*(1-pow(z/4,2))
 
 static func safe_position(p:Vector3,seed_value:int)->Vector3:
-	var local:=p-origin(seed_value)
+	var local:=p-FortGround.on(origin(seed_value))
 	# The same X/Z has two traversable levels. Do not eject cave occupants.
 	if absf(local.z)<4 and (absf(local.x)>6 or local.y<ceiling_height(local.z)-.2):return p
-	p.y=maxf(p.y,height_at(local.x,local.z)+.06)
+	p.y=maxf(p.y,FortGround.height(p.x,p.z)+height_at(local.x,local.z)+.06)
 	return p
 
 static func point(x:float,z:float)->Vector3:return Vector3(x,height_at(x,z),z)
@@ -59,7 +60,7 @@ static func surface(root:Node3D,points:PackedVector3Array,color:Color,name:Strin
 static func build(world:FortWorld)->void:
 	if not world.expedition.terrain_enabled:return
 	if world.frontier.has_node("HollowbackRidge"):return
-	var root:=Node3D.new();root.name="HollowbackRidge";root.position=origin(world.expedition.seed_value);world.frontier.add_child(root)
+	var root:=Node3D.new();root.name="HollowbackRidge";root.position=origin(world.expedition.seed_value);world.frontier.add_child(root);FortGround.ground(root)
 	world.scenery_keepouts.append({"pos":root.position,"radius":40.0,"terrain":true})
 	var top:=PackedVector3Array();var rock:=PackedVector3Array()
 	for x in range(-26,26,2):
@@ -97,7 +98,7 @@ static func build(world:FortWorld)->void:
 	for i in 6:
 		var p:=Vector3([-3,0,3,-3,0,3][i],0,[-2.8,2.8,-2.8,12,14,12][i])
 		if i>=3:p.y=height_at(p.x,p.z)
-		var node:=Node3D.new();node.position=root.position+p;world.resource_root.add_child(node)
+		var node:=Node3D.new();node.position=origin(world.expedition.seed_value)+p;world.resource_root.add_child(node);FortGround.ground(node,p.y)
 		var kind:="crystal" if i<3 else "iron"
 		node.add_child(FortArt.asset("crystal_vein" if i<3 else "iron_ore"))
 		world.resource_nodes[29000+i]={"kind":kind,"amount":6 if i<3 else 12,"node":node,"animation":null,"respawn":0.0}
@@ -111,8 +112,8 @@ static func build(world:FortWorld)->void:
 		if i%7==0:flowers.append(pose)
 		else:grass.append(pose)
 	FortLandscape.instance_asset(root,"fern",grass);FortLandscape.instance_asset(root,"wildflowers",flowers)
-	var direction:=root.position.normalized()
-	var guide:=FortLandscape.place(world.frontier,"trail_sign",direction*77)
+	var direction:=origin(world.expedition.seed_value).normalized()
+	var guide:=FortLandscape.place(world.frontier,"trail_sign",Vector3(direction.x,0,direction.z).normalized()*77)
 	var caption:=Visuals.label_3d("HOLLOWBACK RIDGE\nFOLLOW THIS TRAIL / HEARTH 2",Color("#ead3a1"),2.4);caption.visibility_range_end=70;guide.add_child(caption)
 	for i in 5:
 		var p:=direction*(80+i*4.5)

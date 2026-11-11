@@ -110,6 +110,28 @@ static func tree_destroyed(parent: Node3D, origin: Vector3, birch := false, foli
 	burst.get_tree().create_timer(3.2).timeout.connect(burst.queue_free)
 	return burst
 
+## Wading: a ring on the surface, a few drops and (for dwarves) the sound of it.
+## `big` is a body landing in the water rather than a step through it.
+static func wade(world: FortWorld, at: Vector3, big := false, audible := true) -> void:
+	if DisplayServer.get_name() == "headless": return
+	var camera := world.get_viewport().get_camera_3d()
+	if camera and camera.global_position.distance_to(at) > 55.0: return
+	var surface := Vector3(at.x, FortGround.WATER + 0.03, at.z)
+	world._ring(surface - Vector3.UP * 0.1, Color(0.86, 0.95, 1.0), 2.4 if big else 0.95, 0.9 if big else 0.6)
+	var drops := emitter("Splash", 28 if big else 8, 0.6 if big else 0.42, quad(Vector2(0.09, 0.09)))
+	drops.position = surface
+	drops.spread = 55.0 if big else 40.0
+	drops.initial_velocity_min = 2.4 if big else 1.1
+	drops.initial_velocity_max = 5.2 if big else 2.3
+	drops.gravity = Vector3(0, -11, 0)
+	drops.color_ramp = ramp([Color(0.92, 0.98, 1.0, 0.95), Color(0.8, 0.93, 1.0, 0.0)])
+	drops.one_shot = true
+	drops.explosiveness = 0.92
+	world.add_child(drops)
+	drops.emitting = true
+	world.create_tween().tween_callback(drops.queue_free).set_delay(1.3)
+	if audible: world.sound.play_at("splash_big" if big else "splash_step", surface, 0.0 if big else -5.0)
+
 static func mineral_hit(parent: Node3D, origin: Vector3, crystal := false) -> void:
 	var burst:=Node3D.new()
 	burst.name="MineralChips"

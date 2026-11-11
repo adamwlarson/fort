@@ -41,7 +41,7 @@ static func destination(w:FortWorld,p:FortPlayer)->Vector3:
 static func request(w:FortWorld,id:int,automatic:=false,fallen:=false)->void:
 	if not w.multiplayer.is_server() or w.ended or not w.players.has(id):return
 	var p:FortPlayer=w.players[id]
-	if fallen and p.position.y>= -5:return
+	if fallen and p.position.y>=FortGround.height(p.position.x,p.position.z)-5:return
 	if automatic and not occupied(w,p,p.position,true):return
 	var action:="fall_recovery" if fallen else "unstuck"
 	if not w._allow(id,action,2 if fallen else 15):
@@ -58,7 +58,7 @@ static func request(w:FortWorld,id:int,automatic:=false,fallen:=false)->void:
 
 static func step_up(p:CharacterBody3D,motion:Vector3)->void:
 	# Short, swept steps clear low rock lips/crates without passing through walls.
-	if not p.is_on_floor() or p.velocity.y>0 or motion.length_squared()<.00001:return
+	if not FortGround.standing(p) or p.velocity.y>0 or motion.length_squared()<.00001:return
 	if not p.test_move(p.global_transform,motion):return
 	var raised:=p.global_transform
 	if p.test_move(raised,Vector3.UP*.3):return

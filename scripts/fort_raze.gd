@@ -10,11 +10,11 @@ static func find(world:FortWorld,obstacle:Dictionary)->Dictionary:
 	if obstacle.get("wilderness",false):
 		for id in world.encounters.sites:
 			var site:Dictionary=world.encounters.sites[id]
-			if site.spec.pos.distance_to(obstacle.pos)<.1:
+			if FortGround.flat(site.spec.pos,obstacle.pos)<.1:
 				return {"key":"wild:%d"%int(id),"name":site.spec.name,"cleared":site.phase in ["cleared","claimed"],"village":false}
 		return {}
 	for i in FortProgression.SITES.size():
-		if FortProgression.SITES[i].pos.distance_to(obstacle.pos)<.1:
+		if FortGround.flat(FortProgression.SITES[i].pos,obstacle.pos)<.1:
 			var spec:Dictionary=FortProgression.SITES[i]
 			var cleared:bool=world.progression.sites.has(i) and (world.progression.sites[i].opened or not spec.guards)
 			return {"key":"camp:%d"%i,"name":spec.name,"cleared":cleared,"village":spec.get("village",false)}

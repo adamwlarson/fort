@@ -28,8 +28,8 @@ func configure(value:int)->void:
 	seed_value=value;rng.seed=value;order=[0,1,2,3,4]
 	for i in range(4,0,-1):
 		var j:=rng.randi_range(0,i);var old:=order[i];order[i]=order[j];order[j]=old
-	# Hills depend on the seed; rebuild them at once rather than on the next frame.
-	if world and world.castle and world.hud:FortVista.ensure(world)
+	# The land depends on the seed; rebuild it at once rather than on the next frame.
+	if world and world.castle and world.hud:FortGround.ensure(world)
 func state()->Dictionary:
 	return {"seed":seed_value,"terrain_enabled":terrain_enabled,"event":event_name,"revision":event_revision,"time":event_time,"claimed":event_claimed,"boss_night":boss_night,"bosses_defeated":bosses_defeated}
 func receive(data:Dictionary)->void:
@@ -47,14 +47,8 @@ func region_name(pos:Vector3)->String:
 func build_ring(parent:Node3D,level:int)->void:
 	var spec:=biome(level);var outer:=243.0+(level-3)*80;var inner:=outer-80
 	var grove:=Node3D.new();grove.name="BiomeTier%d"%level;parent.add_child(grove)
-	var vertices:=PackedVector3Array();var colors:=PackedColorArray();var normals:=PackedVector3Array()
-	for i in 128:
-		var a:=Vector3(sin(i*TAU/128),0,cos(i*TAU/128));var b:=Vector3(sin((i+1)*TAU/128),0,cos((i+1)*TAU/128))
-		for point in [a*inner,a*outer,b*outer,a*inner,b*outer,b*inner]:vertices.append(point+Vector3.UP*.025);colors.append(spec.color);normals.append(Vector3.UP)
-	var arrays:=[];arrays.resize(Mesh.ARRAY_MAX);arrays[Mesh.ARRAY_VERTEX]=vertices;arrays[Mesh.ARRAY_COLOR]=colors;arrays[Mesh.ARRAY_NORMAL]=normals
-	var mesh:=ArrayMesh.new();mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
-	var mat:=ShaderMaterial.new();mat.shader=preload("res://assets/shaders/biome_ground.gdshader");mat.set_shader_parameter("soil_color",spec.color)
-	var surface:=MeshInstance3D.new();surface.mesh=mesh;surface.material_override=mat;grove.add_child(surface)
+	# The biome soil colour is painted by the terrain itself (FortGround), following the hills.
+	var vertices:=PackedVector3Array();var colors:=PackedColorArray()
 	var random:=RandomNumberGenerator.new();random.seed=seed_value+level*91
 	for i in 72:
 		var angle:float=(i+.5)*TAU/72;var position:=Vector3(sin(angle),0,cos(angle))*random.randf_range(inner+12,outer-12)
@@ -89,14 +83,13 @@ func build_ring(parent:Node3D,level:int)->void:
 				if FortEncounters.reserved(tree_pose.origin,level,seed_value):continue
 				FortForestry.add_tree(world,20000+level*1000+index*3+j,"amber" if spec.name=="AMBERWOOD" else ("starcap" if j==0 else "mooncap"),tree_pose)
 			continue
-		var obstacle:=Node3D.new();obstacle.transform=pose;grove.add_child(obstacle)
+		var obstacle:=Node3D.new();obstacle.transform=pose;grove.add_child(obstacle);FortGround.ground(obstacle)
 		world.scenery_keepouts.append({"pos":pose.origin,"radius":4.0,"clearable":true,"node":obstacle,"batches":batches,"index":index})
 		if spec.name=="ANCIENT GARDENS":
 			for x in [-2,2]:FortArt.box_collider(obstacle,Vector3(.8,4.2,.8),Vector3(x,2.1,0))
 			FortArt.box_collider(obstacle,Vector3(5,.5,.9),Vector3(0,4.1,0))
 		else:FortArt.box_collider(obstacle,Vector3(3.8,2.8,3.8),Vector3(0,1.4,0))
 	var rubble:Array[Transform3D]=[];var shrubs:Array[Transform3D]=[]
-	vertices=PackedVector3Array();colors=PackedColorArray()
 	for i in 14000:
 		var angle:=random.randf()*TAU;var point:=Vector3(sin(angle),0,cos(angle))*sqrt(random.randf_range(inner*inner,outer*outer))
 		if absf(point.x)<3.5 or absf(point.z)<3.5:continue
@@ -107,12 +100,11 @@ func build_ring(parent:Node3D,level:int)->void:
 	FortLandscape.instance_asset(grove,"moss_rock",rubble)
 	FortFoliage.populate(grove,world,inner+2,outer-2,seed_value+level*121,spec.name)
 	FortLandscape.instance_asset(grove,"fern" if spec.name in ["AMBERWOOD","ANCIENT GARDENS","MYCELIUM HOLLOW"] else "wildflowers",shrubs)
-	arrays=[];arrays.resize(Mesh.ARRAY_MAX);arrays[Mesh.ARRAY_VERTEX]=vertices;arrays[Mesh.ARRAY_COLOR]=colors
-	var grass_mesh:=ArrayMesh.new();grass_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
-	var grass:=MeshInstance3D.new();grass.mesh=grass_mesh;var grass_mat:=ShaderMaterial.new();grass_mat.shader=preload("res://assets/shaders/meadow_grass.gdshader");grass.material_override=grass_mat;grove.add_child(grass)
+	var grass:=MeshInstance3D.new();var grass_mat:=ShaderMaterial.new();grass_mat.shader=preload("res://assets/shaders/meadow_grass.gdshader");grass.material_override=grass_mat;grove.add_child(grass)
+	FortGround.ground_blades(grass,vertices,colors,3)
 	for i in 4:
 		var point:=Vector3(sin(i*PI/2),0,cos(i*PI/2))*(inner+40)
-		var label:=Visuals.label_3d(spec.name+" / HEARTH %d"%level,Color("#e2cf9c"),4);label.position+=point;label.visibility_range_end=70;grove.add_child(label)
+		var label:=Visuals.label_3d(spec.name+" / HEARTH %d"%level,Color("#e2cf9c"),4);label.position+=FortGround.on(point);label.visibility_range_end=70;grove.add_child(label)
 static func hearth_cost(level:int)->Dictionary:
 	if level<=2:return FortFrontier.COSTS[level-1]
 	return {"wood":90+(level-2)*35,"stone":70+(level-2)*30,"crystal":18+(level-2)*8,"iron":30+(level-3)*25,"aether":12+(level-3)*12}
@@ -135,7 +127,7 @@ func night_start()->void:
 		if e.kind=="Colossus":return
 	boss_night=world.wave
 	var hp:float=1800.0*FortBalance.colossus_multiplier(world.players.size())*(1.0+.3*(world.wave/10-1))*(1+.22*(world.hearth_level-1))
-	world.broadcast("recv_enemy",[900000+world.wave,"Colossus",Vector3(0,0,maxf(52,world.build_radius()+18)),hp,-10])
+	world.broadcast("recv_enemy",[900000+world.wave,"Colossus",FortGround.on(Vector3(0,0,maxf(52,world.build_radius()+18))),hp,-10])
 	world.broadcast("recv_notice",["NIGHT %d / THE RUNEFORGED COLOSSUS. It will not retreat at dawn!"%world.wave])
 func event_visual()->void:
 	var visible_cache:=event_name=="Supply Caravan" and not event_claimed
@@ -193,6 +185,6 @@ func simulate(e:Dictionary,delta:float)->bool:
 		if world.defenses.has(breach) and body.position.distance_to(world.defenses[breach].node.position)<5:
 			if e.attack<=0:e.slam_at=world.clock+1.8;e.slam_pos=world.defenses[breach].node.position;world.broadcast("recv_fx",[e.slam_pos,Color("#ffbd6b"),"","boss_slam"])
 		else:
-			body.velocity=direction*2.5;body.velocity.y=-3;body.move_and_slide();e.moving=true
+			body.velocity=direction*2.5;body.velocity.y=-3;FortGround.walk(body);e.moving=true
 	if offset.length()>.1:body.rotation.y=lerp_angle(body.rotation.y,atan2(offset.x,offset.z),delta*3)
 	return true

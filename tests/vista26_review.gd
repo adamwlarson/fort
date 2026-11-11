@@ -7,14 +7,16 @@ func capture(name:String)->void:
 func run()->void:
 	var main:Node=load("res://scenes/main.tscn").instantiate();root.add_child(main);main.port_edit.value=24863;main._host();main._start_match()
 	var w:FortWorld=main.world;var p:=w.local_player();p.set_physics_process(false);w.hud.visible=false
-	print("KNOLLS ",FortVista.knolls.size())
 	var camera:=Camera3D.new();w.add_child(camera);camera.fov=62;camera.far=2500;camera.current=true
 	camera.position=Vector3(6,5.5,16);camera.look_at(Vector3(-30,2,-40))
 	w.phase_time=w.day_length()*.5
 	for i in 40:w._update_lighting(.2)
 	await capture("day_keep")
-	var k:Dictionary=FortVista.knolls[0]
-	camera.position=k.pos+Vector3(k.radius*1.6,k.height+3.0,k.radius*1.6);camera.look_at(k.pos+Vector3(0,k.height*.5,0))
+	var hill:=Vector3.ZERO
+	for i in 360:
+		var at:=FortGround.on(Vector3(sin(i*.7),0,cos(i*.7))*(80.0+(i%40)*3.0))
+		if at.y>hill.y:hill=at
+	camera.position=hill+Vector3(22,6,22);camera.look_at(hill)
 	await capture("day_knoll")
 	camera.position=Vector3(0,34,60);camera.look_at(Vector3(0,0,-20))
 	await capture("day_overview")

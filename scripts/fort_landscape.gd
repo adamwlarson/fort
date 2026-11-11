@@ -3,7 +3,8 @@ extends RefCounted
 
 static var asset_parts:Dictionary={}
 
-const LANDMARKS := [
+## Heights are filled in by FortGround for the current expedition's terrain.
+static var LANDMARKS:Array = [
 	{"name":"Pinewatch Grove","pos":Vector3(-31,0,28),"kind":"wood","letter":"G","color":Color("#b5c68a")},
 	{"name":"Old Quarry","pos":Vector3(36,0,-28),"kind":"stone","letter":"Q","color":Color("#b4c5ce")},
 	{"name":"Moonwell Ruins","pos":Vector3(-37,0,-34),"kind":"crystal","letter":"R","color":Color("#88d9ce")},
@@ -30,7 +31,7 @@ static func region_name(pos:Vector3)->String:
 	if Vector2(pos.x,pos.z).length()>73:return "Rustscar Quarry / Iron" if pos.x>0 else "Elderwood"
 	if Vector2(pos.x,pos.z).length()<12:return "Hearthhold"
 	for landmark in LANDMARKS:
-		if pos.distance_to(landmark.pos)<17:return landmark.name
+		if FortGround.flat(pos,landmark.pos)<17:return landmark.name
 	return "The Marchlands"
 
 static func resource_position(rng:RandomNumberGenerator,kind:String,index:int,count:int,existing:Dictionary)->Vector3:
@@ -41,40 +42,32 @@ static func resource_position(rng:RandomNumberGenerator,kind:String,index:int,co
 		selected=Vector3(cos(angle)*radius,0,sin(angle)*radius)
 		if index>=count/2:
 			var site:Dictionary=LANDMARKS[0 if kind=="wood" else (1 if kind=="stone" else 2)]
-			selected=site.pos+Vector3(cos(angle),0,sin(angle))*rng.randf_range(7,16)
+			selected=Vector3(site.pos.x,0,site.pos.z)+Vector3(cos(angle),0,sin(angle))*rng.randf_range(7,16)
 		if selected.length()<13 or selected.length()>68 or trail_distance(selected)<3.0:continue
 		if absf(selected.x)<12 and absf(selected.z)<12:continue
 		if selected.distance_to(Vector3(36,0,-36))<6.2:continue
 		var clear:=true
 		for camp in FortProgression.SITES:
-			if selected.distance_to(camp.pos)<(14 if camp.get("village",false) else 8):clear=false;break
+			if FortGround.flat(selected,camp.pos)<(14 if camp.get("village",false) else 8):clear=false;break
 		for other in existing.values():
-			if selected.distance_to(other.node.position)<3.4:clear=false;break
+			if FortGround.flat(selected,other.node.position)<3.4:clear=false;break
 		if clear:return selected
 	return selected
 
 static func build_base(parent:Node3D)->void:
-	var ground:=MeshInstance3D.new()
-	ground.name="MarchlandsGround"
-	var plane:=PlaneMesh.new()
-	plane.size=Vector2(1440,1440)
-	ground.mesh=plane
-	var mat:=ShaderMaterial.new()
-	mat.shader=preload("res://assets/shaders/world_ground.gdshader")
-	ground.material_override=mat
-	parent.add_child(ground)
-	FortArt.box_collider(parent,Vector3(1440,0.2,1440),Vector3(0,-0.11,0))
+	# Fort 30: the flat plane is gone. FortGround builds the real terrain from the expedition seed.
+	FortGround.ensure(parent as FortWorld)
 
 static func clear_for_scenery(world:Node3D,pos:Vector3,radius:float)->bool:
 	# Reserve four initial castle connections for harvestable resources, not immovable props.
 	if (absf(pos.x)<10+radius and absf(pos.z)<30+radius) or (absf(pos.z)<10+radius and absf(pos.x)<30+radius):return false
 	if pos.length()<12 or pos.length()>69 or trail_distance(pos)<radius+1.9:return false
 	for site in FortProgression.SITES:
-		if pos.distance_to(site.pos)<(14 if site.get("village",false) else 8):return false
+		if FortGround.flat(pos,site.pos)<(14 if site.get("village",false) else 8):return false
 	for resource in world.resource_nodes.values():
-		if pos.distance_to(resource.node.position)<radius+1.8:return false
+		if FortGround.flat(pos,resource.node.position)<radius+1.8:return false
 	for landmark in LANDMARKS:
-		if pos.distance_to(landmark.pos)<5.5:return false
+		if FortGround.flat(pos,landmark.pos)<5.5:return false
 	return true
 
 static func populate(world:Node3D)->void:
@@ -90,7 +83,7 @@ static func populate(world:Node3D)->void:
 		var p:=Vector3(rng.randf_range(-67,67),0,rng.randf_range(-67,67))
 		if not clear_for_scenery(world,p,0.25):continue
 		var basis:=Basis(Vector3.UP,rng.randf_range(0,TAU)).scaled(Vector3.ONE*rng.randf_range(0.65,1.3))
-		if p.distance_to(LANDMARKS[1].pos)>16 and i%3==0:flowers.append(Transform3D(basis,p))
+		if FortGround.flat(p,LANDMARKS[1].pos)>16 and i%3==0:flowers.append(Transform3D(basis,p))
 		else:ferns.append(Transform3D(basis,p))
 	instance_asset(root,"fern",ferns)
 	instance_asset(root,"wildflowers",flowers)
@@ -99,7 +92,7 @@ static func populate(world:Node3D)->void:
 		if not clear_for_scenery(world,p,1.3):continue
 		var rock:=place(root,"moss_rock",p,rng.randf_range(0,TAU),rng.randf_range(0.65,1.15))
 		FortArt.box_collider(rock,Vector3(1.35,0.82,1.0),Vector3(0,0.4,0))
-		world.scenery_keepouts.append({"pos":p,"radius":1.25,"clearable":true,"node":rock})
+		world.scenery_keepouts.append({"pos":rock.position,"radius":1.25,"clearable":true,"node":rock})
 	# Broken ridgelines beyond the playable boundary replace the identical hills.
 	for i in 14:
 		var a:=i*TAU/14
@@ -125,6 +118,8 @@ static func place(parent:Node3D,key:String,pos:Vector3,yaw:=0.0,scale_factor:=1.
 	model.position=pos
 	model.rotation.y=yaw
 	model.scale*=scale_factor
+	# `pos.y` is the height above the ground here, wherever the terrain puts it.
+	FortGround.ground(model,pos.y,.5 if pos.y==0.0 else 0.0)
 	return model
 
 static func make_landmarks(parent:Node3D,world:FortWorld)->void:
@@ -135,6 +130,7 @@ static func make_landmarks(parent:Node3D,world:FortWorld)->void:
 		site.name=landmark.name.replace(" ","")
 		site.position=pos
 		parent.add_child(site)
+		FortGround.ground(site)
 		world.scenery_keepouts.append({"pos":pos,"radius":10.0,"node":site,"clearable":true})
 		var marker:=place(site,"waystone",Vector3(-3.5,0,0))
 		FortArt.box_collider(marker,Vector3(0.8,1.8,0.8),Vector3(0,0.9,0))
@@ -161,7 +157,7 @@ static func collect_parts(node:Node,pose:Transform3D,parts:Array)->void:
 	if node is MeshInstance3D:parts.append({"mesh":node.mesh,"pose":pose})
 	for child in node.get_children():collect_parts(child,pose,parts)
 
-static func instance_asset(parent:Node3D,key:String,poses:Array[Transform3D])->Array[MultiMeshInstance3D]:
+static func instance_asset(parent:Node3D,key:String,poses:Array[Transform3D],reach:=INF,seated:=false)->Array[MultiMeshInstance3D]:
 	var batches:Array[MultiMeshInstance3D]=[]
 	if poses.is_empty():return batches
 	if not asset_parts.has(key):
@@ -179,6 +175,8 @@ static func instance_asset(parent:Node3D,key:String,poses:Array[Transform3D])->A
 		for i in poses.size():multimesh.set_instance_transform(i,poses[i]*part.pose)
 		batch.multimesh=multimesh
 		parent.add_child(batch)
+		if seated:FortGround.ground_seated(batch,reach)
+		else:FortGround.ground_batch(batch,reach)
 		batches.append(batch)
 	return batches
 
@@ -188,7 +186,7 @@ static func make_grass(parent:Node3D,world:Node3D,rng:RandomNumberGenerator)->vo
 	for i in 10000:
 		var p:=Vector3(rng.randf_range(-73,73),0.018,rng.randf_range(-73,73))
 		if p.length()<10.5 or trail_distance(p)<1.8:continue
-		if p.distance_to(LANDMARKS[1].pos)<10 and i%5!=0:continue
+		if FortGround.flat(p,LANDMARKS[1].pos)<10 and i%5!=0:continue
 		var h:=rng.randf_range(0.18,0.44)
 		var color:=Color("#7d9056").darkened(rng.randf_range(0,0.25))
 		for blade in 3:

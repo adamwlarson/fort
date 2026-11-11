@@ -62,7 +62,8 @@ func simulate(_id:int,e:Dictionary,delta:float)->bool:
 		if body.position.y<altitude-.6:body.velocity=Vector3.ZERO
 		body.velocity.y=clampf((altitude-body.position.y)*3,-8,8)
 	else:body.velocity.y-=22*delta
-	body.move_and_slide()
+	if flying:body.move_and_slide()
+	else:FortGround.walk(body)
 	if offset.length()>.1:body.rotation.y=lerp_angle(body.rotation.y,atan2(offset.x,offset.z),delta*6)
 	return true
 

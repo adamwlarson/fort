@@ -11,35 +11,36 @@ func run()->void:
 	var w:FortWorld=main.world;w.set_process(false);w.local_player().set_physics_process(false)
 	w.expedition.configure(1919);w.encounters.unlock(1);w.set_hearth_level(2)
 	await physics_frame;await physics_frame
-	var center:=FortTerrain.origin(1919)
+	# The ridge stands on a level shelf of the real terrain, at whatever height the land has there.
+	var center:=FortGround.on(FortTerrain.origin(1919))
 	print("TERRAIN_CENTER ",center)
 	check(w.frontier.has_node("HollowbackRidge"),"hearth 2 creates the ridge")
-	check(FortTerrain.origin(1919)==center,"terrain position is deterministic")
+	check(FortGround.on(FortTerrain.origin(1919))==center,"terrain position is deterministic")
 	var safe_layouts:=true
 	for seed_value in 100:
 		var p:=FortTerrain.origin(seed_value)
 		for spec in FortEncounters.layout(seed_value):
-			if p.distance_to(spec.pos)<float(spec.radius)+40:safe_layouts=false
+			if FortGround.flat(p,spec.pos)<float(spec.radius)+40:safe_layouts=false
 	check(safe_layouts,"100 expedition seeds preserve encounter clearings")
-	check(FortTerrain.safe_position(center+Vector3(0,1,0),1919).y==1,"safe relocation preserves a dwarf inside the cavern")
-	check(FortTerrain.safe_position(center+Vector3(0,0,12),1919).y>5,"old ground-level positions inside the new hill move onto its surface")
+	check(is_equal_approx(FortTerrain.safe_position(center+Vector3(0,1,0),1919).y,center.y+1),"safe relocation preserves a dwarf inside the cavern")
+	check(FortTerrain.safe_position(center+Vector3(0,0,12),1919).y>center.y+5,"old ground-level positions inside the new hill move onto its surface")
 	check(ray(w,center+Vector3(-28,1,0),center+Vector3(28,1,0)).is_empty(),"cavern entrance-to-exit centerline is clear")
 	check(not ray(w,center+Vector3(0,1,0),center+Vector3(0,1,5)).is_empty(),"cavern side walls have collision")
 	var ceiling:=ray(w,center+Vector3(0,1,0),center+Vector3(0,10,0))
-	check(not ceiling.is_empty() and absf(ceiling.position.y-FortTerrain.ceiling_height(0))<.05,"cavern roof has an underside at the visible ceiling")
+	check(not ceiling.is_empty() and absf(ceiling.position.y-center.y-FortTerrain.ceiling_height(0))<.05,"cavern roof has an underside at the visible ceiling")
 	var summit:=ray(w,center+Vector3(0,12,0),center+Vector3(0,6,0))
-	check(not summit.is_empty() and absf(summit.position.y-8)<.05,"summit collision matches eight-unit hill surface")
+	check(not summit.is_empty() and absf(summit.position.y-center.y-8)<.05,"summit collision matches eight-unit hill surface")
 	var walker:=CharacterBody3D.new();walker.collision_layer=0;walker.collision_mask=1;walker.floor_snap_length=.6
 	var capsule:=CapsuleShape3D.new();capsule.height=1.6;capsule.radius=.35
 	var shape:=CollisionShape3D.new();shape.shape=capsule;shape.position.y=.8;walker.add_child(shape);w.add_child(walker)
 	walker.position=center+Vector3(-28,.1,0)
 	for i in 310:
 		await physics_frame;walker.velocity=Vector3(12,walker.velocity.y-24/60.0,0);walker.move_and_slide()
-	check(walker.position.x>center.x+27 and absf(walker.position.y)<.15,"dwarf-sized body walks all the way through the cavern")
+	check(walker.position.x>center.x+27 and absf(walker.position.y-center.y)<.15,"dwarf-sized body walks all the way through the cavern")
 	walker.position=center+Vector3(0,.1,-32);walker.velocity=Vector3.ZERO
 	for i in 205:
 		await physics_frame;walker.velocity=Vector3(0,walker.velocity.y-24/60.0,10);walker.move_and_slide()
-	check(walker.position.y>7.4 and walker.position.z>center.z-5,"dwarf-sized body climbs the slope without jumping")
+	check(walker.position.y>center.y+7.4 and walker.position.z>center.z-5,"dwarf-sized body climbs the slope without jumping")
 	var resource:Dictionary=w.resource_nodes[29000]
 	check(resource.node.find_child("SolidGeometry",true,false).collision_layer==1,"new deposits are solid")
 	w.recv_resource(29000,0,false)
@@ -67,9 +68,10 @@ func run()->void:
 	var arch:=FortLandscape.place(w,"ruin_arch",Vector3(500,0,0))
 	var chest:=FortLandscape.place(w,"treasure_chest",Vector3(510,0,0))
 	await physics_frame;await physics_frame
-	check(ray(w,Vector3(500,1.2,-3),Vector3(500,1.2,3)).is_empty(),"ruin arch opening remains traversable")
-	check(not ray(w,Vector3(501.42,1.6,-3),Vector3(501.42,1.6,3)).is_empty(),"ruin arch pillar blocks movement and projectiles")
-	check(not ray(w,Vector3(500,3.3,-3),Vector3(500,3.3,3)).is_empty(),"ruin arch overhead stones have collision")
+	var base:=Vector3(0,arch.position.y,0)
+	check(ray(w,base+Vector3(500,1.2,-3),base+Vector3(500,1.2,3)).is_empty(),"ruin arch opening remains traversable")
+	check(not ray(w,base+Vector3(501.42,1.6,-3),base+Vector3(501.42,1.6,3)).is_empty(),"ruin arch pillar blocks movement and projectiles")
+	check(not ray(w,base+Vector3(500,3.3,-3),base+Vector3(500,3.3,3)).is_empty(),"ruin arch overhead stones have collision")
 	check(not ray(w,Vector3(508,.4,0),Vector3(512,.4,0)).is_empty(),"treasure chest has physical collision")
 	arch.queue_free();chest.queue_free()
 	var fire:=w.find_child("Campfire",true,false) as Node3D

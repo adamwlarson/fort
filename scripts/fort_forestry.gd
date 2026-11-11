@@ -45,7 +45,7 @@ static func add_edge_woods(world:FortWorld)->void:
 		if absf(p.x)<4 or absf(p.z)<4:continue
 		var blocked:=false
 		for site in FortProgression.SITES:
-			if p.distance_to(site.pos)<16:blocked=true
+			if FortGround.flat(p,site.pos)<16:blocked=true
 		if blocked:continue
 		if FortEncounters.reserved(p,2,world.expedition.seed_value):continue
 		add_tree(world,10000+i,"oak" if i%4==0 else "pine",Transform3D(Basis(Vector3.UP,a).scaled(Vector3.ONE*rng.randf_range(.85,1.35)),p))

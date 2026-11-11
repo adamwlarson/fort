@@ -35,9 +35,9 @@ static func layout(seed_value: int) -> Array:
 			for attempt in 24:
 				var clear := not (tier == 2 and pos.x > 70 and absf(pos.z) < 48)
 				for old in FortProgression.SITES:
-					if pos.distance_to(old.pos)<30: clear=false
+					if FortGround.flat(pos,old.pos)<30: clear=false
 				for old in result:
-					if pos.distance_to(old.pos)<30: clear=false
+					if FortGround.flat(pos,old.pos)<30: clear=false
 				if clear: break
 				angle += .065; pos = Vector3(sin(angle),0,cos(angle)) * radius
 			result.append({"id":tier*100+i,"tier":tier,"type":kind,"pos":pos,"radius":18.0 if kind=="dragon" else 12.0,
@@ -48,7 +48,7 @@ static func layout(seed_value: int) -> Array:
 static func reserved(pos: Vector3, tier: int, seed_value: int) -> bool:
 	if tier==2 and FortTerrain.reserved(pos,seed_value,3):return true
 	for spec in layout(seed_value):
-		if spec.tier==tier and pos.distance_to(spec.pos)<spec.radius+2: return true
+		if spec.tier==tier and FortGround.flat(pos,spec.pos)<spec.radius+2: return true
 	return false
 
 func unlock(level: int) -> void:
@@ -58,7 +58,7 @@ func unlock(level: int) -> void:
 		world.scenery_keepouts=world.scenery_keepouts.filter(func(k):return not k.get("wilderness",false))
 	for spec in layout(layout_seed):
 		if spec.tier>level or sites.has(spec.id): continue
-		var root:=Node3D.new(); root.name="Wilderness%d"%spec.id; root.position=spec.pos; world.add_child(root)
+		var root:=Node3D.new(); root.name="Wilderness%d"%spec.id; root.position=spec.pos; world.add_child(root); FortGround.ground(root)
 		var chest:=FortArt.asset("treasure_chest"); chest.position=Vector3(0,0,-4); root.add_child(chest)
 		var label:=Visuals.label_3d(spec.name, COLORS[spec.type],3.1); label.font_size=18; label.visibility_range_end=65; root.add_child(label)
 		sites[spec.id]={"spec":spec,"node":root,"chest":chest,"label":label,"phase":"sleeping","seen":false,"crew":0,"away":0.0}
@@ -177,7 +177,7 @@ func tick() -> void:
 		var site:Dictionary=sites[id];var distance:=INF
 		if site.get("razed",false):continue
 		for p in world.players.values():
-			if p.health>0:distance=minf(distance,p.position.distance_to(site.spec.pos))
+			if p.health>0:distance=minf(distance,FortGround.flat(p.position,site.spec.pos))
 		if site.phase in ["claimed","cleared"]:
 			if int(site.get("return_wave",-1))<0:site.return_wave=world.wave+2;revision+=1
 			if not world.is_night and world.wave>=int(site.return_wave) and distance>60:
@@ -237,7 +237,7 @@ func grant_loot(p:FortPlayer) -> void:
 func guidance(pos:Vector3) -> String:
 	var closest:Dictionary={};var distance:=160.0
 	for site in sites.values():
-		var d:float=pos.distance_to(site.spec.pos)
+		var d:float=FortGround.flat(pos,site.spec.pos)
 		if site.phase!="claimed" and d<distance:closest=site;distance=d
 	if closest.is_empty() or pos.length()<24:return ""
 	var delta:Vector3=closest.spec.pos-pos
@@ -255,7 +255,7 @@ func simulate(e:Dictionary,delta:float) -> bool:
 		if p.health<=0 or p.position.distance_to(home)>42:continue
 		var d:float=p.position.distance_to(body.position)
 		if d<nearest_distance and (d<5 or FortSiege.clear(world,body.position,p.position)):target=p;nearest_distance=d
-	if body.position.distance_to(home)>48 or body.position.y < -5:
+	if body.position.distance_to(home)>48 or body.position.y<FortGround.height(body.position.x,body.position.z)-5:
 		body.position=home;e.windup=0;e.hp=e.max_hp;e.impulse=Vector3.ZERO;e.attack=3
 		world.broadcast("recv_fx",[home,COLORS[site.spec.type],"RETREAT","ability"])
 	var dragon:bool=e.kind in DRAGONS
@@ -283,7 +283,7 @@ func simulate(e:Dictionary,delta:float) -> bool:
 	var direction:=world._steer_around_scenery(body,offset.normalized(),body.get_instance_id(),e) if offset.length()>1 else Vector3.ZERO
 	var speed:=4.4 if e.kind=="Direwolf" else (2.3 if dragon else 2.8)
 	body.velocity=direction*speed*(.45 if e.slow>0 else 1.0)+Vector3(0,body.velocity.y-22*delta,0)
-	body.move_and_slide();e.moving=direction.length()>.1
+	FortGround.walk(body);e.moving=direction.length()>.1
 	var facing:Vector3=target.position-body.position if target else offset
 	if facing.length()>.1:body.rotation.y=lerp_angle(body.rotation.y,atan2(facing.x,facing.z),delta*5)
 	return true
@@ -300,7 +300,7 @@ static func in_strike(point:Vector3,origin:Vector3,goal:Vector3,shape:String) ->
 func _strike(e:Dictionary,site:Dictionary) -> void:
 	var dragon:bool=e.kind in DRAGONS
 	for p in world.players.values():
-		if p.health<=0 or p.position.distance_to(site.spec.pos)>44:continue
+		if p.health<=0 or FortGround.flat(p.position,site.spec.pos)>44:continue
 		if in_strike(p.position,e.strike_origin,e.strike_goal,e.strike_shape) and FortSiege.clear(world,e.strike_origin,p.position):
 			world._set_health(p.peer_id,p.health-(38 if dragon else 23))
 	world.broadcast("recv_fx",[e.strike_origin,Color("#ee8744") if e.kind=="Emberdrake" else Color("#a4d5df"),"",("wild_fire" if e.kind=="Emberdrake" else "wild_ice") if dragon else "wild_impact",e.strike_goal])
